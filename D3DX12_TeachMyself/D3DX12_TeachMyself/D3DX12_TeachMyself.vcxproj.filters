@@ -45,6 +45,12 @@
     <ClCompile Include="D3D12HelloFrameBuffering.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SpinningCube.h">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SpinningCube.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DXSample.h">
