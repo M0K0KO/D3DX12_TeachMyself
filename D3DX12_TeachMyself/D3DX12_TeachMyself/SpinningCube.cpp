@@ -29,11 +29,11 @@ void SpinningCube::OnUpdate()
 	lastTime = now;
 
 	static float angle = 0.0f;
-	angle += 0.01f;
+	angle += 0.1f * deltaTime;
 
 	XMMATRIX world = XMMatrixRotationY(angle);
 	XMMATRIX view = XMMatrixLookAtLH(
-		XMVectorSet(0, 0, -5, 1),
+		XMVectorSet(0, 2, -5, 1),
 		XMVectorSet(0, 0, 0, 1),
 		XMVectorSet(0, 1, 0, 0));
 	XMMATRIX proj = XMMatrixPerspectiveFovLH(
@@ -252,33 +252,43 @@ void SpinningCube::LoadAssets()
 
 	// make vertex buffer
 	{
-		float vertices[] =
-		{
-			// positions      // texture coords
-
-			//front
-			0.2f, 0.2f, 0.0f, 1.0f, 1.0f,    // top right
-			0.2f, -0.2f, 0.0f, 1.0f, 0.0f,   // bottom right
-			-0.2f, -0.2f, 0.0f, 0.0f, 0.0f,  // bottom left
-			-0.2f, 0.2f, 0.0f, 0.0f, 1.0f,   // top left 
-
-			//back
-			0.2f, 0.2f, -0.4f, 1.0f, 1.0f,   // top right
-			0.2f, -0.2f, -0.4f, 1.0f, 0.0f,  // bottom right
-			-0.2f, -0.2f, -0.4f, 0.0f, 0.0f, // bottom left
-			-0.2f, 0.2f, -0.4f, 0.0f, 1.0f,  // top left 
-		};
-
 		Vertex cubeVertices[] =
 		{
-			{ { vertices[0], vertices[1], vertices[2] }, { vertices[3], vertices[4] } },
-			{ { vertices[5], vertices[6], vertices[7] }, { vertices[8], vertices[9] } },
-			{ { vertices[10], vertices[11], vertices[12] }, { vertices[13], vertices[14] } },
-			{ { vertices[15], vertices[16], vertices[17] }, { vertices[18], vertices[19] } },
-			{ { vertices[20], vertices[21], vertices[22] }, { vertices[23], vertices[24] } },
-			{ { vertices[25], vertices[26], vertices[27] }, { vertices[28], vertices[29] } },
-			{ { vertices[30], vertices[31], vertices[32] }, { vertices[33], vertices[34] } },
-			{ { vertices[35], vertices[36], vertices[37] }, { vertices[38], vertices[39] } }
+			// Front (z = 1)
+			{ {-1.0f,  1.0f,  1.0f}, {0.0f, 0.0f} },
+			{ { 1.0f,  1.0f,  1.0f}, {1.0f, 0.0f} },
+			{ { 1.0f, -1.0f,  1.0f}, {1.0f, 1.0f} },
+			{ {-1.0f, -1.0f,  1.0f}, {0.0f, 1.0f} },
+
+			// Back (z = -1)
+			{ { 1.0f,  1.0f, -1.0f}, {0.0f, 0.0f} },
+			{ {-1.0f,  1.0f, -1.0f}, {1.0f, 0.0f} },
+			{ {-1.0f, -1.0f, -1.0f}, {1.0f, 1.0f} },
+			{ { 1.0f, -1.0f, -1.0f}, {0.0f, 1.0f} },
+
+			// Top (y = 1)
+			{ {-1.0f,  1.0f, -1.0f}, {0.0f, 0.0f} },
+			{ { 1.0f,  1.0f, -1.0f}, {1.0f, 0.0f} },
+			{ { 1.0f,  1.0f,  1.0f}, {1.0f, 1.0f} },
+			{ {-1.0f,  1.0f,  1.0f}, {0.0f, 1.0f} },
+
+			// Bottom (y = -1)
+			{ {-1.0f, -1.0f,  1.0f}, {0.0f, 0.0f} },
+			{ { 1.0f, -1.0f,  1.0f}, {1.0f, 0.0f} },
+			{ { 1.0f, -1.0f, -1.0f}, {1.0f, 1.0f} },
+			{ {-1.0f, -1.0f, -1.0f}, {0.0f, 1.0f} },
+
+			// Right (x = 1)
+			{ { 1.0f,  1.0f,  1.0f}, {0.0f, 0.0f} },
+			{ { 1.0f,  1.0f, -1.0f}, {1.0f, 0.0f} },
+			{ { 1.0f, -1.0f, -1.0f}, {1.0f, 1.0f} },
+			{ { 1.0f, -1.0f,  1.0f}, {0.0f, 1.0f} },
+
+			// Left (x = -1)
+			{ {-1.0f,  1.0f, -1.0f}, {0.0f, 0.0f} },
+			{ {-1.0f,  1.0f,  1.0f}, {1.0f, 0.0f} },
+			{ {-1.0f, -1.0f,  1.0f}, {1.0f, 1.0f} },
+			{ {-1.0f, -1.0f, -1.0f}, {0.0f, 1.0f} },
 		};
 
 		const UINT vertexBufferSize = sizeof(cubeVertices);
@@ -306,24 +316,12 @@ void SpinningCube::LoadAssets()
 	{
 		unsigned int indices[] =
 		{
-			// front
-			0, 1, 3,
-			1, 2, 3,
-			// back
-			4, 5, 7,
-			5, 6, 7,
-			// right
-			0, 1, 4,
-			1, 4, 5,
-			// left
-			2, 3, 7,
-			2, 6, 7,
-			// top
-			0, 3, 4,
-			3, 4, 7,
-			// bottom
-			1, 2, 5,
-			2, 5, 6
+			0,  2,  1,   0,  3,  2,   // Front
+			4,  6,  5,   4,  7,  6,   // Back
+			8,  10, 9,   8,  11, 10,  // Top
+			12, 14, 13,  12, 15, 14,  // Bottom
+			16, 18, 17,  16, 19, 18,  // Right
+			20, 22, 21,  20, 23, 22,  // Left
 		};
 
 		const UINT indexBufferSize = sizeof(indices);
@@ -374,9 +372,10 @@ void SpinningCube::LoadAssets()
 		}
 	}
 
+	ComPtr<ID3D12Resource> textureUploadHeap;
+
 	// texture
 	{
-		ComPtr<ID3D12Resource> textureUploadHeap;
 
 		D3D12_RESOURCE_DESC textureDesc = {};
 		textureDesc.MipLevels = 1;
