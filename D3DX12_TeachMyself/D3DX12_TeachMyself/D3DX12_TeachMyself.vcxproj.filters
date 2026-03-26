@@ -16,6 +16,18 @@
     <Filter Include="Shaders">
       <UniqueIdentifier>{e30cc8e5-0f85-4eb4-850a-a86dfa317808}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\RHI">
+      <UniqueIdentifier>{54290929-fcd8-4e67-882d-b549ee75fb56}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\RHI\DX12">
+      <UniqueIdentifier>{e30b2742-44fe-4d1b-a70b-76cde033f493}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\RHI">
+      <UniqueIdentifier>{63f9d835-9675-4f63-a84c-b093cb22d5a2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\RHI\DX12">
+      <UniqueIdentifier>{0484349e-7913-4bf3-b096-b49cf14ccbcf}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -51,6 +63,12 @@
     <ClCompile Include="SpinningCube.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="GraphicsDevice_DX12.cpp">
+      <Filter>Source Files\RHI\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="CommandContext_DX12.cpp">
+      <Filter>Source Files\RHI\DX12</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DXSample.h">
@@ -82,6 +100,21 @@
     </ClInclude>
     <ClInclude Include="D3D12HelloFrameBuffering.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RHITypes.h">
+      <Filter>Header Files\RHI</Filter>
+    </ClInclude>
+    <ClInclude Include="GraphicsDevice.h">
+      <Filter>Header Files\RHI</Filter>
+    </ClInclude>
+    <ClInclude Include="GraphicsDevice_DX12.h">
+      <Filter>Header Files\RHI\DX12</Filter>
+    </ClInclude>
+    <ClInclude Include="CommandContext.h">
+      <Filter>Header Files\RHI</Filter>
+    </ClInclude>
+    <ClInclude Include="CommandContext_DX12.h">
+      <Filter>Header Files\RHI\DX12</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
