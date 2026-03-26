@@ -13,6 +13,7 @@ void CommandContext_DX12::SetPipeline(PipelineHandle handle)
 	auto internalPSO = m_pDevice->m_pipelines[handle.id];
 	m_commandList->SetPipelineState(internalPSO.pso.Get());
 	m_commandList->SetGraphicsRootSignature(internalPSO.rootSignature.Get());
+	m_commandList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
 void CommandContext_DX12::SetVertexBuffer(BufferHandle handle)
@@ -33,7 +34,7 @@ void CommandContext_DX12::SetIndexBuffer(BufferHandle handle)
 
 	D3D12_INDEX_BUFFER_VIEW bufferView = {};
 	bufferView.BufferLocation = buffer.resource->GetGPUVirtualAddress();
-	bufferView.Format = DXGI_FORMAT_R16_UINT;
+	bufferView.Format = DXGI_FORMAT_R32_UINT;
 	bufferView.SizeInBytes = buffer.desc.size;
 
 	m_commandList->IASetIndexBuffer(&bufferView);
@@ -49,6 +50,15 @@ void CommandContext_DX12::BindConstantBuffer(BufferHandle handle, uint32_t slot)
 
 	CD3DX12_GPU_DESCRIPTOR_HANDLE cbvGpuHandle(m_pDevice->m_cbvSrvHeap->GetGPUDescriptorHandleForHeapStart(), buffer.heapSlot + m_pDevice->m_frameIndex, descriptorSize);
 	m_commandList->SetGraphicsRootDescriptorTable(slot, cbvGpuHandle);
+}
+
+void CommandContext_DX12::BindTexture(TextureHandle handle, uint32_t slot)
+{
+	auto texture = m_pDevice->m_textures[handle.id];
+
+	UINT descriptorSize = m_pDevice->m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle(m_pDevice->m_cbvSrvHeap->GetGPUDescriptorHandleForHeapStart(), texture.heapSlot, descriptorSize);
+	m_commandList->SetGraphicsRootDescriptorTable(slot, srvGpuHandle);
 }
 
 void CommandContext_DX12::DrawIndexed(uint32_t indexCount, uint32_t startIndex, uint32_t baseVertex)

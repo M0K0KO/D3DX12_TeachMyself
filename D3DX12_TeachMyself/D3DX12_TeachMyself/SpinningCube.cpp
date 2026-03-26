@@ -79,6 +79,7 @@ void SpinningCube::OnInit()
 	ComPtr<ID3DBlob> pixelShader;
 	ComPtr<ID3DBlob> error;
 
+	// TO DO : make an abstraction layer for shader compilation
 	D3DCompileFromFile(
 		L"shaders_VSMain.hlsl", nullptr, nullptr,
 		"main", "vs_5_0",
@@ -113,7 +114,7 @@ void SpinningCube::OnRender()
 	lastTime = now;
 
 	static float angle = 0.0f;
-	angle += 0.1f * deltaTime;
+	angle += 0.3f * deltaTime;
 
 	XMMATRIX world = XMMatrixRotationY(angle);
 	XMMATRIX view = XMMatrixLookAtLH(
@@ -136,6 +137,7 @@ void SpinningCube::OnRender()
 	ctx.SetVertexBuffer(m_vertexBuffer);
 	ctx.SetIndexBuffer(m_indexBuffer);
 	ctx.BindConstantBuffer(m_constantBuffer, 0);
+	ctx.BindTexture(m_texture, 1);
 	ctx.DrawIndexed(36, 0, 0);
 	
 	m_device->EndFrame();
@@ -143,7 +145,9 @@ void SpinningCube::OnRender()
 
 void SpinningCube::OnDestroy()
 {
+	m_device->Shutdown();
 
+	delete(m_device);
 }
 
 std::vector<UINT8> SpinningCube::GenerateTextureData()

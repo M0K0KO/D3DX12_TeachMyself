@@ -14,6 +14,7 @@ public:
 	void SetVertexBuffer(BufferHandle handle) override;
 	void SetIndexBuffer(BufferHandle handle) override;
 	void BindConstantBuffer(BufferHandle handle, uint32_t slot) override;
+	void BindTexture(TextureHandle handle, uint32_t slot) override;
 	void DrawIndexed(uint32_t indexCount, uint32_t startIndex, uint32_t baseVertex) override;
 
 private:
