@@ -28,6 +28,12 @@
     <Filter Include="Source Files\RHI\DX12">
       <UniqueIdentifier>{0484349e-7913-4bf3-b096-b49cf14ccbcf}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\RenderGraph">
+      <UniqueIdentifier>{23fa7678-f0d3-4780-9a9e-b25474f29126}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\RenderGraph">
+      <UniqueIdentifier>{5161447c-cc62-4884-b3b9-2a11dcbed018}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -42,21 +48,6 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="D3D12HelloWindow.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="D3D12HelloTriangle.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="D3D12HelloTexture.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="D3D12HelloConstBuffers.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="D3D12HelloFrameBuffering.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="SpinningCube.h">
       <Filter>Header Files</Filter>
     </ClCompile>
@@ -69,12 +60,15 @@
     <ClCompile Include="CommandContext_DX12.cpp">
       <Filter>Source Files\RHI\DX12</Filter>
     </ClCompile>
+    <ClCompile Include="RenderGraph.cpp">
+      <Filter>Source Files\RenderGraph</Filter>
+    </ClCompile>
+    <ClCompile Include="Testrendergraphculling.h">
+      <Filter>Source Files\RenderGraph</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DXSample.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DXSampleHelper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="stdafx.h">
@@ -83,22 +77,7 @@
     <ClInclude Include="Win32Application.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="D3D12HelloWindow.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="d3dx12.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="D3D12HelloTriangle.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="D3D12HelloTexture.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="D3D12HelloConstBuffers.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="D3D12HelloFrameBuffering.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="RHITypes.h">
@@ -115,6 +94,12 @@
     </ClInclude>
     <ClInclude Include="CommandContext_DX12.h">
       <Filter>Header Files\RHI\DX12</Filter>
+    </ClInclude>
+    <ClInclude Include="HRException.h">
+      <Filter>Header Files\RHI\DX12</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderGraph.h">
+      <Filter>Header Files\RenderGraph</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

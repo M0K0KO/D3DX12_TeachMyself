@@ -2,6 +2,7 @@
 #include "SpinningCube.h"
 #include "GraphicsDevice_DX12.h"
 #include <chrono>
+#include "Testrendergraphculling.h"
 
 SpinningCube::SpinningCube(UINT width, UINT height, std::wstring name) :
 	DXSample(width, height, name)
@@ -99,6 +100,9 @@ void SpinningCube::OnInit()
 
 	PipelineDesc pipelineDesc = { vs, ps, vertexAttributes, Format::R8G8B8A8_UNORM, false, false };
 	m_pipeline = m_device->CreatePipeline(pipelineDesc);
+
+
+	TestRenderGraphCulling(m_device);
 }
 
 void SpinningCube::OnUpdate()
