@@ -334,10 +334,10 @@ TextureHandle GraphicsDevice_DX12::CreateTexture(const TextureDesc desc, const v
 		textureDesc.SampleDesc.Quality = 0;
 		textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 
-		auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+		auto defaultHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 
 		HR_CHECK(m_device->CreateCommittedResource(
-			&heapProps,
+			&defaultHeapProps,
 			D3D12_HEAP_FLAG_NONE,
 			&textureDesc,
 			D3D12_RESOURCE_STATE_COPY_DEST,
@@ -348,10 +348,11 @@ TextureHandle GraphicsDevice_DX12::CreateTexture(const TextureDesc desc, const v
 
 		ComPtr<ID3D12Resource> textureUploadHeap;
 
+		auto uploadHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
 		auto resDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
 
 		HR_CHECK(m_device->CreateCommittedResource(
-			&heapProps,
+			&uploadHeapProps,
 			D3D12_HEAP_FLAG_NONE,
 			&resDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,

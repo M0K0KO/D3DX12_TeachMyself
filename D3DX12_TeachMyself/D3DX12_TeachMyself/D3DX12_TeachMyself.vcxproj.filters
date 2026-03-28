@@ -63,9 +63,6 @@
     <ClCompile Include="RenderGraph.cpp">
       <Filter>Source Files\RenderGraph</Filter>
     </ClCompile>
-    <ClCompile Include="Testrendergraphculling.h">
-      <Filter>Source Files\RenderGraph</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DXSample.h">
@@ -100,6 +97,9 @@
     </ClInclude>
     <ClInclude Include="RenderGraph.h">
       <Filter>Header Files\RenderGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="Testrendergraphculling.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

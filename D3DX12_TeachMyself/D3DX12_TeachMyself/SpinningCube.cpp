@@ -2,7 +2,6 @@
 #include "SpinningCube.h"
 #include "GraphicsDevice_DX12.h"
 #include <chrono>
-#include "Testrendergraphculling.h"
 
 SpinningCube::SpinningCube(UINT width, UINT height, std::wstring name) :
 	DXSample(width, height, name)
@@ -100,9 +99,6 @@ void SpinningCube::OnInit()
 
 	PipelineDesc pipelineDesc = { vs, ps, vertexAttributes, Format::R8G8B8A8_UNORM, false, false };
 	m_pipeline = m_device->CreatePipeline(pipelineDesc);
-
-
-	TestRenderGraphCulling(m_device);
 }
 
 void SpinningCube::OnUpdate()
@@ -131,18 +127,30 @@ void SpinningCube::OnRender()
 		0.1f, 100.0f);
 
 	XMMATRIX wvp = world * view * proj;
-
 	XMStoreFloat4x4(&m_constantBufferData.worldViewProj, XMMatrixTranspose(wvp));
 
 	CommandContext& ctx = m_device->BeginFrame();
 	m_device->UpdateBuffer(m_constantBuffer, &m_constantBufferData, sizeof(m_constantBufferData));
 
-	ctx.SetPipeline(m_pipeline);
-	ctx.SetVertexBuffer(m_vertexBuffer);
-	ctx.SetIndexBuffer(m_indexBuffer);
-	ctx.BindConstantBuffer(m_constantBuffer, 0);
-	ctx.BindTexture(m_texture, 1);
-	ctx.DrawIndexed(36, 0, 0);
+	RenderGraph graph(m_device);
+
+	RGResourceDesc backBufferDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	auto backBuffer = graph.ImportTexture(TextureHandle{}, backBufferDesc);
+
+	graph.AddPass("SpinningCube", [&](RGBuilder& builder) {
+		builder.Write(backBuffer);
+	}, [this](CommandContext& passCtx) {
+		passCtx.SetPipeline(m_pipeline);
+		passCtx.SetVertexBuffer(m_vertexBuffer);
+		passCtx.SetIndexBuffer(m_indexBuffer);
+		passCtx.BindConstantBuffer(m_constantBuffer, 0);
+		passCtx.BindTexture(m_texture, 1);
+		passCtx.DrawIndexed(36, 0, 0);
+	});
+
+	graph.Compile();
+	graph.Execute(ctx);
+	graph.Clear();
 	
 	m_device->EndFrame();
 }
