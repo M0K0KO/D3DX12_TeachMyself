@@ -34,6 +34,18 @@
     <Filter Include="Source Files\RenderGraph">
       <UniqueIdentifier>{5161447c-cc62-4884-b3b9-2a11dcbed018}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\tinygltf">
+      <UniqueIdentifier>{99ba9178-3088-4234-8306-b836e02740a3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Asset">
+      <UniqueIdentifier>{8e76d42d-2fb3-4604-ba4e-5f3e92b390fc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Assets">
+      <UniqueIdentifier>{3e85e86d-7f10-447d-aaeb-a763c3285f81}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\DirectXTex">
+      <UniqueIdentifier>{5f14818e-64b6-442f-a0fc-35c93afb55a3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -62,6 +74,9 @@
     </ClCompile>
     <ClCompile Include="RenderGraph.cpp">
       <Filter>Source Files\RenderGraph</Filter>
+    </ClCompile>
+    <ClCompile Include="AssetLoader.cpp">
+      <Filter>Source Files\Assets</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -98,8 +113,26 @@
     <ClInclude Include="RenderGraph.h">
       <Filter>Header Files\RenderGraph</Filter>
     </ClInclude>
-    <ClInclude Include="Testrendergraphculling.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="Mesh.h">
+      <Filter>Header Files\Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="AssetLoader.h">
+      <Filter>Header Files\Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="tiny_gltf.h">
+      <Filter>Header Files\tinygltf</Filter>
+    </ClInclude>
+    <ClInclude Include="stb_image_write.h">
+      <Filter>Header Files\tinygltf</Filter>
+    </ClInclude>
+    <ClInclude Include="stb_image.h">
+      <Filter>Header Files\tinygltf</Filter>
+    </ClInclude>
+    <ClInclude Include="json.hpp">
+      <Filter>Header Files\tinygltf</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectXTex\DirectXTex.h">
+      <Filter>Header Files\DirectXTex</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -109,5 +142,10 @@
     <FxCompile Include="shaders_VSMain.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="DirectXTex\DirectXTex.inl">
+      <Filter>Header Files\DirectXTex</Filter>
+    </None>
   </ItemGroup>
 </Project>

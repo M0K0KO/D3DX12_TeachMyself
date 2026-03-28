@@ -4,6 +4,7 @@
 #include "DXSample.h"
 #include "GraphicsDevice.h"
 #include "CommandContext.h"
+#include "Mesh.h"
 
 using namespace DirectX;
 
@@ -23,12 +24,6 @@ private:
 	static const UINT TextureHeight = 256;
 	static const UINT TexturePixelSize = 4;
 
-	struct Vertex
-	{
-		XMFLOAT3 position;
-		XMFLOAT2 uv;
-	};
-
 	struct CubeConstantBuffer
 	{
 		XMFLOAT4X4 worldViewProj;
@@ -41,5 +36,5 @@ private:
 	PipelineHandle m_pipeline;
 	CubeConstantBuffer m_constantBufferData;
 
-	std::vector<UINT8> GenerateTextureData();
+	Mesh::Mesh foxMesh;
 };

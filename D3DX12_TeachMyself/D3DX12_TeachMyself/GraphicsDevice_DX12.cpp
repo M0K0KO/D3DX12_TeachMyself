@@ -468,12 +468,18 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 		inputElementDescs[i].InstanceDataStepRate = 0;
 	}
 
+	// D3D12_RASTERZIER_DESC 
+	D3D12_RASTERIZER_DESC rasterizerDesc = {};
+	rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
+	rasterizerDesc.CullMode = D3D12_CULL_MODE_BACK;  // °Á ¿Ã∞≈
+	rasterizerDesc.FrontCounterClockwise = TRUE;
+
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
 	psoDesc.InputLayout = { inputElementDescs.data(), inputElementCount};
 	psoDesc.pRootSignature = rs.Get();
 	psoDesc.VS = { desc.vs.data, desc.vs.size };
 	psoDesc.PS = { desc.ps.data, desc.ps.size };
-	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	psoDesc.RasterizerState = rasterizerDesc;
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	psoDesc.DepthStencilState.DepthEnable = desc.depthEnable;
 	psoDesc.DepthStencilState.StencilEnable = FALSE;

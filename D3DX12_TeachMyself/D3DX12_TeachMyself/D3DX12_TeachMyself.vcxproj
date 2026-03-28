@@ -70,6 +70,22 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <IncludePath>$(SolutionDir)\DirectXTex;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\PORTFOLIO\Graphics\DirectXTex-main\DirectXTex\Bin\Desktop_2022\x64\Debug;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IncludePath>$(SolutionDir)\DirectXTex;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\PORTFOLIO\Graphics\DirectXTex-main\DirectXTex\Bin\Desktop_2022\x64\Debug;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>$(SolutionDir)\DirectXTex;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\PORTFOLIO\Graphics\DirectXTex-main\DirectXTex\Bin\Desktop_2022\x64\Debug;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IncludePath>$(SolutionDir)\DirectXTex;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\PORTFOLIO\Graphics\DirectXTex-main\DirectXTex\Bin\Desktop_2022\x64\Debug;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -81,14 +97,15 @@
       <EnableModules>false</EnableModules>
       <AdditionalOptions>
       </AdditionalOptions>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>d3d12.lib
 ;dxgi.lib
-;d3dcompiler.lib
-;%(AdditionalDependencies)</AdditionalDependencies>
+;d3dcompiler.lib;
+DirectXTex.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -104,14 +121,15 @@
       </AdditionalOptions>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <EnableModules>false</EnableModules>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>d3d12.lib
 ;dxgi.lib
-;d3dcompiler.lib
-;%(AdditionalDependencies)</AdditionalDependencies>
+;d3dcompiler.lib;
+DirectXTex.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -125,14 +143,15 @@
       <EnableModules>false</EnableModules>
       <AdditionalOptions>
       </AdditionalOptions>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>d3d12.lib
 ;dxgi.lib
-;d3dcompiler.lib
-;%(AdditionalDependencies)</AdditionalDependencies>
+;d3dcompiler.lib;
+DirectXTex.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -148,30 +167,39 @@
       </AdditionalOptions>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <EnableModules>false</EnableModules>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>d3d12.lib
 ;dxgi.lib
-;d3dcompiler.lib
-;%(AdditionalDependencies)</AdditionalDependencies>
+;d3dcompiler.lib;
+DirectXTex.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="AssetLoader.h" />
     <ClInclude Include="CommandContext.h" />
     <ClInclude Include="CommandContext_DX12.h" />
     <ClInclude Include="d3dx12.h" />
+    <ClInclude Include="DirectXTex\DirectXTex.h" />
     <ClInclude Include="DXSample.h" />
     <ClInclude Include="GraphicsDevice.h" />
     <ClInclude Include="GraphicsDevice_DX12.h" />
     <ClInclude Include="HRException.h" />
+    <ClInclude Include="json.hpp" />
+    <ClInclude Include="Mesh.h" />
     <ClInclude Include="RenderGraph.h" />
     <ClInclude Include="RHITypes.h" />
+    <ClInclude Include="stb_image.h" />
+    <ClInclude Include="stb_image_write.h" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="tiny_gltf.h" />
     <ClInclude Include="Win32Application.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AssetLoader.cpp" />
     <ClCompile Include="CommandContext_DX12.cpp" />
     <ClCompile Include="DXSample.cpp" />
     <ClCompile Include="GraphicsDevice_DX12.cpp" />
@@ -180,7 +208,6 @@
     <ClCompile Include="SpinningCube.cpp" />
     <ClCompile Include="SpinningCube.h" />
     <ClCompile Include="stdafx.cpp" />
-    <ClInclude Include="Testrendergraphculling.h" />
     <ClCompile Include="Win32Application.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -196,6 +223,9 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="DirectXTex\DirectXTex.inl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
