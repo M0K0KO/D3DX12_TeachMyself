@@ -65,6 +65,21 @@ const HWND Window::GetHWND()
 	return hWnd;
 }
 
+const int Window::GetWidth()
+{
+	return width;
+}
+
+const int Window::GetHeight()
+{
+	return height;
+}
+
+const float Window::GetAspectRatio()
+{
+	return static_cast<float>(width) / static_cast<float>(height);
+}
+
 void Window::SetTitle(const std::wstring& title)
 {
 	SetWindowText(hWnd, title.c_str());

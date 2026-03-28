@@ -27,6 +27,9 @@ public:
 	Window(const Window&) = delete;
 	Window& operator= (const Window&) = delete;
 	const HWND GetHWND();
+	const int GetWidth();
+	const int GetHeight();
+	const float GetAspectRatio();
 	void SetTitle(const std::wstring& title);
 	static std::optional<int> ProcessMessages();
 

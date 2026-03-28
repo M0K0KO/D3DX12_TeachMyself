@@ -24,10 +24,10 @@ int Application::Run()
 
 void Application::Init()
 {
-	CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+	HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 
 	m_device = std::make_unique<GraphicsDevice_DX12>();
-	m_device->Initialize(wnd.GetHWND(), 1920, 1080);
+	m_device->Initialize(wnd.GetHWND(), wnd.GetWidth(), wnd.GetHeight());
 
 	AssetLoader loader;
 	auto foxMesh = loader.LoadGLTF("../Model/Fox/Fox.glb");
@@ -74,7 +74,7 @@ void Application::Update()
 		XMVectorSet(0, 1, 0, 0));
 	XMMATRIX proj = XMMatrixPerspectiveFovLH(
 		XM_PIDIV4,
-		static_cast<float>(1920) / static_cast<float>(1080),
+		wnd.GetAspectRatio(),
 		0.1f, 100.0f);
 
 	XMMATRIX wvp = world * view * proj;
