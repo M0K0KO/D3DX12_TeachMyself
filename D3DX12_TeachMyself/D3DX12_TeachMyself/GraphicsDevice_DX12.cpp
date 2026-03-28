@@ -2,6 +2,7 @@
 #include "HRException.h"
 #include "GraphicsDevice_DX12.h"
 #include "CommandContext_DX12.h"
+#include "Renderer.h"
 
 void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uint32_t height)
 {
