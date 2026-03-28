@@ -1,36 +1,31 @@
 #include "Renderer.h"
 #include "RenderGraph.h"
+#include "ShaderCompiler.h"
 #include "CommandContext.h"
 
 void Renderer::Init(GraphicsDevice* device)
 {
 	// TO DO : make an abstraction layer for shader compilation
-	Microsoft::WRL::ComPtr<ID3DBlob> vertexShader;
-	Microsoft::WRL::ComPtr<ID3DBlob> pixelShader;
-	Microsoft::WRL::ComPtr<ID3DBlob> error;
+	auto vsBytecode = ShaderCompiler::CompileFromFile(
+		L"shaders_VSMain.hlsl",
+		"main",
+		"vs_5_0"
+	);
 
-	D3DCompileFromFile(
-		L"shaders_VSMain.hlsl", nullptr, nullptr,
-		"main", "vs_5_0",
-		D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
-		0, &vertexShader, &error);
-	D3DCompileFromFile(
-		L"shaders_PSMain.hlsl", nullptr, nullptr,
-		"main", "ps_5_0",
-		D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
-		0, &pixelShader, &error);
+	auto psBytecode = ShaderCompiler::CompileFromFile(
+		L"shaders_PSMain.hlsl",
+		"main",
+		"ps_5_0"
+	);
 	// TO DO : make an abstraction layer for shader compilation
 
-
-	ShaderBytecode vs = { vertexShader->GetBufferPointer(), vertexShader->GetBufferSize() };
-	ShaderBytecode ps = { pixelShader->GetBufferPointer(), pixelShader->GetBufferSize() };
 
 	std::vector<VertexAttribute> vertexAttributes;
 	vertexAttributes.push_back({ Semantic::POSITION, Format::R32G32B32_FLOAT, 0 });
 	vertexAttributes.push_back({ Semantic::NORMAL,   Format::R32G32B32_FLOAT, 0 });
 	vertexAttributes.push_back({ Semantic::TEXCOORD, Format::R32G32_FLOAT, 0 });
 
-	PipelineDesc pipelineDesc = { vs, ps, vertexAttributes, Format::R8G8B8A8_UNORM, false, false };
+	PipelineDesc pipelineDesc = { vsBytecode, psBytecode, vertexAttributes, Format::R8G8B8A8_UNORM, false, false };
 	m_forwardPipeline = device->CreatePipeline(pipelineDesc);
 
 

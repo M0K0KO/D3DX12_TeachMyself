@@ -185,7 +185,6 @@ DirectXTex.lib;%(AdditionalDependencies)</AdditionalDependencies>
     <ClInclude Include="CommandContext_DX12.h" />
     <ClInclude Include="d3dx12.h" />
     <ClInclude Include="DirectXTex\DirectXTex.h" />
-    <ClInclude Include="DXSample.h" />
     <ClInclude Include="GraphicsDevice.h" />
     <ClInclude Include="GraphicsDevice_DX12.h" />
     <ClInclude Include="HRException.h" />
@@ -195,26 +194,22 @@ DirectXTex.lib;%(AdditionalDependencies)</AdditionalDependencies>
     <ClInclude Include="RenderGraph.h" />
     <ClInclude Include="RHITypes.h" />
     <ClInclude Include="Scene.h" />
+    <ClInclude Include="ShaderCompiler.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="stb_image_write.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="tiny_gltf.h" />
-    <ClInclude Include="Win32Application.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
     <ClCompile Include="AssetLoader.cpp" />
     <ClCompile Include="CommandContext_DX12.cpp" />
-    <ClCompile Include="DXSample.cpp" />
     <ClCompile Include="GraphicsDevice_DX12.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="RenderGraph.cpp" />
-    <ClCompile Include="SpinningCube.cpp" />
-    <ClCompile Include="SpinningCube.h" />
     <ClCompile Include="stdafx.cpp" />
-    <ClCompile Include="Win32Application.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>

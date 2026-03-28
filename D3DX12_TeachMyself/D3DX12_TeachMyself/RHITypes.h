@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 enum class Format
@@ -93,7 +94,8 @@ struct VertexAttribute
 struct ShaderBytecode
 {
 	const void* data;
-	uint32_t size;
+	uint64_t size;
+	std::shared_ptr<void> blob;
 };
 
 struct PipelineDesc
