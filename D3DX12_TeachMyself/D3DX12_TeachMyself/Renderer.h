@@ -11,6 +11,8 @@ public:
 	void Shutdown();
 
 private:
+	const float clearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
+
 	PipelineHandle m_forwardPipeline;
 	PipelineHandle m_depthPrePassPipeline;
 	BufferHandle m_perFrameCB;

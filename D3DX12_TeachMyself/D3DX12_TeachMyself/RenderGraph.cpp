@@ -1,14 +1,16 @@
 #include "RenderGraph.h"
 #include "GraphicsDevice.h"
+#include "CommandContext.h"
 #include <debugapi.h>
 
-void RGBuilder::Read(RGResourceHandle handle)
+void RGBuilder::Read(RGResourceHandle handle, RGResourceState state)
 {
 	auto& resource = m_graph->m_resources[handle.index];
 	resource.refCount++;
 
 	auto& pass = m_graph->m_passes[m_passIndex];
 	pass.reads.push_back(handle);
+	pass.resourceStates[handle.index] = state;
 
 	if (resource.firstUserIndex == UINT32_MAX)
 	{
@@ -17,13 +19,14 @@ void RGBuilder::Read(RGResourceHandle handle)
 	resource.lastUserIndex = m_passIndex;
 }
 
-RGResourceHandle RGBuilder::Write(RGResourceHandle handle)
+RGResourceHandle RGBuilder::Write(RGResourceHandle handle, RGResourceState state)
 {
 	auto& resource = m_graph->m_resources[handle.index];
 	resource.producerPassIndex = m_passIndex;
 	
 	auto& pass = m_graph->m_passes[m_passIndex];
 	pass.writes.push_back(handle);
+	pass.resourceStates[handle.index] = state;
 	pass.refCount++;
 
 	if (resource.firstUserIndex == UINT32_MAX)
@@ -47,10 +50,12 @@ RenderGraph::RenderGraph(GraphicsDevice* device)
 {
 }
 
-RGResourceHandle RenderGraph::CreateTexture(RGResourceDesc desc)
+RGResourceHandle RenderGraph::CreateTexture(RGResourceDesc desc, RGResourceState state)
 {
 	RGResource resource = {};
 	resource.desc = desc;
+	resource.initialState = state;
+	resource.currentState = state;
 
 	uint32_t index = static_cast<uint32_t>(m_resources.size());
 	m_resources.push_back(resource);
@@ -58,10 +63,12 @@ RGResourceHandle RenderGraph::CreateTexture(RGResourceDesc desc)
 	return RGResourceHandle{ index, 0 };
 }
 
-RGResourceHandle RenderGraph::ImportTexture(TextureHandle existing, RGResourceDesc desc)
+RGResourceHandle RenderGraph::ImportTexture(TextureHandle existing, RGResourceDesc desc, RGResourceState state)
 {
 	RGResource resource = {};
 	resource.desc = desc;
+	resource.initialState = state;
+	resource.currentState = state;
 	resource.imported = true;
 	resource.realizedHandle = existing;
 
@@ -140,6 +147,39 @@ void RenderGraph::Compile()
 			}
 		}
 	}
+
+	for (auto& res : m_resources)
+	{
+		res.currentState = res.initialState;
+	}
+
+	for (auto& pass : m_passes)
+	{
+		if (pass.culled) continue;
+
+		auto checkBarrier = [&](RGResourceHandle handle) {
+			auto& res = m_resources[handle.index];
+			auto required = pass.resourceStates[handle.index];
+			if (res.currentState != required)
+			{
+				pass.barrierInfos.push_back({ handle, res.currentState, required });
+				res.currentState = required;
+			}
+			};
+
+		for (auto& h : pass.reads)  checkBarrier(h);
+		for (auto& h : pass.writes) checkBarrier(h);
+	}
+
+	for (uint32_t i = 0; i < m_resources.size(); i++)
+	{
+		auto& res = m_resources[i];
+		if (res.imported && res.currentState != res.initialState)
+		{
+			RGResourceHandle handle{ i, 0 };
+			m_epilogueBarriers.push_back({ handle, res.currentState, res.initialState });
+		}
+	}
 }
 
 void RenderGraph::Execute(CommandContext& ctx)
@@ -171,11 +211,20 @@ void RenderGraph::Execute(CommandContext& ctx)
 	{
 		if (pass.culled) continue;
 
-		// TO DO : barriers
-		// read resources should be converted to SRV
-		// wirte resources should be converted to RT of DS
+		for (auto& barrierInfo : pass.barrierInfos)
+		{
+			auto& res = m_resources[barrierInfo.handle.index];
+			ctx.TransitionBarrier(res.realizedHandle, barrierInfo.before, barrierInfo.after);
+		}
 
 		pass.executeFunc(ctx);
+	}
+
+
+	for (auto& barrierInfo : m_epilogueBarriers)
+	{
+		auto& res = m_resources[barrierInfo.handle.index];
+		ctx.TransitionBarrier(res.realizedHandle, barrierInfo.before, barrierInfo.after);
 	}
 }
 
@@ -211,6 +260,7 @@ void RenderGraph::Clear()
 
 	m_resources.clear();
 	m_passes.clear();
+	m_epilogueBarriers.clear();
 }
 
 void RenderGraph::DebugPrintPasses() const
@@ -226,6 +276,30 @@ void RenderGraph::DebugPrintPasses() const
 			pass.refCount,
 			pass.culled ? "YES" : "no");
 
+		OutputDebugStringA(buf);
+	}
+}
+
+void RenderGraph::DebugPrintBarriers() const
+{
+	OutputDebugStringA("=== Barriers ===\n");
+	for (auto& pass : m_passes)
+	{
+		if (pass.culled) continue;
+		for (auto& b : pass.barrierInfos)
+		{
+			char buf[256];
+			snprintf(buf, sizeof(buf), "  [%s] res[%u]: %d -> %d\n",
+				pass.name.c_str(), b.handle.index,
+				(int)b.before, (int)b.after);
+			OutputDebugStringA(buf);
+		}
+	}
+	for (auto& b : m_epilogueBarriers)
+	{
+		char buf[256];
+		snprintf(buf, sizeof(buf), "  [Epilogue] res[%u]: %d -> %d\n",
+			b.handle.index, (int)b.before, (int)b.after);
 		OutputDebugStringA(buf);
 	}
 }

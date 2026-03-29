@@ -61,6 +61,45 @@ void CommandContext_DX12::BindTexture(TextureHandle handle, uint32_t slot)
 	m_commandList->SetGraphicsRootDescriptorTable(slot, srvGpuHandle);
 }
 
+void CommandContext_DX12::TransitionBarrier(TextureHandle handle, RGResourceState before, RGResourceState after)
+{
+	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pDevice->m_textures[handle.id].resource.Get(),
+		GetDXResourceState(before),
+		GetDXResourceState(after));
+
+	m_commandList->ResourceBarrier(1, &barrier);
+}
+
+void CommandContext_DX12::ClearRenderTarget(TextureHandle handle, const float clearValue[4])
+{
+	auto rtvHandle = m_pDevice->m_textures[handle.id].descriptorHandle;
+	m_commandList->ClearRenderTargetView(rtvHandle, clearValue, 0, nullptr);
+}
+
+void CommandContext_DX12::ClearDepthStencil(TextureHandle handle, float depth)
+{
+	auto dsvHandle = m_pDevice->m_textures[handle.id].descriptorHandle;
+	m_commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, depth, 0, 0, nullptr);
+}
+
+void CommandContext_DX12::SetRenderTarget(TextureHandle rt, TextureHandle depth)
+{
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle{};
+	UINT numRT = 0;
+	if (rt.IsValid())
+	{
+		rtvHandle = m_pDevice->m_textures[rt.id].descriptorHandle;
+		numRT = 1;
+	}
+
+	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle{};
+	if (depth.IsValid())
+		dsvHandle = m_pDevice->m_textures[depth.id].descriptorHandle;
+	
+	m_commandList->OMSetRenderTargets(numRT, &rtvHandle, FALSE, &dsvHandle);
+}
+
 void CommandContext_DX12::DrawIndexed(uint32_t indexCount, uint32_t startIndex, uint32_t baseVertex)
 {
 	m_commandList->DrawIndexedInstanced(indexCount, 1, startIndex, baseVertex, 0);

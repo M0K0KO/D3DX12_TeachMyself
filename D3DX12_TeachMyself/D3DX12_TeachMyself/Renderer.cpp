@@ -25,7 +25,7 @@ void Renderer::Init(GraphicsDevice* device)
 
 	PipelineDesc depthPassDesc = {
 		vsBytecode, {}, vertexAttributes, 
-		Format::UNKNOWN, Format::D32_FLOAT, true, true };
+		Format::UNKNOWN, Format::D32_FLOAT, true, true, ComparisonFunc::Less };
 
 	m_depthPrePassPipeline = device->CreatePipeline(depthPassDesc);
 
@@ -34,7 +34,7 @@ void Renderer::Init(GraphicsDevice* device)
 
 	PipelineDesc forwardDesc = { 
 		vsBytecode, psBytecode, vertexAttributes, 
-		Format::R8G8B8A8_UNORM, Format::D32_FLOAT, true, true };
+		Format::R8G8B8A8_UNORM, Format::D32_FLOAT, true, false, ComparisonFunc::LessEqual };
 
 	m_forwardPipeline = device->CreatePipeline(forwardDesc);
 
@@ -52,50 +52,54 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	RenderGraph graph(device);
 
 	RGResourceDesc backBufferDesc = { 1920, 1080, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
-	auto backBuffer = graph.ImportTexture(TextureHandle{}, backBufferDesc);
+	auto backBuffer = graph.ImportTexture(device->GetCurrentBackBuffer(), backBufferDesc, RGResourceState::Present);
 
 	RGResourceDesc depthTextrueDesc = { 1920, 1080, Format::D32_FLOAT, TextureUsage::DepthStencil };
-	auto depthTexture = graph.ImportTexture(m_depthTexture, depthTextrueDesc);
+	auto depthTexture = graph.ImportTexture(m_depthTexture, depthTextrueDesc, RGResourceState::DepthWrite);
 
 
-	//graph.AddPass(
-	//	"DepthPrePass",
-	//	[&](RGBuilder& builder)
-	//	{
-	//		builder.Write(depthTexture);
-	//	},
-	//	[&](CommandContext& passCtx) {
-	//		passCtx.SetPipeline(m_depthPrePassPipeline);
+	graph.AddPass(
+		"DepthPrePass",
+		[&](RGBuilder& builder)
+		{
+			builder.Write(depthTexture, RGResourceState::DepthWrite);
+		},
+		[&](CommandContext& passCtx) {
+			passCtx.ClearDepthStencil(m_depthTexture, 1.0f);
+			passCtx.SetRenderTarget({}, m_depthTexture);
+			passCtx.SetPipeline(m_depthPrePassPipeline);
 
-	//		PerFrameData perFrame;
-	//		XMMATRIX vp = scene.cam.GetViewMatrix() * scene.cam.GetProjectionMatrix();
-	//		XMStoreFloat4x4(&perFrame.ViewProj, XMMatrixTranspose(vp));
-	//		perFrame.CameraPos = scene.cam.GetPos();
+			PerFrameData perFrame;
+			XMMATRIX vp = scene.cam.GetViewMatrix() * scene.cam.GetProjectionMatrix();
+			XMStoreFloat4x4(&perFrame.ViewProj, XMMatrixTranspose(vp));
+			perFrame.CameraPos = scene.cam.GetPos();
 
-	//		device->UpdateBuffer(m_perFrameCB, &perFrame, sizeof(perFrame));
-	//		passCtx.BindConstantBuffer(m_perFrameCB, 0);
+			device->UpdateBuffer(m_perFrameCB, &perFrame, sizeof(perFrame));
+			passCtx.BindConstantBuffer(m_perFrameCB, 0);
 
-	//		for (const auto& obj : scene.renderObjects)
-	//		{
-	//			device->UpdateBuffer(m_perObjectCB, &obj.world, sizeof(obj.world));
-	//			passCtx.SetVertexBuffer(obj.vertexBuffer);
-	//			passCtx.SetIndexBuffer(obj.indexBuffer);
-	//			passCtx.BindConstantBuffer(m_perObjectCB, 1);
-	//			passCtx.DrawIndexed(obj.indexCount, 0, 0);
-	//		}
-	//	}
-	//);
+			for (const auto& obj : scene.renderObjects)
+			{
+				device->UpdateBuffer(m_perObjectCB, &obj.world, sizeof(obj.world));
+				passCtx.SetVertexBuffer(obj.vertexBuffer);
+				passCtx.SetIndexBuffer(obj.indexBuffer);
+				passCtx.BindConstantBuffer(m_perObjectCB, 1);
+				passCtx.DrawIndexed(obj.indexCount, 0, 0);
+			}
+		}
+	);
 
 
 	graph.AddPass(
 		"ForwardPass",
 		[&](RGBuilder& builder) 
 		{
-			builder.Read(depthTexture);
-			builder.Write(backBuffer);
+			builder.Read(depthTexture, RGResourceState::DepthRead);
+			builder.Write(backBuffer, RGResourceState::RenderTarget);
 		}, 
 		[&](CommandContext& passCtx) 
 		{ 
+			passCtx.ClearRenderTarget(device->GetCurrentBackBuffer(), clearColor);
+			passCtx.SetRenderTarget(device->GetCurrentBackBuffer(), m_depthTexture);
 			passCtx.SetPipeline(m_forwardPipeline);
 
 			PerFrameData perFrame;

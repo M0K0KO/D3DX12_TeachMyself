@@ -129,6 +129,15 @@ void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uin
 		{
 			HR_CHECK(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_renderTargets[n])));
 			m_device->CreateRenderTargetView(m_renderTargets[n].Get(), nullptr, rtvHandle);
+
+			InternalTexture tex = {};
+			tex.resource = m_renderTargets[n];
+			tex.desc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+			tex.descriptorHandle = rtvHandle;
+
+			m_backBufferHandles[n].id = static_cast<uint32_t>(m_textures.size());
+			m_textures.push_back(tex);
+
 			rtvHandle.Offset(1, m_rtvDescriptorSize);
 			HR_CHECK(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocators[n])));
 		}
@@ -181,30 +190,6 @@ CommandContext& GraphicsDevice_DX12::BeginFrame()
 {
 	HR_CHECK(m_commandAllocators[m_frameIndex]->Reset());
 	HR_CHECK(m_commandList->Reset(m_commandAllocators[m_frameIndex].Get(), nullptr));
-	
-
-	auto resourceBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_renderTargets[m_frameIndex].Get(),
-		D3D12_RESOURCE_STATE_PRESENT,
-		D3D12_RESOURCE_STATE_RENDER_TARGET);
-
-	m_commandList->ResourceBarrier(1, &resourceBarrier);
-
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(
-		m_rtvHeap->GetCPUDescriptorHandleForHeapStart(),
-		m_frameIndex, 
-		m_rtvDescriptorSize);
-
-	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(
-		m_dsvHeap->GetCPUDescriptorHandleForHeapStart(),
-		0,
-		m_dsvDescriptorSize);
-
-	m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
-
-	const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-	m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-	m_commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
 	m_commandList->RSSetViewports(1, &m_viewport);
 	m_commandList->RSSetScissorRects(1, &m_scissorRect);
@@ -212,19 +197,11 @@ CommandContext& GraphicsDevice_DX12::BeginFrame()
 	ID3D12DescriptorHeap* ppHeaps[] = { m_cbvSrvHeap.Get() };
 	m_commandList->SetDescriptorHeaps(1, ppHeaps);
 
-	// TO DO : will return commandContext
 	return m_commandContext;
 }
 
 void GraphicsDevice_DX12::EndFrame()
 {
-	auto resourceBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_renderTargets[m_frameIndex].Get(),
-		D3D12_RESOURCE_STATE_RENDER_TARGET,
-		D3D12_RESOURCE_STATE_PRESENT);
-
-	m_commandList->ResourceBarrier(1, &resourceBarrier);
-
 	HR_CHECK(m_commandList->Close());
 
 	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
@@ -448,11 +425,16 @@ TextureHandle GraphicsDevice_DX12::CreateTexture(const TextureDesc desc, const v
 		dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 		dsvDesc.Texture2D.MipSlice = 0;
 
-		m_device->CreateDepthStencilView(texture.Get(), &dsvDesc, m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
+		CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(
+			m_dsvHeap->GetCPUDescriptorHandleForHeapStart(),
+			0, m_dsvDescriptorSize);
 
 		internalTexture.resource = texture;
 		// TO DO : allocator 패턴을 이용할 것
 		internalTexture.heapSlot = 0;
+		internalTexture.descriptorHandle = dsvHandle;
+
+		m_device->CreateDepthStencilView(texture.Get(), &dsvDesc, m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
 
 		uint32_t id = m_textures.size();
 		m_textures.push_back(internalTexture);
@@ -526,12 +508,6 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 		inputElementDescs[i].InstanceDataStepRate = 0;
 	}
 
-	// D3D12_RASTERZIER_DESC 
-	D3D12_RASTERIZER_DESC rasterizerDesc = {};
-	rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
-	rasterizerDesc.CullMode = D3D12_CULL_MODE_BACK;  // ← 이거
-	rasterizerDesc.FrontCounterClockwise = TRUE;
-
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
 	psoDesc.InputLayout = { inputElementDescs.data(), inputElementCount};
 	psoDesc.pRootSignature = rs.Get();
@@ -540,7 +516,7 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 	if (desc.ps.data != nullptr)
 		psoDesc.PS = { desc.ps.data, desc.ps.size };
 
-	psoDesc.RasterizerState = rasterizerDesc;
+	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 
 	psoDesc.SampleMask = UINT_MAX;
@@ -560,8 +536,7 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 	psoDesc.DepthStencilState.DepthEnable = desc.depthEnable;
 	psoDesc.DepthStencilState.DepthWriteMask = desc.depthWrite
 		? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
-	psoDesc.DepthStencilState.DepthFunc = desc.depthWrite
-		? D3D12_COMPARISON_FUNC_LESS : D3D12_COMPARISON_FUNC_EQUAL;
+	psoDesc.DepthStencilState.DepthFunc = GetDX12ComparisonFunc(desc.depthFunc);
 
 	psoDesc.DepthStencilState.StencilEnable = FALSE;
 
@@ -619,9 +594,29 @@ inline DXGI_FORMAT GraphicsDevice_DX12::GetDXGIFormat(Format format)
 	}
 }
 
+inline D3D12_COMPARISON_FUNC GraphicsDevice_DX12::GetDX12ComparisonFunc(ComparisonFunc func)
+{
+	switch (func)
+	{
+	case ComparisonFunc::Less:         return D3D12_COMPARISON_FUNC_LESS;
+	case ComparisonFunc::LessEqual:    return D3D12_COMPARISON_FUNC_LESS_EQUAL;
+	case ComparisonFunc::Equal:        return D3D12_COMPARISON_FUNC_EQUAL;
+	default:                           return D3D12_COMPARISON_FUNC_NEVER;
+	}
+}
+
 void GraphicsDevice_DX12::UpdateBuffer(const BufferHandle handle, const void* data, const uint32_t size)
 {
 	auto mappedPointer = m_buffers[handle.id].mappedPointers[m_frameIndex];
 	memcpy(mappedPointer, data, size);
 }
 
+const ComPtr<ID3D12Resource> GraphicsDevice_DX12::GetTextureResource(TextureHandle handle)
+{
+	return m_textures[handle.id].resource;
+}
+
+TextureHandle GraphicsDevice_DX12::GetCurrentBackBuffer()
+{
+	return m_backBufferHandles[m_frameIndex];
+}

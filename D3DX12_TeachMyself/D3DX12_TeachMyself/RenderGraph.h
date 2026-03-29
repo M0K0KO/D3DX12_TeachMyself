@@ -12,7 +12,7 @@ struct RGResourceHandle
 	uint32_t index	  = UINT32_MAX;
 	uint32_t version  = 0;
 
-	bool IsValide() const { return index != UINT32_MAX; }
+	bool IsValid() const { return index != UINT32_MAX; }
 };
 
 struct RGResourceDesc
@@ -48,6 +48,8 @@ struct RGResourceDescHash
 struct RGResource
 {
 	RGResourceDesc desc;
+	RGResourceState initialState;
+	RGResourceState currentState;
 
 	uint32_t refCount			= 0;
 	uint32_t producerPassIndex  = UINT32_MAX;
@@ -58,12 +60,23 @@ struct RGResource
 	TextureHandle realizedHandle = {};
 };
 
+struct BarrierInfo
+{
+	RGResourceHandle handle;
+	RGResourceState before;
+	RGResourceState after;
+};
+
 // declaration of a single pass, constructed on Setup API, culled will be set by Compile()
 struct RGPass
 {
 	std::string                            name;
 	std::vector<RGResourceHandle>          reads;
 	std::vector<RGResourceHandle>          writes;
+
+	std::unordered_map<uint32_t, RGResourceState> resourceStates;
+	std::vector<BarrierInfo> barrierInfos;
+
 	std::function<void(CommandContext&)>   executeFunc;
 
 	uint32_t refCount = 0;
@@ -74,8 +87,8 @@ struct RGPass
 class RGBuilder
 {
 public:
-	void Read(RGResourceHandle handle);
-	RGResourceHandle Write(RGResourceHandle handle);
+	void Read(RGResourceHandle handle, RGResourceState state);
+	RGResourceHandle Write(RGResourceHandle handle, RGResourceState state);
 private:
 	friend class RenderGraph;
 
@@ -88,8 +101,8 @@ class RenderGraph
 public:
 	explicit RenderGraph(GraphicsDevice* device);
 
-	RGResourceHandle CreateTexture(RGResourceDesc desc);
-	RGResourceHandle ImportTexture(TextureHandle existing, RGResourceDesc desc);
+	RGResourceHandle CreateTexture(RGResourceDesc desc, RGResourceState state);
+	RGResourceHandle ImportTexture(TextureHandle existing, RGResourceDesc desc, RGResourceState state);
 	void AddPass(
 		std::string name, 
 		std::function<void(RGBuilder&)> setupFunc, 
@@ -105,6 +118,7 @@ public:
 	void Clear();
 
 	void DebugPrintPasses() const;
+	void DebugPrintBarriers() const;
 	
 private:
 	friend class RGBuilder;
@@ -116,4 +130,6 @@ private:
 	std::vector<RGPass>		m_passes;
 
 	std::unordered_map<RGResourceDesc, std::vector<TextureHandle>, RGResourceDescHash> m_resourcePool;
+
+	std::vector<BarrierInfo> m_epilogueBarriers;
 };

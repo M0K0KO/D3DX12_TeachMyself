@@ -49,6 +49,23 @@ enum class Semantic
 	COLOR,
 };
 
+enum class ComparisonFunc
+{
+	Less,
+	LessEqual,
+	Equal,
+};
+
+enum class RGResourceState
+{
+	RenderTarget,
+	DepthWrite,
+	DepthRead,
+	ShaderResource,
+	Present,
+	CopyDest,
+};
+
 
 struct BufferHandle 
 { 
@@ -98,6 +115,8 @@ struct ShaderBytecode
 	std::shared_ptr<void> blob;
 };
 
+
+
 struct PipelineDesc
 {
 	ShaderBytecode vs;
@@ -107,4 +126,5 @@ struct PipelineDesc
 	Format dsvFormat;
 	bool depthEnable;
 	bool depthWrite;
+	ComparisonFunc depthFunc;
 };

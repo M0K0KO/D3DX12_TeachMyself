@@ -23,7 +23,12 @@ public:
 
 	CommandContext& BeginFrame() override;
 	void EndFrame() override;
+
+	TextureHandle GetCurrentBackBuffer() override;
+
+	const ComPtr<ID3D12Resource> GetTextureResource(TextureHandle handle);
 private:
+	inline D3D12_COMPARISON_FUNC GetDX12ComparisonFunc(ComparisonFunc func);
 	inline DXGI_FORMAT GetDXGIFormat(Format format);
 	inline const char* GetSemanticString(Semantic semantic);
 	inline UINT Align256(UINT size);
@@ -71,6 +76,7 @@ private:
 		ComPtr<ID3D12Resource> resource;
 		TextureDesc desc;
 		uint32_t heapSlot = UINT32_MAX;
+		D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle;
 	};
 
 	struct InternalPipeline
@@ -82,6 +88,8 @@ private:
 	std::vector<InternalBuffer> m_buffers;
 	std::vector<InternalTexture> m_textures;
 	std::vector<InternalPipeline> m_pipelines;
+
+	TextureHandle m_backBufferHandles[FrameCount];
 
 	uint32_t m_cbvSrvHeapNextSlot = 0;
 };

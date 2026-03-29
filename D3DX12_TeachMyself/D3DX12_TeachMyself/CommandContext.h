@@ -11,5 +11,9 @@ public:
 	virtual void SetIndexBuffer(BufferHandle handle) = 0;
 	virtual void BindConstantBuffer(BufferHandle handle, uint32_t slot) = 0;
 	virtual void BindTexture(TextureHandle handle, uint32_t slot) = 0;
+	virtual void TransitionBarrier(TextureHandle handle, RGResourceState before, RGResourceState after) = 0;
+	virtual void ClearRenderTarget(TextureHandle handle, const float clearValue[4]) = 0;
+	virtual void ClearDepthStencil(TextureHandle handle, float depth) = 0;
+	virtual void SetRenderTarget(TextureHandle rt, TextureHandle depth) = 0;
 	virtual void DrawIndexed(uint32_t indexCount, uint32_t startIndex, uint32_t baseVertex) = 0;
 };
