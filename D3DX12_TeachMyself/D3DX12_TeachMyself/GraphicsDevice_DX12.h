@@ -52,8 +52,10 @@ private:
 	ComPtr<ID3D12CommandAllocator> m_commandAllocators[FrameCount];
 	ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
 	ComPtr<ID3D12DescriptorHeap> m_cbvSrvHeap;
+	ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
 	ComPtr<ID3D12GraphicsCommandList> m_commandList;
 	UINT m_rtvDescriptorSize;
+	UINT m_dsvDescriptorSize;
 
 	struct InternalBuffer
 	{

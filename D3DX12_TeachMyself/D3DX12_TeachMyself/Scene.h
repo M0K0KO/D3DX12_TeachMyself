@@ -1,6 +1,7 @@
 #pragma once
 #include "stdafx.h"
 #include "RHITypes.h"
+#include "Camera.h"
 
 using namespace DirectX;
 
@@ -22,5 +23,7 @@ public:
 	};
 
 	std::vector<RenderObject> renderObjects;
+
+	Camera cam;
 };
 

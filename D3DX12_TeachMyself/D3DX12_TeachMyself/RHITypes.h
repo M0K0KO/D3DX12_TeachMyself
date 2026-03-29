@@ -104,6 +104,7 @@ struct PipelineDesc
 	ShaderBytecode ps;
 	std::vector<VertexAttribute> vertexAttributes;
 	Format rtvFormat;
+	Format dsvFormat;
 	bool depthEnable;
-	bool blendEnable;
+	bool depthWrite;
 };

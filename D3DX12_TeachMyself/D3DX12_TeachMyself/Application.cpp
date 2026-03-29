@@ -24,6 +24,8 @@ int Application::Run()
 
 void Application::Init()
 {
+	m_scene.cam = {};
+
 	HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 
 	m_device = std::make_unique<GraphicsDevice_DX12>();
@@ -39,16 +41,13 @@ void Application::Init()
 	BufferDesc ibDesc = { static_cast<uint32_t>(foxMesh.indices.size() * sizeof(uint32_t)), sizeof(uint32_t), BufferUsage::Index, MemoryAccess::CpuWrite };
 	auto ib = m_device->CreateBuffer(ibDesc, foxMesh.indices.data());
 
-	BufferDesc cbDesc = { sizeof(CubeConstantBuffer), 0, BufferUsage::Constant, MemoryAccess::GpuOnly };
-	auto cb = m_device->CreateBuffer(cbDesc);
-
 	TextureDesc foxTextureDesc = { foxTex.width, foxTex.height, Format::R8G8B8A8_UNORM, TextureUsage::ShaderResource };
-	auto texture = m_device->CreateTexture(foxTextureDesc, foxTex.image.GetPixels());
+	auto foxTexture = m_device->CreateTexture(foxTextureDesc, foxTex.image.GetPixels());
 
 	Scene::RenderObject fox;
 	fox.vertexBuffer = vb;
 	fox.indexBuffer = ib;
-	fox.texture = texture;
+	fox.texture = foxTexture;
 	fox.indexCount = static_cast<uint32_t>(foxMesh.indices.size());
 	XMStoreFloat4x4(&fox.world, XMMatrixIdentity());
 
@@ -68,17 +67,7 @@ void Application::Update()
 	angle += 0.3f * deltaTime;
 
 	XMMATRIX world = XMMatrixRotationY(angle);
-	XMMATRIX view = XMMatrixLookAtLH(
-		XMVectorSet(0, 50, -200, 1),
-		XMVectorSet(0, 20, 0, 1),
-		XMVectorSet(0, 1, 0, 0));
-	XMMATRIX proj = XMMatrixPerspectiveFovLH(
-		XM_PIDIV4,
-		wnd.GetAspectRatio(),
-		0.1f, 100.0f);
-
-	XMMATRIX wvp = world * view * proj;
-	XMStoreFloat4x4(&m_scene.renderObjects[0].world, XMMatrixTranspose(wvp));
+	XMStoreFloat4x4(&m_scene.renderObjects[0].world, XMMatrixTranspose(world));
 }
 
 void Application::Render()

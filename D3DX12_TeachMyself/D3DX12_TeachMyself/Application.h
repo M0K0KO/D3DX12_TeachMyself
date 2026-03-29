@@ -22,11 +22,4 @@ private:
 	std::unique_ptr<GraphicsDevice> m_device;
 	Scene m_scene;
 	Renderer m_renderer;
-
-	struct CubeConstantBuffer
-	{
-		XMFLOAT4X4 worldViewProj;
-		float padding[48];
-	};
-	CubeConstantBuffer m_constantBufferData;
 };

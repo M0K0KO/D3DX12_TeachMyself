@@ -76,6 +76,25 @@ Mesh::Mesh AssetLoader::LoadGLTF(const std::string& path)
                 }
             }
 
+            // ── TANGENT (없으면 0,0,0,0) ──
+            // this might cause an error if tangent is really (0,0,0,0).... the cross product will crash!
+            auto tanIt = prim.attributes.find("TANGENT");
+            if (tanIt != prim.attributes.end())
+            {
+                const auto& tanAcc = model.accessors[tanIt->second];
+                const auto* tanPtr = reinterpret_cast<const float*>(GetBufferPointer(model, tanAcc));
+
+                for (size_t i = 0; i < vertexCount; ++i)
+                {
+                    mesh.vertices[vertexOffset + i].tangent = {
+                        tanPtr[i * 4 + 0],
+                        tanPtr[i * 4 + 1],
+                        tanPtr[i * 4 + 2],
+                        tanPtr[i * 4 + 3]
+                    };
+                }
+            }
+
             // ── TEXCOORD_0 (없으면 0,0) ──
             auto uvIt = prim.attributes.find("TEXCOORD_0");
             if (uvIt != prim.attributes.end())

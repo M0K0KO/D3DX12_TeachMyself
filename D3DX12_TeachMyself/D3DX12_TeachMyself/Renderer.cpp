@@ -5,7 +5,6 @@
 
 void Renderer::Init(GraphicsDevice* device)
 {
-	// TO DO : make an abstraction layer for shader compilation
 	auto vsBytecode = ShaderCompiler::CompileFromFile(
 		L"shaders_VSMain.hlsl",
 		"main",
@@ -17,20 +16,33 @@ void Renderer::Init(GraphicsDevice* device)
 		"main",
 		"ps_5_0"
 	);
-	// TO DO : make an abstraction layer for shader compilation
-
 
 	std::vector<VertexAttribute> vertexAttributes;
 	vertexAttributes.push_back({ Semantic::POSITION, Format::R32G32B32_FLOAT, 0 });
 	vertexAttributes.push_back({ Semantic::NORMAL,   Format::R32G32B32_FLOAT, 0 });
+	vertexAttributes.push_back({ Semantic::TANGENT, Format::R32G32B32A32_FLOAT, 0 });
 	vertexAttributes.push_back({ Semantic::TEXCOORD, Format::R32G32_FLOAT, 0 });
 
-	PipelineDesc pipelineDesc = { vsBytecode, psBytecode, vertexAttributes, Format::R8G8B8A8_UNORM, false, false };
-	m_forwardPipeline = device->CreatePipeline(pipelineDesc);
+	PipelineDesc depthPassDesc = {
+		vsBytecode, {}, vertexAttributes, 
+		Format::UNKNOWN, Format::D32_FLOAT, true, true };
 
+	m_depthPrePassPipeline = device->CreatePipeline(depthPassDesc);
 
-	BufferDesc cbDesc = { sizeof(XMFLOAT4X4), 0, BufferUsage::Constant, MemoryAccess::GpuOnly };
-	m_constantBuffer = device->CreateBuffer(cbDesc);
+	TextureDesc depthDesc = { 1920, 1080, Format::D32_FLOAT, TextureUsage::DepthStencil };
+	m_depthTexture = device->CreateTexture(depthDesc, nullptr);
+
+	PipelineDesc forwardDesc = { 
+		vsBytecode, psBytecode, vertexAttributes, 
+		Format::R8G8B8A8_UNORM, Format::D32_FLOAT, true, true };
+
+	m_forwardPipeline = device->CreatePipeline(forwardDesc);
+
+	BufferDesc perFrameCBDesc = { sizeof(PerFrameData), 0, BufferUsage::Constant, MemoryAccess::GpuOnly };
+	m_perFrameCB = device->CreateBuffer(perFrameCBDesc);
+
+	BufferDesc perObjectCBDesc = { sizeof(PerObjectData), 0, BufferUsage::Constant, MemoryAccess::GpuOnly };
+	m_perObjectCB = device->CreateBuffer(perObjectCBDesc);
 }
 
 void Renderer::Render(GraphicsDevice* device, const Scene& scene)
@@ -42,24 +54,65 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	RGResourceDesc backBufferDesc = { 1920, 1080, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
 	auto backBuffer = graph.ImportTexture(TextureHandle{}, backBufferDesc);
 
+	RGResourceDesc depthTextrueDesc = { 1920, 1080, Format::D32_FLOAT, TextureUsage::DepthStencil };
+	auto depthTexture = graph.ImportTexture(m_depthTexture, depthTextrueDesc);
+
+
+	//graph.AddPass(
+	//	"DepthPrePass",
+	//	[&](RGBuilder& builder)
+	//	{
+	//		builder.Write(depthTexture);
+	//	},
+	//	[&](CommandContext& passCtx) {
+	//		passCtx.SetPipeline(m_depthPrePassPipeline);
+
+	//		PerFrameData perFrame;
+	//		XMMATRIX vp = scene.cam.GetViewMatrix() * scene.cam.GetProjectionMatrix();
+	//		XMStoreFloat4x4(&perFrame.ViewProj, XMMatrixTranspose(vp));
+	//		perFrame.CameraPos = scene.cam.GetPos();
+
+	//		device->UpdateBuffer(m_perFrameCB, &perFrame, sizeof(perFrame));
+	//		passCtx.BindConstantBuffer(m_perFrameCB, 0);
+
+	//		for (const auto& obj : scene.renderObjects)
+	//		{
+	//			device->UpdateBuffer(m_perObjectCB, &obj.world, sizeof(obj.world));
+	//			passCtx.SetVertexBuffer(obj.vertexBuffer);
+	//			passCtx.SetIndexBuffer(obj.indexBuffer);
+	//			passCtx.BindConstantBuffer(m_perObjectCB, 1);
+	//			passCtx.DrawIndexed(obj.indexCount, 0, 0);
+	//		}
+	//	}
+	//);
+
+
 	graph.AddPass(
 		"ForwardPass",
 		[&](RGBuilder& builder) 
 		{
+			builder.Read(depthTexture);
 			builder.Write(backBuffer);
 		}, 
 		[&](CommandContext& passCtx) 
 		{ 
 			passCtx.SetPipeline(m_forwardPipeline);
 
+			PerFrameData perFrame;
+			XMMATRIX vp = scene.cam.GetViewMatrix() * scene.cam.GetProjectionMatrix();
+			XMStoreFloat4x4(&perFrame.ViewProj, XMMatrixTranspose(vp));
+			perFrame.CameraPos = scene.cam.GetPos();
+
+			device->UpdateBuffer(m_perFrameCB, &perFrame, sizeof(perFrame));
+			passCtx.BindConstantBuffer(m_perFrameCB, 0);
+
 			for (const auto& obj : scene.renderObjects)
 			{
-				device->UpdateBuffer(m_constantBuffer, &obj.world, sizeof(obj.world));
-
+				device->UpdateBuffer(m_perObjectCB, &obj.world, sizeof(obj.world));
 				passCtx.SetVertexBuffer(obj.vertexBuffer);
 				passCtx.SetIndexBuffer(obj.indexBuffer);
-				passCtx.BindConstantBuffer(m_constantBuffer, 0);
-				passCtx.BindTexture(obj.texture, 1);
+				passCtx.BindConstantBuffer(m_perObjectCB, 1);
+				passCtx.BindTexture(obj.texture, 2);
 				passCtx.DrawIndexed(obj.indexCount, 0, 0);
 			}
 		}

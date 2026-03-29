@@ -181,6 +181,7 @@ DirectXTex.lib;%(AdditionalDependencies)</AdditionalDependencies>
   <ItemGroup>
     <ClInclude Include="Application.h" />
     <ClInclude Include="AssetLoader.h" />
+    <ClInclude Include="Camera.h" />
     <ClInclude Include="CommandContext.h" />
     <ClInclude Include="CommandContext_DX12.h" />
     <ClInclude Include="d3dx12.h" />
@@ -204,6 +205,7 @@ DirectXTex.lib;%(AdditionalDependencies)</AdditionalDependencies>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
     <ClCompile Include="AssetLoader.cpp" />
+    <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CommandContext_DX12.cpp" />
     <ClCompile Include="GraphicsDevice_DX12.cpp" />
     <ClCompile Include="main.cpp" />
