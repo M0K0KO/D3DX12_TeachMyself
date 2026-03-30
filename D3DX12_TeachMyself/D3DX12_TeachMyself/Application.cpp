@@ -10,6 +10,11 @@ Application::Application()
 
 int Application::Run()
 {
+	wchar_t buffer[MAX_PATH];
+	GetCurrentDirectoryW(MAX_PATH, buffer);
+	OutputDebugStringW(buffer);
+	OutputDebugStringW(L"\n");
+
 	Init();
 
 	while (true)
@@ -32,8 +37,8 @@ void Application::Init()
 	m_device->Initialize(wnd.GetHWND(), wnd.GetWidth(), wnd.GetHeight());
 
 	AssetLoader loader;
-	auto foxMesh = loader.LoadGLTF("../Model/Fox/Fox.glb");
-	auto foxTex = loader.LoadTexture(L"../Model/Fox/Texture.png");
+	auto foxMesh = loader.LoadGLTF("C:/PORTFOLIO/Graphics/D3DX12_TeachMyself/D3DX12_TeachMyself/x64/Model/Fox/Fox.glb");
+	auto foxTex = loader.LoadTexture(L"C:/PORTFOLIO/Graphics/D3DX12_TeachMyself/D3DX12_TeachMyself/x64/Model/Fox/Texture.png");
 
 	BufferDesc vbDesc = { static_cast<uint32_t>(foxMesh.vertices.size() * sizeof(Mesh::Vertex)), sizeof(Mesh::Vertex), BufferUsage::Vertex, MemoryAccess::CpuWrite };
 	auto vb = m_device->CreateBuffer(vbDesc, foxMesh.vertices.data());

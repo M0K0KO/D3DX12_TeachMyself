@@ -400,12 +400,12 @@ TextureHandle GraphicsDevice_DX12::CreateTexture(const TextureDesc desc, const v
 		textureDesc.Height = desc.height;
 		textureDesc.DepthOrArraySize = 1;
 		textureDesc.MipLevels = 1;
-		textureDesc.Format = GetDXGIFormat(desc.format);
+		textureDesc.Format = DXGI_FORMAT_R32_TYPELESS;
 		textureDesc.SampleDesc.Count = 1;
 		textureDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 
 		D3D12_CLEAR_VALUE clearValue = {};
-		clearValue.Format = GetDXGIFormat(desc.format);
+		clearValue.Format = DXGI_FORMAT_D32_FLOAT;
 		clearValue.DepthStencil.Depth = 1.0f;
 		clearValue.DepthStencil.Stencil = 0;
 
@@ -477,7 +477,7 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 	CD3DX12_DESCRIPTOR_RANGE1 ranges[3];
 	ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
 	ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
-	ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE);
+	ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
 
 	CD3DX12_ROOT_PARAMETER1 rootParameters[3];
 	rootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_VERTEX);

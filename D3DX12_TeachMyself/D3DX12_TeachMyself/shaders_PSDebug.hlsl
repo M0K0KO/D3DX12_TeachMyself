@@ -13,7 +13,7 @@ float4 main(VSOut input) : SV_Target
     
     float near = 0.1f;
     float far = 1000.0f;
-    float value = near * far / (far - depth) * (far - near);
+    float value = near * far / (far - depth * (far - near));
     
     float normalized = value / far;
     
