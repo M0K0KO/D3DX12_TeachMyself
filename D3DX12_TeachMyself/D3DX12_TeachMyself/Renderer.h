@@ -3,6 +3,12 @@
 #include "GraphicsDevice.h"
 #include "Scene.h"
 
+enum class DebugMode
+{
+	None,
+	DepthTexture,
+};
+
 class Renderer
 {
 public:
@@ -15,6 +21,8 @@ private:
 
 	PipelineHandle m_forwardPipeline;
 	PipelineHandle m_depthPrePassPipeline;
+	PipelineHandle m_debugPipeline;
+
 	BufferHandle m_perFrameCB;
 	BufferHandle m_perObjectCB;
 	TextureHandle m_depthTexture;
@@ -32,4 +40,6 @@ private:
 		XMFLOAT4X4 World;
 	};
 	PerObjectData m_perObjectCBData;
+
+	DebugMode debugMode;
 };

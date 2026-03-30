@@ -20,6 +20,7 @@ public:
 	void ClearDepthStencil(TextureHandle handle, float depth) override;
 	void SetRenderTarget(TextureHandle rt, TextureHandle depth) override;
 	void DrawIndexed(uint32_t indexCount, uint32_t startIndex, uint32_t baseVertex) override;
+	void Draw(uint32_t vertexCount, uint32_t startVertex) override;
 
 private:
 	inline D3D12_RESOURCE_STATES GetDXResourceState(RGResourceState state)

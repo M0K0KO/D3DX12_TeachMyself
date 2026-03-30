@@ -16,4 +16,5 @@ public:
 	virtual void ClearDepthStencil(TextureHandle handle, float depth) = 0;
 	virtual void SetRenderTarget(TextureHandle rt, TextureHandle depth) = 0;
 	virtual void DrawIndexed(uint32_t indexCount, uint32_t startIndex, uint32_t baseVertex) = 0;
+	virtual void Draw(uint32_t vertexCount, uint32_t startVertex) = 0;
 };

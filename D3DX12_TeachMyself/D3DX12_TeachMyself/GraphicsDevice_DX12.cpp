@@ -133,7 +133,7 @@ void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uin
 			InternalTexture tex = {};
 			tex.resource = m_renderTargets[n];
 			tex.desc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
-			tex.descriptorHandle = rtvHandle;
+			tex.rtvHandle = rtvHandle;
 
 			m_backBufferHandles[n].id = static_cast<uint32_t>(m_textures.size());
 			m_textures.push_back(tex);
@@ -380,7 +380,7 @@ TextureHandle GraphicsDevice_DX12::CreateTexture(const TextureDesc desc, const v
 		m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle);
 		
 		internalTexture.resource = texture;
-		internalTexture.heapSlot = slot;
+		internalTexture.srvHeapSlot = slot;
 
 		HR_CHECK(m_commandList->Close());
 		ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
@@ -394,7 +394,6 @@ TextureHandle GraphicsDevice_DX12::CreateTexture(const TextureDesc desc, const v
 	}
 	else if (desc.usage == TextureUsage::DepthStencil)
 	{
-		// TO DO
 		D3D12_RESOURCE_DESC textureDesc = {};
 		textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 		textureDesc.Width = desc.width;
@@ -421,20 +420,35 @@ TextureHandle GraphicsDevice_DX12::CreateTexture(const TextureDesc desc, const v
 			IID_PPV_ARGS(&texture)));
 
 		D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
-		dsvDesc.Format = GetDXGIFormat(desc.format);
+		dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
 		dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 		dsvDesc.Texture2D.MipSlice = 0;
 
 		CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(
 			m_dsvHeap->GetCPUDescriptorHandleForHeapStart(),
 			0, m_dsvDescriptorSize);
+		m_device->CreateDepthStencilView(texture.Get(), &dsvDesc, dsvHandle);
+
+
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MipLevels = 1;
+
+		UINT descriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+		UINT srvHeapSlot = m_cbvSrvHeapNextSlot++;
+		CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(
+			m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart(),
+			srvHeapSlot, descriptorSize);
+		m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle);
+
 
 		internalTexture.resource = texture;
 		// TO DO : allocator 패턴을 이용할 것
-		internalTexture.heapSlot = 0;
-		internalTexture.descriptorHandle = dsvHandle;
-
-		m_device->CreateDepthStencilView(texture.Get(), &dsvDesc, m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
+		internalTexture.srvHeapSlot = srvHeapSlot;
+		internalTexture.dsvHandle = dsvHandle;
 
 		uint32_t id = m_textures.size();
 		m_textures.push_back(internalTexture);
@@ -463,7 +477,7 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 	CD3DX12_DESCRIPTOR_RANGE1 ranges[3];
 	ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
 	ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
-	ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+	ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE);
 
 	CD3DX12_ROOT_PARAMETER1 rootParameters[3];
 	rootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_VERTEX);
@@ -590,6 +604,7 @@ inline DXGI_FORMAT GraphicsDevice_DX12::GetDXGIFormat(Format format)
 	case Format::R32_UINT:             return DXGI_FORMAT_R32_UINT;
 	case Format::D24_UNORM_S8_UINT:    return DXGI_FORMAT_D24_UNORM_S8_UINT;
 	case Format::D32_FLOAT:            return DXGI_FORMAT_D32_FLOAT;
+	case Format::R32_TYPELESS:		   return DXGI_FORMAT_R32_TYPELESS;
 	default:                           return DXGI_FORMAT_UNKNOWN;
 	}
 }

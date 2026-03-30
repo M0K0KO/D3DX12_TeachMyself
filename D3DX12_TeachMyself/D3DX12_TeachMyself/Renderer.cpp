@@ -5,6 +5,8 @@
 
 void Renderer::Init(GraphicsDevice* device)
 {
+	debugMode = DebugMode::DepthTexture;
+
 	auto vsBytecode = ShaderCompiler::CompileFromFile(
 		L"shaders_VSMain.hlsl",
 		"main",
@@ -38,6 +40,31 @@ void Renderer::Init(GraphicsDevice* device)
 
 	m_forwardPipeline = device->CreatePipeline(forwardDesc);
 
+
+	// Debug
+	auto debugVSBytecode = ShaderCompiler::CompileFromFile(
+		L"shaders_VSDebug.hlsl",
+		"main",
+		"vs_5_0"
+	);
+
+	auto debugPSBytecode = ShaderCompiler::CompileFromFile(
+		L"shaders_PSDebug.hlsl",
+		"main",
+		"ps_5_0"
+	);
+
+	PipelineDesc debugPassDesc = {
+		debugVSBytecode, debugPSBytecode, {},
+		Format::R8G8B8A8_UNORM, Format::UNKNOWN, false, false, ComparisonFunc::Equal };
+
+	m_debugPipeline = device->CreatePipeline(debugPassDesc);
+
+	debugMode = DebugMode::DepthTexture;
+	// Debug
+
+
+
 	BufferDesc perFrameCBDesc = { sizeof(PerFrameData), 0, BufferUsage::Constant, MemoryAccess::GpuOnly };
 	m_perFrameCB = device->CreateBuffer(perFrameCBDesc);
 
@@ -54,7 +81,7 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	RGResourceDesc backBufferDesc = { 1920, 1080, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
 	auto backBuffer = graph.ImportTexture(device->GetCurrentBackBuffer(), backBufferDesc, RGResourceState::Present);
 
-	RGResourceDesc depthTextrueDesc = { 1920, 1080, Format::D32_FLOAT, TextureUsage::DepthStencil };
+	RGResourceDesc depthTextrueDesc = { 1920, 1080, Format::R32_TYPELESS, TextureUsage::DepthStencil };
 	auto depthTexture = graph.ImportTexture(m_depthTexture, depthTextrueDesc, RGResourceState::DepthWrite);
 
 
@@ -121,6 +148,26 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 			}
 		}
 	);
+
+	if (debugMode != DebugMode::None)
+	{
+		graph.AddPass(
+			"DebugPass",
+			[&](RGBuilder& builder) 
+			{
+				builder.Read(depthTexture, RGResourceState::ShaderResource);
+				builder.Write(backBuffer, RGResourceState::RenderTarget);
+			},
+			[&](CommandContext& passCtx) 
+			{
+				passCtx.ClearRenderTarget(device->GetCurrentBackBuffer(), clearColor);
+				passCtx.SetRenderTarget(device->GetCurrentBackBuffer(), {});
+				passCtx.SetPipeline(m_debugPipeline);
+				passCtx.BindTexture(m_depthTexture, 2);
+				passCtx.Draw(3, 0);
+			}
+		);
+	}
 
 	graph.Compile();
 	graph.Execute(ctx);

@@ -57,7 +57,7 @@ void CommandContext_DX12::BindTexture(TextureHandle handle, uint32_t slot)
 	auto texture = m_pDevice->m_textures[handle.id];
 
 	UINT descriptorSize = m_pDevice->m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle(m_pDevice->m_cbvSrvHeap->GetGPUDescriptorHandleForHeapStart(), texture.heapSlot, descriptorSize);
+	CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle(m_pDevice->m_cbvSrvHeap->GetGPUDescriptorHandleForHeapStart(), texture.srvHeapSlot, descriptorSize);
 	m_commandList->SetGraphicsRootDescriptorTable(slot, srvGpuHandle);
 }
 
@@ -73,13 +73,13 @@ void CommandContext_DX12::TransitionBarrier(TextureHandle handle, RGResourceStat
 
 void CommandContext_DX12::ClearRenderTarget(TextureHandle handle, const float clearValue[4])
 {
-	auto rtvHandle = m_pDevice->m_textures[handle.id].descriptorHandle;
+	auto rtvHandle = m_pDevice->m_textures[handle.id].rtvHandle;
 	m_commandList->ClearRenderTargetView(rtvHandle, clearValue, 0, nullptr);
 }
 
 void CommandContext_DX12::ClearDepthStencil(TextureHandle handle, float depth)
 {
-	auto dsvHandle = m_pDevice->m_textures[handle.id].descriptorHandle;
+	auto dsvHandle = m_pDevice->m_textures[handle.id].dsvHandle;
 	m_commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, depth, 0, 0, nullptr);
 }
 
@@ -89,18 +89,28 @@ void CommandContext_DX12::SetRenderTarget(TextureHandle rt, TextureHandle depth)
 	UINT numRT = 0;
 	if (rt.IsValid())
 	{
-		rtvHandle = m_pDevice->m_textures[rt.id].descriptorHandle;
+		rtvHandle = m_pDevice->m_textures[rt.id].rtvHandle;
 		numRT = 1;
 	}
 
 	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle{};
 	if (depth.IsValid())
-		dsvHandle = m_pDevice->m_textures[depth.id].descriptorHandle;
+		dsvHandle = m_pDevice->m_textures[depth.id].dsvHandle;
 	
-	m_commandList->OMSetRenderTargets(numRT, &rtvHandle, FALSE, &dsvHandle);
+	m_commandList->OMSetRenderTargets(
+		numRT,
+		numRT > 0 ? &rtvHandle : nullptr,
+		FALSE,
+		depth.IsValid() ? &dsvHandle : nullptr
+	);
 }
 
 void CommandContext_DX12::DrawIndexed(uint32_t indexCount, uint32_t startIndex, uint32_t baseVertex)
 {
 	m_commandList->DrawIndexedInstanced(indexCount, 1, startIndex, baseVertex, 0);
+}
+
+void CommandContext_DX12::Draw(uint32_t vertexCount, uint32_t startVertex)
+{
+	m_commandList->DrawInstanced(vertexCount, 1, startVertex, 0);
 }

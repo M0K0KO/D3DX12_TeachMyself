@@ -75,8 +75,9 @@ private:
 	{
 		ComPtr<ID3D12Resource> resource;
 		TextureDesc desc;
-		uint32_t heapSlot = UINT32_MAX;
-		D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle;
+		uint32_t srvHeapSlot = UINT32_MAX;
+		D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle;
+		D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle;
 	};
 
 	struct InternalPipeline

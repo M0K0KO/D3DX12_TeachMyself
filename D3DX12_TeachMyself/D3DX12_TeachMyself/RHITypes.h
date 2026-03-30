@@ -18,6 +18,7 @@ enum class Format
 	R32_UINT,
 	D24_UNORM_S8_UINT,
 	D32_FLOAT,
+	R32_TYPELESS
 };
 
 enum class BufferUsage
