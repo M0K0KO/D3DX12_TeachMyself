@@ -28,6 +28,8 @@ public:
 
 	const ComPtr<ID3D12Resource> GetTextureResource(TextureHandle handle);
 private:
+	inline D3D12_DESCRIPTOR_RANGE_TYPE GetDX12DescriptorRangeType(DescriptorRangeType type);
+	inline D3D12_SHADER_VISIBILITY GetDX12ShaderVisibility(ShaderVisibility visibility);
 	inline D3D12_COMPARISON_FUNC GetDX12ComparisonFunc(ComparisonFunc func);
 	inline DXGI_FORMAT GetDXGIFormat(Format format);
 	inline const char* GetSemanticString(Semantic semantic);

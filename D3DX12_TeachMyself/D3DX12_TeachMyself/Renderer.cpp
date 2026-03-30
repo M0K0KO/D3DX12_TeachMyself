@@ -25,18 +25,34 @@ void Renderer::Init(GraphicsDevice* device)
 	vertexAttributes.push_back({ Semantic::TANGENT, Format::R32G32B32A32_FLOAT, 0 });
 	vertexAttributes.push_back({ Semantic::TEXCOORD, Format::R32G32_FLOAT, 0 });
 
+
+	RootSignatureDesc depthPassRSDesc = {};
+	depthPassRSDesc.rootParamDescs.push_back({DescriptorRangeType::CBV, 0, 1, ShaderVisibility::Vertex});
+	depthPassRSDesc.rootParamDescs.push_back({DescriptorRangeType::CBV, 1, 1, ShaderVisibility::Vertex});
+	depthPassRSDesc.rootParamDescs.push_back({DescriptorRangeType::SRV, 0, 1, ShaderVisibility::Pixel});
+
 	PipelineDesc depthPassDesc = {
+		depthPassRSDesc,
 		vsBytecode, {}, vertexAttributes, 
-		Format::UNKNOWN, Format::D32_FLOAT, true, true, ComparisonFunc::Less };
+		{ Format::UNKNOWN }, Format::D32_FLOAT, true, true, ComparisonFunc::Less };
 
 	m_depthPrePassPipeline = device->CreatePipeline(depthPassDesc);
+
+
 
 	TextureDesc depthDesc = { 1920, 1080, Format::D32_FLOAT, TextureUsage::DepthStencil };
 	m_depthTexture = device->CreateTexture(depthDesc, nullptr);
 
+
+	RootSignatureDesc forwardPassRSDesc = {};
+	forwardPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::CBV, 0, 1, ShaderVisibility::Vertex });
+	forwardPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::CBV, 1, 1, ShaderVisibility::Vertex });
+	forwardPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 0, 1, ShaderVisibility::Pixel });
+
 	PipelineDesc forwardDesc = { 
+		forwardPassRSDesc,
 		vsBytecode, psBytecode, vertexAttributes, 
-		Format::R8G8B8A8_UNORM, Format::D32_FLOAT, true, false, ComparisonFunc::LessEqual };
+		{ Format::R8G8B8A8_UNORM }, Format::D32_FLOAT, true, false, ComparisonFunc::LessEqual };
 
 	m_forwardPipeline = device->CreatePipeline(forwardDesc);
 
@@ -54,15 +70,18 @@ void Renderer::Init(GraphicsDevice* device)
 		"ps_5_0"
 	);
 
+	RootSignatureDesc debugPassRSDesc = {};
+	debugPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 0, 1, ShaderVisibility::Pixel });
+
 	PipelineDesc debugPassDesc = {
+		debugPassRSDesc,
 		debugVSBytecode, debugPSBytecode, {},
-		Format::R8G8B8A8_UNORM, Format::UNKNOWN, false, false, ComparisonFunc::Equal };
+		{ Format::R8G8B8A8_UNORM }, Format::UNKNOWN, false, false, ComparisonFunc::Equal };
 
 	m_debugPipeline = device->CreatePipeline(debugPassDesc);
 
 	debugMode = DebugMode::DepthTexture;
 	// Debug
-
 
 
 	BufferDesc perFrameCBDesc = { sizeof(PerFrameData), 0, BufferUsage::Constant, MemoryAccess::GpuOnly };
@@ -163,7 +182,7 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 				passCtx.ClearRenderTarget(device->GetCurrentBackBuffer(), clearColor);
 				passCtx.SetRenderTarget(device->GetCurrentBackBuffer(), {});
 				passCtx.SetPipeline(m_debugPipeline);
-				passCtx.BindTexture(m_depthTexture, 2);
+				passCtx.BindTexture(m_depthTexture, 0);
 				passCtx.Draw(3, 0);
 			}
 		);

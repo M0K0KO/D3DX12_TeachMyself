@@ -67,6 +67,21 @@ enum class RGResourceState
 	CopyDest,
 };
 
+enum class DescriptorRangeType
+{
+	SRV,
+	UAV,
+	CBV,
+	Sampler
+};
+
+enum class ShaderVisibility
+{
+	Vertex,
+	Pixel,
+	All,
+};
+
 
 struct BufferHandle 
 { 
@@ -116,14 +131,27 @@ struct ShaderBytecode
 	std::shared_ptr<void> blob;
 };
 
+struct RootParamDesc
+{
+	DescriptorRangeType rangeType;
+	uint32_t baseRegister;
+	uint32_t numDescriptors = 1;
+	ShaderVisibility visibility;
+};
 
+struct RootSignatureDesc
+{
+	std::vector<RootParamDesc> rootParamDescs;
+};
 
 struct PipelineDesc
 {
+	RootSignatureDesc rootSignatureDesc;
+
 	ShaderBytecode vs;
 	ShaderBytecode ps;
 	std::vector<VertexAttribute> vertexAttributes;
-	Format rtvFormat;
+	std::vector<Format> rtvFormats;
 	Format dsvFormat;
 	bool depthEnable;
 	bool depthWrite;

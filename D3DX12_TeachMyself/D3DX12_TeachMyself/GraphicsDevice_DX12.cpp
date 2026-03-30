@@ -474,15 +474,31 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 		featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
 	}
 
-	CD3DX12_DESCRIPTOR_RANGE1 ranges[3];
-	ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
-	ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
-	ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+	const int rootParamCount = desc.rootSignatureDesc.rootParamDescs.size();
 
-	CD3DX12_ROOT_PARAMETER1 rootParameters[3];
-	rootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_VERTEX);
-	rootParameters[1].InitAsDescriptorTable(1, &ranges[1], D3D12_SHADER_VISIBILITY_VERTEX);
-	rootParameters[2].InitAsDescriptorTable(1, &ranges[2], D3D12_SHADER_VISIBILITY_PIXEL);
+	std::vector<CD3DX12_DESCRIPTOR_RANGE1> ranges;
+	ranges.reserve(rootParamCount);
+	std::vector<CD3DX12_ROOT_PARAMETER1> rootParameters;
+	rootParameters.reserve(rootParamCount);
+
+	for (int i = 0; i < rootParamCount; i++)
+	{
+		auto rootParamDesc = desc.rootSignatureDesc.rootParamDescs[i];
+
+		ranges.push_back({});
+		ranges[i].Init(
+			GetDX12DescriptorRangeType(rootParamDesc.rangeType),
+			rootParamDesc.numDescriptors,
+			rootParamDesc.baseRegister,
+			0, 
+			D3D12_DESCRIPTOR_RANGE_FLAG_NONE);
+		
+		rootParameters.push_back({});
+		rootParameters[i].InitAsDescriptorTable(
+			1,
+			&ranges[i], 
+			GetDX12ShaderVisibility(rootParamDesc.visibility));
+	}
 
 	// TODO : SAMPLER ABSTRACTION
 	D3D12_STATIC_SAMPLER_DESC sampler = {};
@@ -501,12 +517,14 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 	sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-	rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 1, &sampler, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	rootSignatureDesc.Init_1_1(rootParamCount, rootParameters.data(), 1, &sampler, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	ComPtr<ID3DBlob> signature;
 	ComPtr<ID3DBlob> error;
 	HR_CHECK(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, featureData.HighestVersion, &signature, &error));
 	HR_CHECK(m_device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rs)));
+
+
 
 	const UINT inputElementCount = desc.vertexAttributes.size();
 	std::vector<D3D12_INPUT_ELEMENT_DESC> inputElementDescs;
@@ -536,10 +554,13 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 	psoDesc.SampleMask = UINT_MAX;
 	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 
-	if (desc.rtvFormat != Format::UNKNOWN)
+	for (int i = 0; i < desc.rtvFormats.size(); i++)
 	{
-		psoDesc.NumRenderTargets = 1;
-		psoDesc.RTVFormats[0] = GetDXGIFormat(desc.rtvFormat);
+		if (desc.rtvFormats[i] != Format::UNKNOWN)
+		{
+			psoDesc.NumRenderTargets = 1;
+			psoDesc.RTVFormats[0] = GetDXGIFormat(desc.rtvFormats[i]);
+		}
 	}
 
 	if (desc.dsvFormat != Format::UNKNOWN)
@@ -629,6 +650,27 @@ void GraphicsDevice_DX12::UpdateBuffer(const BufferHandle handle, const void* da
 const ComPtr<ID3D12Resource> GraphicsDevice_DX12::GetTextureResource(TextureHandle handle)
 {
 	return m_textures[handle.id].resource;
+}
+
+inline D3D12_DESCRIPTOR_RANGE_TYPE GraphicsDevice_DX12::GetDX12DescriptorRangeType(DescriptorRangeType type)
+{
+	switch (type)
+	{
+	case DescriptorRangeType::SRV:		return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	case DescriptorRangeType::UAV:		return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+	case DescriptorRangeType::CBV:		return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+	case DescriptorRangeType::Sampler:  return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;;
+	}
+}
+
+inline D3D12_SHADER_VISIBILITY GraphicsDevice_DX12::GetDX12ShaderVisibility(ShaderVisibility visibility)
+{
+	switch (visibility)
+	{
+	case ShaderVisibility::All: return D3D12_SHADER_VISIBILITY_ALL;
+	case ShaderVisibility::Vertex: return D3D12_SHADER_VISIBILITY_VERTEX;
+	case ShaderVisibility::Pixel: return D3D12_SHADER_VISIBILITY_PIXEL;
+	}
 }
 
 TextureHandle GraphicsDevice_DX12::GetCurrentBackBuffer()
