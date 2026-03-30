@@ -149,7 +149,7 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 		}
 	);
 
-	if (debugMode != DebugMode::None)
+	if (debugMode == DebugMode::DepthTexture)
 	{
 		graph.AddPass(
 			"DebugPass",
@@ -170,9 +170,6 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	}
 
 	graph.Compile();
-
-	graph.DebugPrintBarriers();
-
 	graph.Execute(ctx);
 	graph.Clear();
 

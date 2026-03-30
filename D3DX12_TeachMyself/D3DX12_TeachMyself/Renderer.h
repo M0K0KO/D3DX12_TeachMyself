@@ -16,6 +16,8 @@ public:
 	void Render(GraphicsDevice* device, const Scene& scene);
 	void Shutdown();
 
+	void ChangeDebugMode(DebugMode mode) { debugMode = mode; };
+
 private:
 	const float clearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
 

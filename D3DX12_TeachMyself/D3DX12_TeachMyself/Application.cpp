@@ -73,6 +73,14 @@ void Application::Update()
 
 	XMMATRIX world = XMMatrixRotationY(angle);
 	XMStoreFloat4x4(&m_scene.renderObjects[0].world, XMMatrixTranspose(world));
+
+
+	// Debug
+	if (wnd.kbd.KeyIsPressed('1'))
+		m_renderer.ChangeDebugMode(DebugMode::None);
+	else if (wnd.kbd.KeyIsPressed('2'))
+		m_renderer.ChangeDebugMode(DebugMode::DepthTexture);
+	// Debug
 }
 
 void Application::Render()

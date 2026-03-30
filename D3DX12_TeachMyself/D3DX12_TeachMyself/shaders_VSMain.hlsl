@@ -23,7 +23,6 @@ VSOut main(float3 position : POSITION, float3 normal : NORMAL, float4 tangent : 
     float3 worldPos = mul(float4(position, 1.0f), World).xyz;
     output.position = mul(float4(worldPos, 1.0f), ViewProj);
     output.uv = uv;
-    //output.uv = float2(output.position.z, output.position.w);
     
     return output;
 }
