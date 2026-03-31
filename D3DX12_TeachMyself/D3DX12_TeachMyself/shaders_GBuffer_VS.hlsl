@@ -20,7 +20,10 @@ struct VSInput
 struct VSOutput
 {
     float4 position : SV_POSITION;
-    float2 uv : TEXCOORD;
+    float2 uv : TEXCOORD0;
+    
+    float3 worldNormal : TEXCOORD1;
+    float4 worldTangent : TEXCOORD2;
 };
 
 VSOutput main(VSInput input)
@@ -30,6 +33,13 @@ VSOutput main(VSInput input)
     float4 worldPos = mul(float4(input.position, 1.0f), World);
     output.position = mul(worldPos, ViewProj);
     output.uv = input.uv;
+    
+    output.worldNormal = normalize(mul(input.normal, (float3x3) World));
+
+    output.worldTangent = float4(
+    normalize(mul(input.tangent.xyz, (float3x3) World)),
+    input.tangent.w
+);
     
     return output;
 }

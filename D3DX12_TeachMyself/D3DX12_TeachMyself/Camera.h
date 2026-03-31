@@ -25,5 +25,5 @@ private:
 	float aspectRatio;
 
 	static constexpr float travelSpeed = 8.0f;
-	static constexpr float rotationSpeed = 0.003f;
+	static constexpr float rotationSpeed = 0.002f;
 };
