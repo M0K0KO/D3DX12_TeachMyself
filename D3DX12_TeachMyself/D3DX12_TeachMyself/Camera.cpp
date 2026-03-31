@@ -18,7 +18,7 @@ XMMATRIX Camera::GetViewMatrix() const
 {
     const XMVECTOR forward = XMVectorSet(
         cosf(pitch) * sinf(yaw),
-        sinf(pitch),
+        -sinf(pitch),
         cosf(pitch) * cosf(yaw),
         0.0f
     );

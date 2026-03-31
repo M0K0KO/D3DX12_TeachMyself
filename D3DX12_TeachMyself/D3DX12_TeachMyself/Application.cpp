@@ -108,44 +108,69 @@ void Application::Update()
 
 
 	// Debug
+	while (const auto e = wnd.kbd.ReadKey())
+	{
+		if (!e->IsPress())
+		{
+			continue;
+		}
+
+		switch (e->GetCode())
+		{
+		case VK_ESCAPE:
+			if (wnd.CursorEnabled())
+			{
+				wnd.DisableCursor();
+				wnd.mouse.EnableRaw();
+			}
+			else
+			{
+				wnd.EnableCursor();
+				wnd.mouse.DisableRaw();
+			}
+			break;
+		}
+	}
+
+
 	if (wnd.kbd.KeyIsPressed('1'))
 		m_renderer.ChangeDebugMode(DebugMode::None);
 	else if (wnd.kbd.KeyIsPressed('2'))
 		m_renderer.ChangeDebugMode(DebugMode::DepthTexture);
 
 
-
-	if (wnd.kbd.KeyIsPressed('W'))
+	if (!wnd.CursorEnabled())
 	{
-		m_scene.cam.Translate({ 0.0f,0.0f,deltaTime });
-	}
-	if (wnd.kbd.KeyIsPressed('A'))
-	{
-		m_scene.cam.Translate({ -deltaTime,0.0f,0.0f });
-	}
-	if (wnd.kbd.KeyIsPressed('S'))
-	{
-		m_scene.cam.Translate({ 0.0f,0.0f,-deltaTime });
-	}
-	if (wnd.kbd.KeyIsPressed('D'))
-	{
-		m_scene.cam.Translate({ deltaTime,0.0f,0.0f });
-	}
-	if (wnd.kbd.KeyIsPressed('R'))
-	{
-		m_scene.cam.Translate({ 0.0f,deltaTime,0.0f });
-	}
-	if (wnd.kbd.KeyIsPressed('F'))
-	{
-		m_scene.cam.Translate({ 0.0f,-deltaTime,0.0f });
+		if (wnd.kbd.KeyIsPressed('W'))
+		{
+			m_scene.cam.Translate({ 0.0f,0.0f,deltaTime });
+		}
+		if (wnd.kbd.KeyIsPressed('A'))
+		{
+			m_scene.cam.Translate({ -deltaTime,0.0f,0.0f });
+		}
+		if (wnd.kbd.KeyIsPressed('S'))
+		{
+			m_scene.cam.Translate({ 0.0f,0.0f,-deltaTime });
+		}
+		if (wnd.kbd.KeyIsPressed('D'))
+		{
+			m_scene.cam.Translate({ deltaTime,0.0f,0.0f });
+		}
+		if (wnd.kbd.KeyIsPressed('R'))
+		{
+			m_scene.cam.Translate({ 0.0f,deltaTime,0.0f });
+		}
+		if (wnd.kbd.KeyIsPressed('F'))
+		{
+			m_scene.cam.Translate({ 0.0f,-deltaTime,0.0f });
+		}
 	}
 
 	while (const auto delta = wnd.mouse.ReadRawDelta())
 	{
 		if (!wnd.CursorEnabled())
 		{
-			OutputDebugStringA(std::format("x : {}, y : {}\n", delta->x, delta->y).c_str());
-
 			m_scene.cam.Rotate((float)delta->x, (float)delta->y);
 		}
 	}
