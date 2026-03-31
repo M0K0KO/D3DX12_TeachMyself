@@ -1,9 +1,11 @@
 #include "Camera.h"
+#include <algorithm>
+#include "MokoMath.h"
 
 Camera::Camera()
     :
     aspectRatio(1920.0f / 1080.0f),
-    pos{ 0.0f, 35.0f, -200.0f },
+    pos{ 0.0f, 1.0f, 0.0f },
     pitch{ 0.0f },
     yaw{ 0.0f },
     nearZ{ 0.1f },
@@ -36,4 +38,25 @@ XMMATRIX Camera::GetProjectionMatrix() const
 XMFLOAT3 Camera::GetPos() const
 {
 	return pos;
+}
+
+void Camera::Translate(XMFLOAT3 translation)
+{
+    XMStoreFloat3(&translation, XMVector3Transform(
+        XMLoadFloat3(&translation),
+        XMMatrixRotationRollPitchYaw(pitch, yaw, 0.0f) *
+        XMMatrixScaling(travelSpeed, travelSpeed, travelSpeed)
+    ));
+
+    pos = {
+        pos.x + translation.x,
+        pos.y + translation.y,
+        pos.z + translation.z,
+    };
+}
+
+void Camera::Rotate(float dx, float dy)
+{
+    yaw = wrap_angle(yaw + dx * rotationSpeed);
+    pitch = std::clamp(pitch + dy * rotationSpeed, 0.995f * -PI / 2.0f, 0.995f * PI / 2.0f);
 }

@@ -1,9 +1,6 @@
 #pragma once
 #include "stdafx.h"
 
-constexpr float PI = 3.14159265f;
-constexpr double PI_D = 3.1415926535897932;
-
 using namespace DirectX;
 
 class Camera
@@ -13,6 +10,8 @@ public:
 	XMMATRIX GetViewMatrix() const;
 	XMMATRIX GetProjectionMatrix() const;
 	XMFLOAT3 GetPos() const;
+	void Translate(XMFLOAT3 translation);
+	void Rotate(float dx, float dy);
 
 private:
 	XMFLOAT3 pos;
@@ -24,4 +23,7 @@ private:
 	float farZ;
 	float fovY;
 	float aspectRatio;
+
+	static constexpr float travelSpeed = 6.0f;
+	static constexpr float rotationSpeed = 0.003f;
 };

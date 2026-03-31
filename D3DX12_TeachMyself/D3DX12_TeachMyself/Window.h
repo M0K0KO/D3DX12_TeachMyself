@@ -2,6 +2,7 @@
 #include "stdafx.h"
 #include <optional>
 #include "Keyboard.h"
+#include "Mouse.h"
 
 class Window
 {
@@ -32,18 +33,29 @@ public:
 	const int GetHeight();
 	const float GetAspectRatio();
 	void SetTitle(const std::wstring& title);
+	void EnableCursor();
+	void DisableCursor();
+	bool CursorEnabled() const;
 	static std::optional<int> ProcessMessages();
 
 private:
+	void ConfineCursor();
+	void FreeCursor();
+	void HideCursor();
+	void ShowCursor();
 	static LRESULT CALLBACK HandleMsgSetup(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	static LRESULT CALLBACK HandleMsgThunk(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	LRESULT HandleMsg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 public:
 	Keyboard kbd;
+	Mouse mouse;
 
 private:
 	int width;
 	int height;
 	HWND hWnd;
+
+	std::vector<BYTE> rawBuffer;
+	bool cursorEnabled = true;
 };

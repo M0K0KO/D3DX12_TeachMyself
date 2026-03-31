@@ -7,7 +7,7 @@
 #include "AssetLoader.h"
 #include "DirectXTex/DirectXTex.h"
 
-Mesh::Mesh AssetLoader::LoadGLTF(const std::string& path)
+Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
 {
     tinygltf::Model model;
     tinygltf::TinyGLTF loader;
@@ -17,165 +17,304 @@ Mesh::Mesh AssetLoader::LoadGLTF(const std::string& path)
         ? loader.LoadBinaryFromFile(&model, &err, &warn, path)
         : loader.LoadASCIIFromFile(&model, &err, &warn, path);
 
+    if (!warn.empty())
+        OutputDebugStringA((warn + "\n").c_str());
+
     if (!ok)
         throw std::runtime_error("glTF load failed: " + err);
 
-    Mesh::Mesh mesh;
+    Mesh::Scene scene;
 
-    for (const auto& gltfMesh : model.meshes)
+    scene.textures.resize(model.images.size());
+
+    std::filesystem::path baseDir = std::filesystem::path(path).parent_path();
+
+    for (size_t i = 0; i < model.images.size(); i++)
     {
-        for (const auto& prim : gltfMesh.primitives)
+        const auto& img = model.images[i];
+        
+        if (!img.uri.empty())
         {
-            if (prim.mode != TINYGLTF_MODE_TRIANGLES && prim.mode != -1)
-                continue; // 삼각형 아니면 스킵
+            scene.textures[i].path = (baseDir / img.uri).wstring();
 
-            OutputDebugStringA(
-                ("mode=" + std::to_string(prim.mode)
-                    + " indices=" + std::to_string(prim.indices) + "\n").c_str()
-            );
-
-            // ── 현재 서브메시의 시작 오프셋 기록 ──
-            uint32_t vertexOffset = static_cast<uint32_t>(mesh.vertices.size());
-            uint32_t indexOffset = static_cast<uint32_t>(mesh.indices.size());
-
-            // ── POSITION (필수) ──
-            auto posIt = prim.attributes.find("POSITION");
-            if (posIt == prim.attributes.end())
-                throw std::runtime_error("Primitive missing POSITION");
-
-            const auto& posAcc = model.accessors[posIt->second];
-            const auto* posPtr = reinterpret_cast<const float*>(GetBufferPointer(model, posAcc));
-            size_t vertexCount = posAcc.count;
-
-            // 정점 배열 확보
-            mesh.vertices.resize(vertexOffset + vertexCount);
-
-            for (size_t i = 0; i < vertexCount; ++i)
-            {
-                mesh.vertices[vertexOffset + i].position = {
-                    posPtr[i * 3 + 0],
-                    posPtr[i * 3 + 1],
-                    posPtr[i * 3 + 2]
-                };
-            }
-
-            // ── NORMAL (없으면 0,0,0) ──
-            auto normIt = prim.attributes.find("NORMAL");
-            if (normIt != prim.attributes.end())
-            {
-                const auto& normAcc = model.accessors[normIt->second];
-                const auto* normPtr = reinterpret_cast<const float*>(GetBufferPointer(model, normAcc));
-
-                for (size_t i = 0; i < vertexCount; ++i)
-                {
-                    mesh.vertices[vertexOffset + i].normal = {
-                        normPtr[i * 3 + 0],
-                        normPtr[i * 3 + 1],
-                        normPtr[i * 3 + 2]
-                    };
-                }
-            }
-
-            // ── TANGENT (없으면 0,0,0,0) ──
-            // this might cause an error if tangent is really (0,0,0,0).... the cross product will crash!
-            auto tanIt = prim.attributes.find("TANGENT");
-            if (tanIt != prim.attributes.end())
-            {
-                const auto& tanAcc = model.accessors[tanIt->second];
-                const auto* tanPtr = reinterpret_cast<const float*>(GetBufferPointer(model, tanAcc));
-
-                for (size_t i = 0; i < vertexCount; ++i)
-                {
-                    mesh.vertices[vertexOffset + i].tangent = {
-                        tanPtr[i * 4 + 0],
-                        tanPtr[i * 4 + 1],
-                        tanPtr[i * 4 + 2],
-                        tanPtr[i * 4 + 3]
-                    };
-                }
-            }
-
-            // ── TEXCOORD_0 (없으면 0,0) ──
-            auto uvIt = prim.attributes.find("TEXCOORD_0");
-            if (uvIt != prim.attributes.end())
-            {
-                const auto& uvAcc = model.accessors[uvIt->second];
-                const auto* uvPtr = reinterpret_cast<const float*>(GetBufferPointer(model, uvAcc));
-
-                for (size_t i = 0; i < vertexCount; ++i)
-                {
-                    mesh.vertices[vertexOffset + i].uv = {
-                        uvPtr[i * 2 + 0],
-                        uvPtr[i * 2 + 1]
-                    };
-                }
-            }
-
-            // ── Indices ──
-            if (prim.indices >= 0)
-            {
-                const auto& idxAcc = model.accessors[prim.indices];
-                const uint8_t* idxPtr = GetBufferPointer(model, idxAcc);
-
-                for (size_t i = 0; i < idxAcc.count; ++i)
-                {
-                    uint32_t index;
-                    // componentType에 따라 읽는 크기가 다름
-                    if (idxAcc.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
-                        index = reinterpret_cast<const uint16_t*>(idxPtr)[i];
-                    else
-                        index = reinterpret_cast<const uint32_t*>(idxPtr)[i];
-
-                    mesh.indices.push_back(vertexOffset + index); // 글로벌 인덱스로 변환
-                }
-            }
-            else
-            {
-                for (uint32_t i = 0; i < vertexCount; ++i)
-                    mesh.indices.push_back(vertexOffset + i);
-            }
-
-            // ── SubMesh 기록 ──
-            mesh.subMeshes.push_back({
-                indexOffset,
-                static_cast<uint32_t>(mesh.indices.size() - indexOffset)
-                });
+            int w, h, ch;
+            unsigned char* pixels = stbi_load((baseDir / img.uri).string().c_str(), &w, &h, &ch, 4);
+            scene.textures[i].width = w;
+            scene.textures[i].height = h;
+            scene.textures[i].channels = 4;
+            scene.textures[i].data.assign(pixels, pixels + (w * h * 4));
+            stbi_image_free(pixels);
+        }
+        else
+        {
+            scene.textures[i].embedded = true;
+            scene.textures[i].width = img.width;
+            scene.textures[i].height = img.height;
+            scene.textures[i].channels = img.component;
+            scene.textures[i].data = img.image;
         }
     }
 
-    return mesh;
-}
-
-Mesh::TextureData AssetLoader::LoadTexture(const std::wstring& path)
-{
-    DirectX::ScratchImage image;
-    DirectX::TexMetadata meta;
-
-    HRESULT hr;
-    if (path.ends_with(L".dds"))
-        hr = DirectX::LoadFromDDSFile(path.c_str(), DirectX::DDS_FLAGS_NONE, &meta, image);
-    else
-        hr = DirectX::LoadFromWICFile(path.c_str(), DirectX::WIC_FLAGS_NONE, &meta, image);
-
-    if (FAILED(hr))
-        throw std::runtime_error("Texture load failed: " + std::to_string(hr));
-
-    if (meta.format != DXGI_FORMAT_R8G8B8A8_UNORM)
+    scene.materials.reserve(model.materials.size());
+    for (const auto& gltfMat : model.materials)
     {
-        DirectX::ScratchImage converted;
-        DirectX::Convert(image.GetImages(), image.GetImageCount(), meta,
-            DXGI_FORMAT_R8G8B8A8_UNORM, DirectX::TEX_FILTER_DEFAULT,
-            DirectX::TEX_THRESHOLD_DEFAULT, converted);
-        image = std::move(converted);
-        meta = image.GetMetadata();
+        Mesh::Material mat{};
+
+        if (gltfMat.pbrMetallicRoughness.baseColorTexture.index >= 0)
+        {
+            int texIndex = gltfMat.pbrMetallicRoughness.baseColorTexture.index;
+            mat.baseColorTexture = model.textures[texIndex].source;
+        }
+
+        if (gltfMat.normalTexture.index >= 0)
+        {
+            int texIndex = gltfMat.normalTexture.index;
+            mat.normalTexture = model.textures[texIndex].source;
+        }
+
+        if (gltfMat.pbrMetallicRoughness.metallicRoughnessTexture.index >= 0)
+        {
+            int texIndex = gltfMat.pbrMetallicRoughness.metallicRoughnessTexture.index;
+            mat.metallicRoughnessTexture = model.textures[texIndex].source;
+        }
+
+        scene.materials.push_back(mat);
     }
 
-    return { std::move(image), (uint32_t)meta.width, (uint32_t)meta.height, meta.format };
+    if (scene.materials.empty())
+        scene.materials.push_back({});
+
+    std::function<void(int, DirectX::XMMATRIX)> ProcessNode;
+
+    ProcessNode = [&](int nodeIndex, DirectX::XMMATRIX parentMatrix) {
+        const auto& node = model.nodes[nodeIndex];
+
+        DirectX::XMMATRIX local = DirectX::XMMatrixIdentity();
+
+        if (node.matrix.size() == 16)
+        {
+            local = DirectX::XMMATRIX(
+                (float)node.matrix[0], (float)node.matrix[1], (float)node.matrix[2], (float)node.matrix[3],
+                (float)node.matrix[4], (float)node.matrix[5], (float)node.matrix[6], (float)node.matrix[7],
+                (float)node.matrix[8], (float)node.matrix[9], (float)node.matrix[10], (float)node.matrix[11],
+                (float)node.matrix[12], (float)node.matrix[13], (float)node.matrix[14], (float)node.matrix[15]
+            );
+        }
+        else
+        {
+            DirectX::XMVECTOR scale = DirectX::XMVectorSet(1, 1, 1, 0);
+            DirectX::XMVECTOR rotation = DirectX::XMQuaternionIdentity();
+            DirectX::XMVECTOR translation = DirectX::XMVectorZero();
+
+            if (node.scale.size() == 3)
+            {
+                scale = DirectX::XMVectorSet(
+                    (float)node.scale[0],
+                    (float)node.scale[1],
+                    (float)node.scale[2],
+                    0.0f
+                );
+            }
+
+            if (node.rotation.size() == 4)
+            {
+                rotation = DirectX::XMVectorSet(
+                    (float)node.rotation[0],
+                    (float)node.rotation[1],
+                    (float)node.rotation[2],
+                    (float)node.rotation[3]
+                );
+            }
+
+            if (node.translation.size() == 3)
+            {
+                translation = DirectX::XMVectorSet(
+                    (float)node.translation[0],
+                    (float)node.translation[1],
+                    (float)node.translation[2],
+                    1.0f
+                );
+            }
+
+            local =
+                DirectX::XMMatrixScalingFromVector(scale) *
+                DirectX::XMMatrixRotationQuaternion(rotation) *
+                DirectX::XMMatrixTranslationFromVector(translation);
+        }
+
+        DirectX::XMMATRIX world = local * parentMatrix;
+
+        if (node.mesh >= 0)
+        {
+            const auto& gltfMesh = model.meshes[node.mesh];
+
+            for (const auto& prim : gltfMesh.primitives)
+            {
+                if (prim.mode != TINYGLTF_MODE_TRIANGLES && prim.mode != -1)
+                    continue;
+
+                uint32_t vertexOffset = (uint32_t)scene.vertices.size();
+                uint32_t indexOffset = (uint32_t)scene.indices.size();
+
+                // ---------------- POSITION ----------------
+                auto posIt = prim.attributes.find("POSITION");
+                if (posIt == prim.attributes.end())
+                    continue;
+
+                const auto& posAcc = model.accessors[posIt->second];
+                const auto& posView = model.bufferViews[posAcc.bufferView];
+                const uint8_t* posBase = GetBufferPointer(model, posAcc);
+                size_t posStride = posAcc.ByteStride(posView);
+
+                size_t vertexCount = posAcc.count;
+                scene.vertices.resize(vertexOffset + vertexCount);
+
+                for (size_t i = 0; i < vertexCount; ++i)
+                {
+                    const float* p = reinterpret_cast<const float*>(posBase + i * posStride);
+
+                    DirectX::XMVECTOR pos = DirectX::XMVectorSet(p[0], p[1], p[2], 1.0f);
+                    pos = DirectX::XMVector3Transform(pos, world);
+
+                    DirectX::XMStoreFloat3(&scene.vertices[vertexOffset + i].position, pos);
+                }
+
+                // ---------------- NORMAL ----------------
+                auto normIt = prim.attributes.find("NORMAL");
+                if (normIt != prim.attributes.end())
+                {
+                    const auto& acc = model.accessors[normIt->second];
+                    const auto& view = model.bufferViews[acc.bufferView];
+
+                    const uint8_t* base = GetBufferPointer(model, acc);
+                    size_t stride = acc.ByteStride(view);
+
+                    DirectX::XMMATRIX normalMatrix =
+                        DirectX::XMMatrixTranspose(
+                            DirectX::XMMatrixInverse(nullptr, world));
+
+                    for (size_t i = 0; i < vertexCount; ++i)
+                    {
+                        const float* n = reinterpret_cast<const float*>(base + i * stride);
+
+                        DirectX::XMVECTOR normal =
+                            DirectX::XMVectorSet(n[0], n[1], n[2], 0.0f);
+
+                        normal = DirectX::XMVector3TransformNormal(normal, normalMatrix);
+                        normal = DirectX::XMVector3Normalize(normal);
+
+                        DirectX::XMStoreFloat3(
+                            &scene.vertices[vertexOffset + i].normal,
+                            normal);
+                    }
+                }
+
+                // ---------------- TANGENT ----------------
+                auto tanIt = prim.attributes.find("TANGENT");
+                if (tanIt != prim.attributes.end())
+                {
+                    const auto& acc = model.accessors[tanIt->second];
+                    const auto& view = model.bufferViews[acc.bufferView];
+
+                    const uint8_t* base = GetBufferPointer(model, acc);
+                    size_t stride = acc.ByteStride(view);
+
+                    for (size_t i = 0; i < vertexCount; ++i)
+                    {
+                        const float* t = reinterpret_cast<const float*>(base + i * stride);
+
+                        scene.vertices[vertexOffset + i].tangent = {
+                            t[0], t[1], t[2], t[3]
+                        };
+                    }
+                }
+
+                // ---------------- UV ----------------
+                auto uvIt = prim.attributes.find("TEXCOORD_0");
+                if (uvIt != prim.attributes.end())
+                {
+                    const auto& acc = model.accessors[uvIt->second];
+                    const auto& view = model.bufferViews[acc.bufferView];
+
+                    const uint8_t* base = GetBufferPointer(model, acc);
+                    size_t stride = acc.ByteStride(view);
+
+                    for (size_t i = 0; i < vertexCount; ++i)
+                    {
+                        const float* uv = reinterpret_cast<const float*>(base + i * stride);
+
+                        scene.vertices[vertexOffset + i].uv = {
+                            uv[0], uv[1]
+                        };
+                    }
+                }
+
+                // ---------------- INDICES ----------------
+                if (prim.indices >= 0)
+                {
+                    const auto& idxAcc = model.accessors[prim.indices];
+                    const uint8_t* idxBase = GetBufferPointer(model, idxAcc);
+
+                    for (size_t i = 0; i < idxAcc.count; ++i)
+                    {
+                        uint32_t index = 0;
+
+                        switch (idxAcc.componentType)
+                        {
+                        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
+                            index = reinterpret_cast<const uint8_t*>(idxBase)[i];
+                            break;
+
+                        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+                            index = reinterpret_cast<const uint16_t*>(idxBase)[i];
+                            break;
+
+                        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
+                            index = reinterpret_cast<const uint32_t*>(idxBase)[i];
+                            break;
+
+                        default:
+                            throw std::runtime_error("Unsupported index type");
+                        }
+
+                        scene.indices.push_back(vertexOffset + index);
+                    }
+                }
+                else
+                {
+                    for (uint32_t i = 0; i < vertexCount; ++i)
+                        scene.indices.push_back(vertexOffset + i);
+                }
+
+                Mesh::SubMesh subMesh{};
+                subMesh.indexOffset = indexOffset;
+                subMesh.indexCount = (uint32_t)scene.indices.size() - indexOffset;
+                subMesh.materialIndex = prim.material >= 0 ? prim.material : 0;
+
+                scene.subMeshes.push_back(subMesh);
+            }
+        }
+        for (int child : node.children)
+            ProcessNode(child, world);
+    };
+
+    int sceneIndex = model.defaultScene >= 0 ? model.defaultScene : 0;
+
+    if (sceneIndex >= 0 && sceneIndex < model.scenes.size())
+    {
+        for (int nodeIndex : model.scenes[sceneIndex].nodes)
+            ProcessNode(nodeIndex, DirectX::XMMatrixIdentity());
+    }
+
+    return scene;
 }
 
 const uint8_t* AssetLoader::GetBufferPointer(const tinygltf::Model& model, const const tinygltf::Accessor& acc)
 {
-	const auto& bv = model.bufferViews[acc.bufferView];
-	const auto& buf = model.buffers[bv.buffer];
-	return buf.data.data() + bv.byteOffset + acc.byteOffset;
+    const auto& view = model.bufferViews[acc.bufferView];
+    const auto& buffer = model.buffers[view.buffer];
+
+    return buffer.data.data()
+        + view.byteOffset
+        + acc.byteOffset;
 }

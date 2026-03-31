@@ -29,7 +29,6 @@ void Renderer::Init(GraphicsDevice* device)
 	RootSignatureDesc depthPassRSDesc = {};
 	depthPassRSDesc.rootParamDescs.push_back({DescriptorRangeType::CBV, 0, 1, ShaderVisibility::Vertex});
 	depthPassRSDesc.rootParamDescs.push_back({DescriptorRangeType::CBV, 1, 1, ShaderVisibility::Vertex});
-	depthPassRSDesc.rootParamDescs.push_back({DescriptorRangeType::SRV, 0, 1, ShaderVisibility::Pixel});
 
 	PipelineDesc depthPassDesc = {
 		depthPassRSDesc,
@@ -48,6 +47,8 @@ void Renderer::Init(GraphicsDevice* device)
 	forwardPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::CBV, 0, 1, ShaderVisibility::Vertex });
 	forwardPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::CBV, 1, 1, ShaderVisibility::Vertex });
 	forwardPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 0, 1, ShaderVisibility::Pixel });
+	forwardPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 1, 1, ShaderVisibility::Pixel });
+	forwardPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 2, 1, ShaderVisibility::Pixel });
 
 	PipelineDesc forwardDesc = { 
 		forwardPassRSDesc,
@@ -126,10 +127,10 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 			for (const auto& obj : scene.renderObjects)
 			{
 				device->UpdateBuffer(m_perObjectCB, &obj.world, sizeof(obj.world));
+				passCtx.BindConstantBuffer(m_perObjectCB, 1);
 				passCtx.SetVertexBuffer(obj.vertexBuffer);
 				passCtx.SetIndexBuffer(obj.indexBuffer);
-				passCtx.BindConstantBuffer(m_perObjectCB, 1);
-				passCtx.DrawIndexed(obj.indexCount, 0, 0);
+				passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
 			}
 		}
 	);
@@ -159,15 +160,18 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 			for (const auto& obj : scene.renderObjects)
 			{
 				device->UpdateBuffer(m_perObjectCB, &obj.world, sizeof(obj.world));
+				passCtx.BindConstantBuffer(m_perObjectCB, 1);
 				passCtx.SetVertexBuffer(obj.vertexBuffer);
 				passCtx.SetIndexBuffer(obj.indexBuffer);
-				passCtx.BindConstantBuffer(m_perObjectCB, 1);
-				passCtx.BindTexture(obj.texture, 2);
-				passCtx.DrawIndexed(obj.indexCount, 0, 0);
+				passCtx.BindTexture(obj.material.baseColor, 2);
+				passCtx.BindTexture(obj.material.normal, 3);
+				passCtx.BindTexture(obj.material.metallicRoughness, 4);
+				passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
 			}
 		}
 	);
 
+	/*
 	if (debugMode == DebugMode::DepthTexture)
 	{
 		graph.AddPass(
@@ -187,6 +191,7 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 			}
 		);
 	}
+	*/
 
 	graph.Compile();
 	graph.Execute(ctx);

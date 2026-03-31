@@ -139,6 +139,13 @@ struct RootParamDesc
 	ShaderVisibility visibility;
 };
 
+struct GPUMaterial
+{
+	TextureHandle baseColor;
+	TextureHandle normal;
+	TextureHandle metallicRoughness;
+};
+
 struct RootSignatureDesc
 {
 	std::vector<RootParamDesc> rootParamDescs;

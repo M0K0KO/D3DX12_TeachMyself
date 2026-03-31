@@ -16,9 +16,9 @@ public:
 	{
 		BufferHandle vertexBuffer;
 		BufferHandle indexBuffer;
-		TextureHandle texture;
+		uint32_t indexOffset;
 		uint32_t indexCount;
-
+		GPUMaterial material;
 		XMFLOAT4X4 world;
 	};
 

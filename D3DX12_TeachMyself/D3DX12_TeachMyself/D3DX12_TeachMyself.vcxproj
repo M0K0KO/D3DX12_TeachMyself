@@ -204,6 +204,8 @@ DirectXTex.lib;%(AdditionalDependencies)</AdditionalDependencies>
     <ClInclude Include="json.hpp" />
     <ClInclude Include="Keyboard.h" />
     <ClInclude Include="Mesh.h" />
+    <ClInclude Include="MokoMath.h" />
+    <ClInclude Include="Mouse.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="RenderGraph.h" />
     <ClInclude Include="RHITypes.h" />
@@ -223,6 +225,7 @@ DirectXTex.lib;%(AdditionalDependencies)</AdditionalDependencies>
     <ClCompile Include="GraphicsDevice_DX12.cpp" />
     <ClCompile Include="Keyboard.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Mouse.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="RenderGraph.cpp" />
     <ClCompile Include="stdafx.cpp" />

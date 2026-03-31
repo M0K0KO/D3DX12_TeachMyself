@@ -9,20 +9,27 @@ cbuffer PerObject : register(b1)
     float4x4 World;
 };
 
-struct VSOut
+struct VSInput
 {
-    float4 position : SV_Position;
+    float3 position : POSITION;
     float3 normal : NORMAL;
+    float4 tangent : TANGENT;
     float2 uv : TEXCOORD;
 };
 
-VSOut main(float3 position : POSITION, float3 normal : NORMAL, float4 tangent : TANGENT, float2 uv : TEXCOORD)
+struct VSOutput
 {
-    VSOut output;
+    float4 position : SV_POSITION;
+    float2 uv : TEXCOORD;
+};
+
+VSOutput main(VSInput input)
+{
+    VSOutput output;
     
-    float3 worldPos = mul(float4(position, 1.0f), World).xyz;
-    output.position = mul(float4(worldPos, 1.0f), ViewProj);
-    output.uv = uv;
+    float4 worldPos = mul(float4(input.position, 1.0f), World);
+    output.position = mul(worldPos, ViewProj);
+    output.uv = input.uv;
     
     return output;
 }

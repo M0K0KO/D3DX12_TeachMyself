@@ -16,25 +16,38 @@ namespace Mesh
 		XMFLOAT2 uv;
 	};
 
+	struct Material
+	{
+		int baseColorTexture = -1;
+		int normalTexture = -1;
+		int metallicRoughnessTexture = -1;
+	};
+
 	struct SubMesh
 	{
 		uint32_t indexOffset;
 		uint32_t indexCount;
+		int materialIndex;
 	};
 
-	struct TextureData
+	struct Texture
 	{
-		ScratchImage image;
-		uint32_t width, height;
-		DXGI_FORMAT format;
+		std::wstring path;
+		
+		bool embedded = false;
+		int width = 0;
+		int height = 0;
+		int channels = 0;
+		std::vector<unsigned char> data;
 	};
 
-	struct Mesh
+	struct Scene
 	{
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
-		std::vector<SubMesh> subMeshes;
 
-		std::optional<TextureData> baseColorTexture;
+		std::vector<SubMesh> subMeshes;
+		std::vector<Material> materials;
+		std::vector<Texture> textures;
 	};
 }
