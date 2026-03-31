@@ -25,6 +25,7 @@ public:
 	void EndFrame() override;
 
 	TextureHandle GetCurrentBackBuffer() override;
+	TextureHandle* GetCurrentBackBufferPtr() override;
 
 	const ComPtr<ID3D12Resource> GetTextureResource(TextureHandle handle);
 private:
@@ -94,5 +95,6 @@ private:
 
 	TextureHandle m_backBufferHandles[FrameCount];
 
+	uint32_t m_rtvHeapNextSlot = 0;
 	uint32_t m_cbvSrvHeapNextSlot = 0;
 };

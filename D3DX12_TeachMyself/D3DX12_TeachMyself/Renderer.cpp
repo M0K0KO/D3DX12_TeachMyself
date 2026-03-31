@@ -7,6 +7,7 @@ void Renderer::Init(GraphicsDevice* device)
 {
 	debugMode = DebugMode::DepthTexture;
 
+	// Depth Pre Pass
 	auto vsBytecode = ShaderCompiler::CompileFromFile(
 		L"shaders_VSMain.hlsl",
 		"main",
@@ -30,43 +31,70 @@ void Renderer::Init(GraphicsDevice* device)
 	depthPassRSDesc.rootParamDescs.push_back({DescriptorRangeType::CBV, 0, 1, ShaderVisibility::Vertex});
 	depthPassRSDesc.rootParamDescs.push_back({DescriptorRangeType::CBV, 1, 1, ShaderVisibility::Vertex});
 
-	PipelineDesc depthPassDesc = {
+	PipelineDesc depthPassPSDesc = {
 		depthPassRSDesc,
 		vsBytecode, {}, vertexAttributes, 
 		{ Format::UNKNOWN }, Format::D32_FLOAT, true, true, ComparisonFunc::Less };
 
-	m_depthPrePassPipeline = device->CreatePipeline(depthPassDesc);
+	m_depthPrePassPipeline = device->CreatePipeline(depthPassPSDesc);
+
+	TextureDesc depthTextureDesc = { 1920, 1080, Format::D32_FLOAT, TextureUsage::DepthStencil };
+	m_depthTexture = device->CreateTexture(depthTextureDesc, nullptr);
+	// Depth Pre Pass
 
 
+	// GBuffer Pass
+	TextureDesc albedoTextureDesc = { 1920, 1080, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	m_gbufferAlbedo = device->CreateTexture(albedoTextureDesc, nullptr);
+	TextureDesc normalTextureDesc = { 1920, 1080, Format::R16G16B16A16_SNORM, TextureUsage::RenderTarget };
+	m_gbufferNormal = device->CreateTexture(normalTextureDesc, nullptr);
+	TextureDesc mrTextureDesc = { 1920, 1080, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	m_gbufferMR = device->CreateTexture(mrTextureDesc, nullptr);
 
-	TextureDesc depthDesc = { 1920, 1080, Format::D32_FLOAT, TextureUsage::DepthStencil };
-	m_depthTexture = device->CreateTexture(depthDesc, nullptr);
+	RootSignatureDesc gBufferPassRSDesc = {};
+	gBufferPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::CBV, 0, 1, ShaderVisibility::Vertex });
+	gBufferPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::CBV, 1, 1, ShaderVisibility::Vertex });
+	gBufferPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 0, 1, ShaderVisibility::Pixel });
+	gBufferPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 1, 1, ShaderVisibility::Pixel });
+	gBufferPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 2, 1, ShaderVisibility::Pixel });
 
+	auto gBufferVS = ShaderCompiler::CompileFromFile(
+		L"shaders_GBuffer_VS.hlsl",
+		"main",
+		"vs_5_0"
+	);
 
-	RootSignatureDesc forwardPassRSDesc = {};
-	forwardPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::CBV, 0, 1, ShaderVisibility::Vertex });
-	forwardPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::CBV, 1, 1, ShaderVisibility::Vertex });
-	forwardPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 0, 1, ShaderVisibility::Pixel });
-	forwardPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 1, 1, ShaderVisibility::Pixel });
-	forwardPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 2, 1, ShaderVisibility::Pixel });
+	auto gBufferPS = ShaderCompiler::CompileFromFile(
+		L"shaders_GBuffer_PS.hlsl",
+		"main",
+		"ps_5_0"
+	);
 
-	PipelineDesc forwardDesc = { 
-		forwardPassRSDesc,
-		vsBytecode, psBytecode, vertexAttributes, 
-		{ Format::R8G8B8A8_UNORM }, Format::D32_FLOAT, true, false, ComparisonFunc::LessEqual };
-
-	m_forwardPipeline = device->CreatePipeline(forwardDesc);
+	PipelineDesc gBufferPassPSDesc = { 
+		gBufferPassRSDesc,
+		gBufferVS, gBufferPS, vertexAttributes,
+		{ Format::R8G8B8A8_UNORM, Format::R16G16B16A16_SNORM, Format::R8G8B8A8_UNORM }, 
+		Format::D32_FLOAT,
+		true, false, ComparisonFunc::LessEqual };
+	m_gBufferPassPipeline = device->CreatePipeline(gBufferPassPSDesc);
+	// GBuffer Pass
 
 
 	// Debug
 	auto debugVSBytecode = ShaderCompiler::CompileFromFile(
-		L"shaders_VSDebug.hlsl",
+		L"debugshaders_VS.hlsl",
 		"main",
 		"vs_5_0"
 	);
 
 	auto debugPSBytecode = ShaderCompiler::CompileFromFile(
-		L"shaders_PSDebug.hlsl",
+		L"debugshaders_PS.hlsl",
+		"main",
+		"ps_5_0"
+	);
+
+	auto depthDebugPSBytecode = ShaderCompiler::CompileFromFile(
+		L"debugshaders_Depth_PS.hlsl",
 		"main",
 		"ps_5_0"
 	);
@@ -77,11 +105,20 @@ void Renderer::Init(GraphicsDevice* device)
 	PipelineDesc debugPassDesc = {
 		debugPassRSDesc,
 		debugVSBytecode, debugPSBytecode, {},
-		{ Format::R8G8B8A8_UNORM }, Format::UNKNOWN, false, false, ComparisonFunc::Equal };
+		{ Format::R8G8B8A8_UNORM }, 
+		Format::UNKNOWN, 
+		false, false, ComparisonFunc::Equal };
 
 	m_debugPipeline = device->CreatePipeline(debugPassDesc);
 
-	debugMode = DebugMode::DepthTexture;
+	PipelineDesc depthDebugPassDesc = {
+		debugPassRSDesc,
+		debugVSBytecode, depthDebugPSBytecode, {},
+		{ Format::R8G8B8A8_UNORM },
+		Format::UNKNOWN,
+		false, false, ComparisonFunc::Equal };
+
+	m_depthDebugPipeline = device->CreatePipeline(depthDebugPassDesc);
 	// Debug
 
 
@@ -101,6 +138,15 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	RGResourceDesc backBufferDesc = { 1920, 1080, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
 	auto backBuffer = graph.ImportTexture(device->GetCurrentBackBuffer(), backBufferDesc, RGResourceState::Present);
 
+	RGResourceDesc gbufferAlbedoDesc = { 1920, 1080, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	auto gbufferAlbedo = graph.ImportTexture(m_gbufferAlbedo, gbufferAlbedoDesc, RGResourceState::RenderTarget);
+
+	RGResourceDesc gbufferNormalDesc = { 1920, 1080, Format::R16G16B16A16_SNORM, TextureUsage::RenderTarget };
+	auto gbufferNormal = graph.ImportTexture(m_gbufferNormal, gbufferNormalDesc, RGResourceState::RenderTarget);
+
+	RGResourceDesc gbufferMRDesc = { 1920, 1080, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	auto gbufferMR = graph.ImportTexture(m_gbufferMR, gbufferMRDesc, RGResourceState::RenderTarget);
+
 	RGResourceDesc depthTextrueDesc = { 1920, 1080, Format::R32_TYPELESS, TextureUsage::DepthStencil };
 	auto depthTexture = graph.ImportTexture(m_depthTexture, depthTextrueDesc, RGResourceState::DepthWrite);
 
@@ -113,7 +159,7 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 		},
 		[&](CommandContext& passCtx) {
 			passCtx.ClearDepthStencil(m_depthTexture, 1.0f);
-			passCtx.SetRenderTarget({}, m_depthTexture);
+			passCtx.SetRenderTarget(0, {}, m_depthTexture);
 			passCtx.SetPipeline(m_depthPrePassPipeline);
 
 			PerFrameData perFrame;
@@ -137,17 +183,18 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 
 
 	graph.AddPass(
-		"ForwardPass",
-		[&](RGBuilder& builder) 
-		{
+		"GBufferPass",
+		[&](RGBuilder& builder) {
 			builder.Read(depthTexture, RGResourceState::DepthRead);
-			builder.Write(backBuffer, RGResourceState::RenderTarget);
-		}, 
-		[&](CommandContext& passCtx) 
-		{ 
-			passCtx.ClearRenderTarget(device->GetCurrentBackBuffer(), clearColor);
-			passCtx.SetRenderTarget(device->GetCurrentBackBuffer(), m_depthTexture);
-			passCtx.SetPipeline(m_forwardPipeline);
+			builder.Write(gbufferAlbedo, RGResourceState::RenderTarget);
+			builder.Write(gbufferNormal, RGResourceState::RenderTarget);
+			builder.Write(gbufferMR, RGResourceState::RenderTarget);
+		},
+		[&](CommandContext& passCtx) {
+			TextureHandle renderTargets[] = { m_gbufferAlbedo, m_gbufferNormal, m_gbufferMR };
+			passCtx.ClearRenderTargets(3, renderTargets, clearColor);
+			passCtx.SetRenderTarget(3, renderTargets, m_depthTexture);
+			passCtx.SetPipeline(m_gBufferPassPipeline);
 
 			PerFrameData perFrame;
 			XMMATRIX vp = scene.cam.GetViewMatrix() * scene.cam.GetProjectionMatrix();
@@ -172,26 +219,87 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	);
 
 	/*
-	if (debugMode == DebugMode::DepthTexture)
-	{
-		graph.AddPass(
-			"DebugPass",
-			[&](RGBuilder& builder) 
+	graph.AddPass(
+		"ForwardPass",
+		[&](RGBuilder& builder) 
+		{
+			builder.Read(depthTexture, RGResourceState::DepthRead);
+			builder.Write(backBuffer, RGResourceState::RenderTarget);
+		}, 
+		[&](CommandContext& passCtx) 
+		{ 
+			passCtx.ClearRenderTarget(device->GetCurrentBackBuffer(), clearColor);
+			passCtx.SetRenderTarget(1, &(device->GetCurrentBackBuffer()), m_depthTexture);
+			passCtx.SetPipeline(m_forwardPipeline);
+
+			PerFrameData perFrame;
+			XMMATRIX vp = scene.cam.GetViewMatrix() * scene.cam.GetProjectionMatrix();
+			XMStoreFloat4x4(&perFrame.ViewProj, XMMatrixTranspose(vp));
+			perFrame.CameraPos = scene.cam.GetPos();
+
+			device->UpdateBuffer(m_perFrameCB, &perFrame, sizeof(perFrame));
+			passCtx.BindConstantBuffer(m_perFrameCB, 0);
+
+			for (const auto& obj : scene.renderObjects)
 			{
-				builder.Read(depthTexture, RGResourceState::ShaderResource);
-				builder.Write(backBuffer, RGResourceState::RenderTarget);
-			},
-			[&](CommandContext& passCtx) 
-			{
-				passCtx.ClearRenderTarget(device->GetCurrentBackBuffer(), clearColor);
-				passCtx.SetRenderTarget(device->GetCurrentBackBuffer(), {});
-				passCtx.SetPipeline(m_debugPipeline);
-				passCtx.BindTexture(m_depthTexture, 0);
-				passCtx.Draw(3, 0);
+				device->UpdateBuffer(m_perObjectCB, &obj.world, sizeof(obj.world));
+				passCtx.BindConstantBuffer(m_perObjectCB, 1);
+				passCtx.SetVertexBuffer(obj.vertexBuffer);
+				passCtx.SetIndexBuffer(obj.indexBuffer);
+				passCtx.BindTexture(obj.material.baseColor, 2);
+				passCtx.BindTexture(obj.material.normal, 3);
+				passCtx.BindTexture(obj.material.metallicRoughness, 4);
+				passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
 			}
-		);
-	}
+		}
+	);
 	*/
+
+	
+	graph.AddPass(
+		"DebugPass",
+		[&](RGBuilder& builder) {
+			builder.Read(depthTexture, RGResourceState::ShaderResource);
+			builder.Read(gbufferAlbedo, RGResourceState::ShaderResource);
+			builder.Read(gbufferNormal, RGResourceState::ShaderResource);
+			builder.Read(gbufferMR, RGResourceState::ShaderResource);
+
+			builder.Write(backBuffer, RGResourceState::RenderTarget);
+		},
+		[&](CommandContext& passCtx) {
+			passCtx.ClearRenderTarget(device->GetCurrentBackBuffer(), clearColor);
+			passCtx.SetRenderTarget(1, device->GetCurrentBackBufferPtr(), {});
+
+			if (debugMode == DebugMode::None)
+			{
+				passCtx.SetPipeline(m_debugPipeline);
+				passCtx.BindTexture(m_gbufferAlbedo, 0);
+			}
+			else if (debugMode == DebugMode::DepthTexture)
+			{
+				passCtx.SetPipeline(m_depthDebugPipeline);
+				passCtx.BindTexture(m_depthTexture, 0);
+			}
+			else if (debugMode == DebugMode::Albedo)
+			{
+				passCtx.SetPipeline(m_debugPipeline);
+				passCtx.BindTexture(m_gbufferAlbedo, 0);
+			}
+			else if (debugMode == DebugMode::Normal)
+			{
+				passCtx.SetPipeline(m_debugPipeline);
+				passCtx.BindTexture(m_gbufferNormal, 0);
+			}
+			else if (debugMode == DebugMode::MR)
+			{
+				passCtx.SetPipeline(m_debugPipeline);
+				passCtx.BindTexture(m_gbufferMR, 0);
+			}
+
+			passCtx.Draw(3, 0);
+		}
+	);
+	
 
 	graph.Compile();
 	graph.Execute(ctx);

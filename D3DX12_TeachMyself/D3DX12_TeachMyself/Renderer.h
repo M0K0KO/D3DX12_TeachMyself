@@ -7,6 +7,9 @@ enum class DebugMode
 {
 	None,
 	DepthTexture,
+	Albedo,
+	Normal,
+	MR
 };
 
 class Renderer
@@ -22,12 +25,20 @@ private:
 	const float clearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
 
 	PipelineHandle m_forwardPipeline;
+	PipelineHandle m_gBufferPassPipeline;
 	PipelineHandle m_depthPrePassPipeline;
+
 	PipelineHandle m_debugPipeline;
+	PipelineHandle m_depthDebugPipeline;
 
 	BufferHandle m_perFrameCB;
 	BufferHandle m_perObjectCB;
+
 	TextureHandle m_depthTexture;
+
+	TextureHandle m_gbufferAlbedo;
+	TextureHandle m_gbufferNormal;
+	TextureHandle m_gbufferMR;
 
 	struct PerFrameData
 	{

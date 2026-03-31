@@ -21,4 +21,5 @@ public:
 	virtual void EndFrame() = 0;
 
 	virtual TextureHandle GetCurrentBackBuffer() = 0;
+	virtual TextureHandle* GetCurrentBackBufferPtr() = 0;
 };

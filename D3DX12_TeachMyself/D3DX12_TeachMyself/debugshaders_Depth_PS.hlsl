@@ -17,6 +17,7 @@ float4 main(VSOut input) : SV_Target
     float linearDepth = nearZ * farZ / (farZ - depth * (farZ - nearZ));
 
     float vis = saturate((linearDepth - 0.1f) / 500.0f);
+    vis = pow(vis, 0.3f);
 
-    return float4(vis, vis, vis, 1.0f);
+    return float4(vis, 0.0f, 0.0f, 1.0f);
 }

@@ -100,7 +100,7 @@ void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uin
 
 	{
 		D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
-		rtvHeapDesc.NumDescriptors = FrameCount;
+		rtvHeapDesc.NumDescriptors = 100;
 		rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 		rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 		HR_CHECK(m_device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap)));
@@ -141,6 +141,7 @@ void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uin
 			rtvHandle.Offset(1, m_rtvDescriptorSize);
 			HR_CHECK(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocators[n])));
 		}
+		m_rtvHeapNextSlot = FrameCount;
 	}
 
 	HR_CHECK(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocators[m_frameIndex].Get(), nullptr, IID_PPV_ARGS(&m_commandList)));
@@ -313,6 +314,57 @@ TextureHandle GraphicsDevice_DX12::CreateTexture(const TextureDesc desc, const v
 	if (desc.usage == TextureUsage::RenderTarget)
 	{
 		// TO DO : PHASE 4
+		D3D12_RESOURCE_DESC textureDesc = {};
+		textureDesc.MipLevels = 1;
+		textureDesc.Format = GetDXGIFormat(desc.format);
+		textureDesc.Width = desc.width;
+		textureDesc.Height = desc.height;
+		textureDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+		textureDesc.DepthOrArraySize = 1;
+		textureDesc.SampleDesc.Count = 1;
+		textureDesc.SampleDesc.Quality = 0;
+		textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+
+		auto defaultHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+
+		HR_CHECK(m_device->CreateCommittedResource(
+			&defaultHeapProps,
+			D3D12_HEAP_FLAG_NONE,
+			&textureDesc,
+			D3D12_RESOURCE_STATE_RENDER_TARGET,
+			nullptr,
+			IID_PPV_ARGS(&texture)));
+
+		UINT rtvHeapSlot = m_rtvHeapNextSlot++;
+		CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(
+			m_rtvHeap->GetCPUDescriptorHandleForHeapStart(),
+			rtvHeapSlot,
+			m_rtvDescriptorSize);
+		m_device->CreateRenderTargetView(texture.Get(), nullptr, rtvHandle);
+
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = GetDXGIFormat(desc.format);
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MipLevels = 1;
+
+		UINT srvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+		UINT srvHeapSlot = m_cbvSrvHeapNextSlot++;
+		CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(
+			m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart(),
+			srvHeapSlot, 
+			srvDescriptorSize);
+		m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle);
+
+		internalTexture.resource = texture;
+		internalTexture.srvHeapSlot = srvHeapSlot;
+		internalTexture.rtvHandle = rtvHandle;
+
+		uint32_t id = m_textures.size();
+		m_textures.push_back(internalTexture);
+
+		return TextureHandle{ id };
 	}
 	else if (desc.usage == TextureUsage::ShaderResource)
 	{
@@ -554,14 +606,16 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 	psoDesc.SampleMask = UINT_MAX;
 	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 
+	int numRT = 0;
 	for (int i = 0; i < desc.rtvFormats.size(); i++)
 	{
 		if (desc.rtvFormats[i] != Format::UNKNOWN)
 		{
-			psoDesc.NumRenderTargets = 1;
-			psoDesc.RTVFormats[0] = GetDXGIFormat(desc.rtvFormats[i]);
+			numRT++;
+			psoDesc.RTVFormats[i] = GetDXGIFormat(desc.rtvFormats[i]);
 		}
 	}
+	psoDesc.NumRenderTargets = numRT;
 
 	if (desc.dsvFormat != Format::UNKNOWN)
 	{
@@ -617,6 +671,7 @@ inline DXGI_FORMAT GraphicsDevice_DX12::GetDXGIFormat(Format format)
 	case Format::R8G8B8A8_UNORM:       return DXGI_FORMAT_R8G8B8A8_UNORM;
 	case Format::R16G16_FLOAT:         return DXGI_FORMAT_R16G16_FLOAT;
 	case Format::R16G16B16A16_FLOAT:   return DXGI_FORMAT_R16G16B16A16_FLOAT;
+	case Format::R16G16B16A16_SNORM:   return DXGI_FORMAT_R16G16B16A16_SNORM;
 	case Format::R32_FLOAT:            return DXGI_FORMAT_R32_FLOAT;
 	case Format::R32G32_FLOAT:         return DXGI_FORMAT_R32G32_FLOAT;
 	case Format::R32G32B32_FLOAT:      return DXGI_FORMAT_R32G32B32_FLOAT;
@@ -671,6 +726,11 @@ inline D3D12_SHADER_VISIBILITY GraphicsDevice_DX12::GetDX12ShaderVisibility(Shad
 	case ShaderVisibility::Vertex: return D3D12_SHADER_VISIBILITY_VERTEX;
 	case ShaderVisibility::Pixel: return D3D12_SHADER_VISIBILITY_PIXEL;
 	}
+}
+
+TextureHandle* GraphicsDevice_DX12::GetCurrentBackBufferPtr()
+{
+	return &(m_backBufferHandles[m_frameIndex]);
 }
 
 TextureHandle GraphicsDevice_DX12::GetCurrentBackBuffer()

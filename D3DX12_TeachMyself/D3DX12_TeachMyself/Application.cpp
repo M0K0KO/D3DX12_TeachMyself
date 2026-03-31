@@ -134,10 +134,30 @@ void Application::Update()
 
 
 	if (wnd.kbd.KeyIsPressed('1'))
+	{
 		m_renderer.ChangeDebugMode(DebugMode::None);
+		wnd.SetTitle(L"DebugMode :: NONE");
+	}
 	else if (wnd.kbd.KeyIsPressed('2'))
+	{
 		m_renderer.ChangeDebugMode(DebugMode::DepthTexture);
-
+		wnd.SetTitle(L"DebugMode :: DEPTH");
+	}
+	else if (wnd.kbd.KeyIsPressed('3'))
+	{
+		m_renderer.ChangeDebugMode(DebugMode::Albedo);
+		wnd.SetTitle(L"DebugMode :: ALBEDO");
+	}
+	else if (wnd.kbd.KeyIsPressed('4'))
+	{
+		m_renderer.ChangeDebugMode(DebugMode::Normal);
+		wnd.SetTitle(L"DebugMode :: NORMAL");
+	}
+	else if (wnd.kbd.KeyIsPressed('5'))
+	{
+		m_renderer.ChangeDebugMode(DebugMode::MR);
+		wnd.SetTitle(L"DebugMode :: METALLIC_ROUGHNESS");
+	}
 
 	if (!wnd.CursorEnabled())
 	{
