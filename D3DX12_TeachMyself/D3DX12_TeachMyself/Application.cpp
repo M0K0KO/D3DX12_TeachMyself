@@ -54,7 +54,8 @@ void Application::Init()
 	std::vector<TextureHandle> gpuTextures;
 	for (auto& tex : sponzaScene.textures)
 	{
-		TextureDesc texDesc = { tex.width, tex.height, Format::R8G8B8A8_UNORM, TextureUsage::ShaderResource };
+		TextureDesc texDesc = { static_cast<uint32_t>(tex.width),  static_cast<uint32_t>(tex.height), 
+			Format::R8G8B8A8_UNORM, TextureUsage::ShaderResource };
 		TextureHandle h = m_device->CreateTexture(texDesc, tex.data.data());
 		gpuTextures.push_back(h);
 	}
@@ -99,6 +100,12 @@ void Application::Update()
 	auto now = std::chrono::high_resolution_clock::now();
 	float deltaTime = std::chrono::duration<float>(now - lastTime).count();
 	lastTime = now;
+
+	float fps = 1.0f / deltaTime;
+
+	char buffer[64];
+	sprintf_s(buffer, "FPS: %.1f\n", fps);
+	OutputDebugStringA(buffer);
 
 	//static float angle = 0.0f;
 	//angle += 0.3f * deltaTime;

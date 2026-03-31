@@ -31,7 +31,7 @@ PSOutput main(PSInput input)
     
     float3 tangentNormal = normalTex.Sample(samp, input.uv).rgb * 2.0f - 1.0f;
     float3 worldNormal = normalize(T * tangentNormal.x + B * tangentNormal.y + N * tangentNormal.z);
-    output.normal = output.normal = float4(worldNormal * 0.5f + 0.5f, 1.0f);
+    output.normal = float4(worldNormal * 0.5f + 0.5f, 1.0f);
     
     float4 mrSample = metallicRoughnessTex.Sample(samp, input.uv);
     output.mr = float4(0.0f, mrSample.g, mrSample.b, 0.0f);

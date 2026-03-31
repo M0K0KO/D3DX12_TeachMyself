@@ -27,12 +27,14 @@ private:
 	PipelineHandle m_forwardPipeline;
 	PipelineHandle m_gBufferPassPipeline;
 	PipelineHandle m_depthPrePassPipeline;
+	PipelineHandle m_lightingPassPipeline;
 
 	PipelineHandle m_debugPipeline;
 	PipelineHandle m_depthDebugPipeline;
 
 	BufferHandle m_perFrameCB;
 	BufferHandle m_perObjectCB;
+	BufferHandle m_lightingDataCB;
 
 	TextureHandle m_depthTexture;
 
@@ -53,6 +55,19 @@ private:
 		XMFLOAT4X4 World;
 	};
 	PerObjectData m_perObjectCBData;
+
+	struct LightingData
+	{
+		XMFLOAT4X4 inverseVP;
+		XMFLOAT3   cameraPos;
+		float      pad0;
+		XMFLOAT3   direction;
+		float      pad1;
+		XMFLOAT3   color;
+		float      pad2;
+		XMFLOAT3   ambient;
+		float      intensity;
+	};
 
 	DebugMode debugMode;
 };

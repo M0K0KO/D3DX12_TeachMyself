@@ -9,7 +9,7 @@ Camera::Camera()
     pitch{ 0.0f },
     yaw{ 0.0f },
     nearZ{ 0.1f },
-    farZ{ 1000.0f },
+    farZ{ 300.0f },
     fovY{ PI / 4.0f }
 {
 }

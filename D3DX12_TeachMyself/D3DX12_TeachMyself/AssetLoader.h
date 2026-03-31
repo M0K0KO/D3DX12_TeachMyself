@@ -10,6 +10,6 @@ public:
 	Mesh::Scene LoadGLTF(const std::string& path);
 
 private:
-	const uint8_t* GetBufferPointer(const tinygltf::Model& model, const const tinygltf::Accessor& acc);
+	const uint8_t* GetBufferPointer(const tinygltf::Model& model, const tinygltf::Accessor& acc);
 };
 
