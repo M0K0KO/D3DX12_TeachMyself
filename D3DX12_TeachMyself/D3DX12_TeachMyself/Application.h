@@ -18,8 +18,9 @@ private:
 	void Render();
 
 private:
-	Window wnd;
 	std::unique_ptr<GraphicsDevice> m_device;
+
+	Window wnd;
 	Scene m_scene;
 	Renderer m_renderer;
 };

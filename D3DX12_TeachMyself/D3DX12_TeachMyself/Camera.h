@@ -10,6 +10,7 @@ public:
 	XMMATRIX GetViewMatrix() const;
 	XMMATRIX GetProjectionMatrix() const;
 	XMFLOAT3 GetPos() const;
+	void SetAspectRatio(UINT width, UINT height);
 	void Translate(XMFLOAT3 translation);
 	void Rotate(float dx, float dy);
 

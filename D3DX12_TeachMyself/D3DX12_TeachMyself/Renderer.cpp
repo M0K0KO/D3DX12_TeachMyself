@@ -2,10 +2,12 @@
 #include "RenderGraph.h"
 #include "ShaderCompiler.h"
 #include "CommandContext.h"
+#include <chrono>
 
 void Renderer::Init(GraphicsDevice* device)
 {
-	debugMode = DebugMode::DepthTexture;
+	m_width = device->GetWidth();
+	m_height = device->GetHeight();
 
 	// Depth Pre Pass
 	auto vsBytecode = ShaderCompiler::CompileFromFile(
@@ -38,17 +40,17 @@ void Renderer::Init(GraphicsDevice* device)
 
 	m_depthPrePassPipeline = device->CreatePipeline(depthPassPSDesc);
 
-	TextureDesc depthTextureDesc = { 1920, 1080, Format::D32_FLOAT, TextureUsage::DepthStencil };
+	TextureDesc depthTextureDesc = { m_width, m_height, Format::D32_FLOAT, TextureUsage::DepthStencil };
 	m_depthTexture = device->CreateTexture(depthTextureDesc, nullptr);
 	// Depth Pre Pass
 
 
 	// GBuffer Pass
-	TextureDesc albedoTextureDesc = { 1920, 1080, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	TextureDesc albedoTextureDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
 	m_gbufferAlbedo = device->CreateTexture(albedoTextureDesc, nullptr);
-	TextureDesc normalTextureDesc = { 1920, 1080, Format::R16G16B16A16_SNORM, TextureUsage::RenderTarget };
+	TextureDesc normalTextureDesc = { m_width, m_height, Format::R16G16B16A16_SNORM, TextureUsage::RenderTarget };
 	m_gbufferNormal = device->CreateTexture(normalTextureDesc, nullptr);
-	TextureDesc mrTextureDesc = { 1920, 1080, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	TextureDesc mrTextureDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
 	m_gbufferMR = device->CreateTexture(mrTextureDesc, nullptr);
 
 	RootSignatureDesc gBufferPassRSDesc = {};
@@ -168,24 +170,24 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 
 	RenderGraph graph(device);
 
-	RGResourceDesc backBufferDesc = { 1920, 1080, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	RGResourceDesc backBufferDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget};
 	auto backBuffer = graph.ImportTexture(device->GetCurrentBackBuffer(), backBufferDesc, RGResourceState::Present);
 
-	RGResourceDesc gbufferAlbedoDesc = { 1920, 1080, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	RGResourceDesc gbufferAlbedoDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
 	auto gbufferAlbedo = graph.ImportTexture(m_gbufferAlbedo, gbufferAlbedoDesc, RGResourceState::RenderTarget);
 
-	RGResourceDesc gbufferNormalDesc = { 1920, 1080, Format::R16G16B16A16_SNORM, TextureUsage::RenderTarget };
+	RGResourceDesc gbufferNormalDesc = { m_width, m_height, Format::R16G16B16A16_SNORM, TextureUsage::RenderTarget };
 	auto gbufferNormal = graph.ImportTexture(m_gbufferNormal, gbufferNormalDesc, RGResourceState::RenderTarget);
 
-	RGResourceDesc gbufferMRDesc = { 1920, 1080, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	RGResourceDesc gbufferMRDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
 	auto gbufferMR = graph.ImportTexture(m_gbufferMR, gbufferMRDesc, RGResourceState::RenderTarget);
 
-	RGResourceDesc depthTextrueDesc = { 1920, 1080, Format::R32_TYPELESS, TextureUsage::DepthStencil };
+	RGResourceDesc depthTextrueDesc = { m_width, m_height, Format::R32_TYPELESS, TextureUsage::DepthStencil };
 	auto depthTexture = graph.ImportTexture(m_depthTexture, depthTextrueDesc, RGResourceState::DepthWrite);
 
 	PerFrameData perFrame;
 	XMMATRIX vp = scene.cam.GetViewMatrix() * scene.cam.GetProjectionMatrix();
-	XMStoreFloat4x4(&perFrame.ViewProj, XMMatrixTranspose(vp));
+	DirectX::XMStoreFloat4x4(&perFrame.ViewProj, XMMatrixTranspose(vp));
 	perFrame.CameraPos = scene.cam.GetPos();
 
 	graph.AddPass(
@@ -227,7 +229,6 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 			passCtx.SetRenderTarget(3, renderTargets, m_depthTexture);
 			passCtx.SetPipeline(m_gBufferPassPipeline);
 
-			device->UpdateBuffer(m_perFrameCB, &perFrame, sizeof(perFrame));
 			passCtx.BindConstantBuffer(m_perFrameCB, 0);
 
 			for (const auto& obj : scene.renderObjects)
@@ -260,11 +261,35 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 				passCtx.SetRenderTarget(1, device->GetCurrentBackBufferPtr(), {});
 				passCtx.SetPipeline(m_lightingPassPipeline);
 
+				static auto lastTime = std::chrono::high_resolution_clock::now();
+				auto now = std::chrono::high_resolution_clock::now();
+				float deltaTime = std::chrono::duration<float>(now - lastTime).count();
+				lastTime = now;
+
 				LightingData lightingData;
 				XMMATRIX inverseVP = XMMatrixInverse(nullptr, vp);
 				XMStoreFloat4x4(&lightingData.inverseVP, XMMatrixTranspose(inverseVP));
 				lightingData.cameraPos = scene.cam.GetPos();
-				lightingData.direction = { 0.4f, -0.82f, 0.4f };
+
+
+				static float time = 0.0f;
+				time += deltaTime * 0.5f;
+
+				float x = sinf(time * 2) * 0.8f;
+
+				lightingData.direction = { x, -0.82f, 0.4f };
+
+				float len = sqrtf(
+					lightingData.direction.x * lightingData.direction.x +
+					lightingData.direction.y * lightingData.direction.y +
+					lightingData.direction.z * lightingData.direction.z);
+
+				lightingData.direction.x /= len;
+				lightingData.direction.y /= len;
+				lightingData.direction.z /= len;
+
+
+
 				lightingData.color = { 1.0f, 1.0f, 1.0f };
 				lightingData.ambient = { 0.07f, 0.07f, 0.07f };
 				lightingData.intensity = 1.1f;

@@ -24,9 +24,11 @@ public:
 private:
 	const float clearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
 
-	PipelineHandle m_forwardPipeline;
-	PipelineHandle m_gBufferPassPipeline;
+	UINT m_width;
+	UINT m_height;
+
 	PipelineHandle m_depthPrePassPipeline;
+	PipelineHandle m_gBufferPassPipeline;
 	PipelineHandle m_lightingPassPipeline;
 
 	PipelineHandle m_debugPipeline;

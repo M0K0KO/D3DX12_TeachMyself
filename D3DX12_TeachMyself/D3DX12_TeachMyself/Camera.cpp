@@ -4,7 +4,7 @@
 
 Camera::Camera()
     :
-    aspectRatio(1920.0f / 1080.0f),
+    aspectRatio(0.0f),
     pos{ 0.0f, 1.0f, 0.0f },
     pitch{ 0.0f },
     yaw{ 0.0f },
@@ -38,6 +38,11 @@ XMMATRIX Camera::GetProjectionMatrix() const
 XMFLOAT3 Camera::GetPos() const
 {
 	return pos;
+}
+
+void Camera::SetAspectRatio(UINT width, UINT height)
+{
+    aspectRatio = static_cast<float>(width) / static_cast<float>(height);
 }
 
 void Camera::Translate(XMFLOAT3 translation)

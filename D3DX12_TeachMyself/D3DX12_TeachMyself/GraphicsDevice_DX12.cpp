@@ -737,3 +737,13 @@ TextureHandle GraphicsDevice_DX12::GetCurrentBackBuffer()
 {
 	return m_backBufferHandles[m_frameIndex];
 }
+
+int GraphicsDevice_DX12::GetWidth()
+{
+	return m_width;
+}
+
+int GraphicsDevice_DX12::GetHeight()
+{
+	return m_height;
+}

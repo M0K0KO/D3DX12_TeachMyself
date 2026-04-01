@@ -29,15 +29,16 @@ int Application::Run()
 
 void Application::Init()
 {
-	m_scene.cam = {};
-
 	HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 
 	m_device = std::make_unique<GraphicsDevice_DX12>();
 	m_device->Initialize(wnd.GetHWND(), wnd.GetWidth(), wnd.GetHeight());
 
+	m_scene.cam = {};
+	m_scene.cam.SetAspectRatio(m_device->GetWidth(), m_device->GetHeight());
+
 	AssetLoader loader;
-	auto sponzaScene = loader.LoadGLTF("C:/PORTFOLIO/Graphics/D3DX12_TeachMyself/D3DX12_TeachMyself/Model/Sponza/Sponza.gltf");
+	auto sponzaScene = loader.LoadGLTF("../Model/Sponza/Sponza.gltf");
 
 	BufferDesc vbDesc = { 
 		static_cast<uint32_t>(sponzaScene.vertices.size() * sizeof(Mesh::Vertex)), 
@@ -86,8 +87,6 @@ void Application::Init()
 			? gpuTextures[mat.metallicRoughnessTexture] : defaultMR;
 
 		XMStoreFloat4x4(&obj.world, XMMatrixIdentity());
-		m_scene.renderObjects.push_back(obj);
-
 		m_scene.renderObjects.push_back(obj);
 	}
 

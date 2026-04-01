@@ -22,4 +22,7 @@ public:
 
 	virtual TextureHandle GetCurrentBackBuffer() = 0;
 	virtual TextureHandle* GetCurrentBackBufferPtr() = 0;
+
+	virtual int GetWidth() = 0;
+	virtual int GetHeight() = 0;
 };

@@ -27,6 +27,9 @@ public:
 	TextureHandle GetCurrentBackBuffer() override;
 	TextureHandle* GetCurrentBackBufferPtr() override;
 
+	int GetWidth() override;
+	int GetHeight() override;
+
 	const ComPtr<ID3D12Resource> GetTextureResource(TextureHandle handle);
 private:
 	inline D3D12_DESCRIPTOR_RANGE_TYPE GetDX12DescriptorRangeType(DescriptorRangeType type);
