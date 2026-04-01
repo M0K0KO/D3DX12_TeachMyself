@@ -8,6 +8,13 @@ void CommandContext_DX12::Init(GraphicsDevice_DX12* pDevice, ID3D12GraphicsComma
 	m_commandList = pCommandList;
 }
 
+CBHandle CommandContext_DX12::UpdateConstantBuffer(UINT slot, const void* data, size_t size)
+{
+	auto alloc = m_pDevice->uploadHeapAllocator->Allocate(size);
+	memcpy(alloc.cpuAddress, data, size);
+	return { alloc.gpuAddress };
+}
+
 void CommandContext_DX12::SetPipeline(PipelineHandle handle)
 {
 	auto internalPSO = m_pDevice->m_pipelines[handle.id];
@@ -40,16 +47,9 @@ void CommandContext_DX12::SetIndexBuffer(BufferHandle handle)
 	m_commandList->IASetIndexBuffer(&bufferView);
 }
 
-void CommandContext_DX12::BindConstantBuffer(BufferHandle handle, uint32_t slot)
+void CommandContext_DX12::BindConstantBuffer(uint32_t slot, CBHandle handle)
 {
-	auto buffer = m_pDevice->m_buffers[handle.id];
-
-	ID3D12DescriptorHeap* ppHeaps[] = { m_pDevice->m_cbvSrvHeap.Get() };
-	m_commandList->SetDescriptorHeaps(1, ppHeaps);
-	UINT descriptorSize = m_pDevice->m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-	CD3DX12_GPU_DESCRIPTOR_HANDLE cbvGpuHandle(m_pDevice->m_cbvSrvHeap->GetGPUDescriptorHandleForHeapStart(), buffer.heapSlot + m_pDevice->m_frameIndex, descriptorSize);
-	m_commandList->SetGraphicsRootDescriptorTable(slot, cbvGpuHandle);
+	m_commandList->SetGraphicsRootConstantBufferView(slot, handle.gpuAddress);
 }
 
 void CommandContext_DX12::BindTexture(TextureHandle handle, uint32_t slot)

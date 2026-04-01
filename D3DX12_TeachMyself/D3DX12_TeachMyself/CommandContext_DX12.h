@@ -13,7 +13,8 @@ public:
 	void SetPipeline(PipelineHandle handle) override;
 	void SetVertexBuffer(BufferHandle handle) override;
 	void SetIndexBuffer(BufferHandle handle) override;
-	void BindConstantBuffer(BufferHandle handle, uint32_t slot) override;
+	CBHandle UpdateConstantBuffer(UINT slot, const void* data, size_t size) override;
+	void BindConstantBuffer(uint32_t slot, CBHandle handle) override;
 	void BindTexture(TextureHandle handle, uint32_t slot) override;
 	void TransitionBarrier(TextureHandle handle, RGResourceState before, RGResourceState after) override;
 	void ClearRenderTarget(TextureHandle handle, const float clearValue[4]) override;

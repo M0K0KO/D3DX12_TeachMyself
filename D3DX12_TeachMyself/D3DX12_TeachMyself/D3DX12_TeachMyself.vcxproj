@@ -215,6 +215,7 @@ DirectXTex.lib;%(AdditionalDependencies)</AdditionalDependencies>
     <ClInclude Include="stb_image_write.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="tiny_gltf.h" />
+    <ClInclude Include="UploadHeapRingAllocator.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>
@@ -229,6 +230,7 @@ DirectXTex.lib;%(AdditionalDependencies)</AdditionalDependencies>
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="RenderGraph.cpp" />
     <ClCompile Include="stdafx.cpp" />
+    <ClCompile Include="UploadHeapRingAllocator.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>

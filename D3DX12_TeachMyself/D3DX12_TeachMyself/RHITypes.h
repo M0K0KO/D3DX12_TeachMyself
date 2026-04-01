@@ -68,12 +68,18 @@ enum class RGResourceState
 	CopyDest,
 };
 
-enum class DescriptorRangeType
+enum class RangeType
 {
 	SRV,
 	UAV,
 	CBV,
 	Sampler
+};
+
+enum class RootParamType
+{
+	DescriptorTable,
+	RootCBV
 };
 
 enum class ShaderVisibility
@@ -83,6 +89,10 @@ enum class ShaderVisibility
 	All,
 };
 
+struct CBHandle
+{
+	unsigned long long gpuAddress;
+};
 
 struct BufferHandle 
 { 
@@ -132,19 +142,20 @@ struct ShaderBytecode
 	std::shared_ptr<void> blob;
 };
 
-struct RootParamDesc
-{
-	DescriptorRangeType rangeType;
-	uint32_t baseRegister;
-	uint32_t numDescriptors = 1;
-	ShaderVisibility visibility;
-};
-
 struct GPUMaterial
 {
 	TextureHandle baseColor;
 	TextureHandle normal;
 	TextureHandle metallicRoughness;
+};
+
+struct RootParamDesc
+{
+	RootParamType type = RootParamType::DescriptorTable;
+	RangeType rangeType;
+	uint32_t baseRegister;
+	uint32_t numDescriptors = 1;
+	ShaderVisibility visibility;
 };
 
 struct RootSignatureDesc

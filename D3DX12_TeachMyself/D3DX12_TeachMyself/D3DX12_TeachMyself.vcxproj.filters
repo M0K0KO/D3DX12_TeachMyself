@@ -52,6 +52,12 @@
     <Filter Include="Source Files\Input">
       <UniqueIdentifier>{c32aaec2-318b-4eb6-951b-431d5c62573b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Allocator">
+      <UniqueIdentifier>{46c0df80-ea80-415e-a362-781aa4953a9f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Allocator">
+      <UniqueIdentifier>{25226278-a6b8-4495-a0b8-c337ee91ed4d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -89,6 +95,9 @@
     </ClCompile>
     <ClCompile Include="Mouse.cpp">
       <Filter>Source Files\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="UploadHeapRingAllocator.cpp">
+      <Filter>Source Files\Allocator</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -166,6 +175,9 @@
     </ClInclude>
     <ClInclude Include="MokoMath.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="UploadHeapRingAllocator.h">
+      <Filter>Header Files\Allocator</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

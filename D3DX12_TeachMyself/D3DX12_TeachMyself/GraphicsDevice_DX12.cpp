@@ -161,6 +161,8 @@ void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uin
 
 		WaitForGpu();
 	}
+
+	uploadHeapAllocator = std::make_unique<UploadHeapRingAllocator>(m_device.Get(), m_fence.Get());
 }
 
 void GraphicsDevice_DX12::WaitForGpu()
@@ -176,6 +178,8 @@ void GraphicsDevice_DX12::MoveToNextFrame()
 	UINT64 currentFenceValue = m_fenceValues[m_frameIndex];
 
 	HR_CHECK(m_commandQueue->Signal(m_fence.Get(), m_fenceValues[m_frameIndex]));
+
+	uploadHeapAllocator->FinishFrame(currentFenceValue);
 
 	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
 	if (m_fence->GetCompletedValue() < m_fenceValues[m_frameIndex])
@@ -197,6 +201,8 @@ CommandContext& GraphicsDevice_DX12::BeginFrame()
 
 	ID3D12DescriptorHeap* ppHeaps[] = { m_cbvSrvHeap.Get() };
 	m_commandList->SetDescriptorHeaps(1, ppHeaps);
+
+	uploadHeapAllocator->ReleaseCompleted();
 
 	return m_commandContext;
 }
@@ -221,87 +227,37 @@ void GraphicsDevice_DX12::Shutdown()
 
 BufferHandle GraphicsDevice_DX12::CreateBuffer(const BufferDesc desc, const void* initialData)
 {
-	if (desc.usage == BufferUsage::Constant)
+	InternalBuffer internalBuffer;
+	internalBuffer.desc = desc;
+
+	ComPtr<ID3D12Resource> buffer;
+	UINT8* bufferDataBegin = nullptr;
+
+	auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+	auto resDesc = CD3DX12_RESOURCE_DESC::Buffer(desc.size);
+
+	HR_CHECK(m_device->CreateCommittedResource(
+		&heapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&resDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&buffer)));
+
+	internalBuffer.resource = buffer;
+
+	if (initialData)
 	{
-		InternalBuffer internalBuffer;
-		internalBuffer.desc = desc;
-
-		UINT descriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-		internalBuffer.heapSlot = m_cbvSrvHeapNextSlot;
-		m_cbvSrvHeapNextSlot += FrameCount;
-
-		for (UINT n = 0; n < FrameCount; n++)
-		{
-			ComPtr<ID3D12Resource> constantBuffer;
-			UINT8* bufferDataBegin;
-
-			UINT alignedSize = Align256(desc.size);
-
-			auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-			auto resDesc = CD3DX12_RESOURCE_DESC::Buffer(alignedSize);
-
-			HR_CHECK(m_device->CreateCommittedResource(
-				&heapProps,
-				D3D12_HEAP_FLAG_NONE,
-				&resDesc,
-				D3D12_RESOURCE_STATE_GENERIC_READ,
-				nullptr,
-				IID_PPV_ARGS(&constantBuffer)));
-
-			CD3DX12_RANGE readRange(0, 0);
-			HR_CHECK(constantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&bufferDataBegin)));
-
-			internalBuffer.frameResources[n] = constantBuffer;
-			internalBuffer.mappedPointers[n] = bufferDataBegin;
-
-			D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
-			cbvDesc.BufferLocation = constantBuffer->GetGPUVirtualAddress();
-			cbvDesc.SizeInBytes = alignedSize;
-
-			CD3DX12_CPU_DESCRIPTOR_HANDLE cbvHandle(m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart(), internalBuffer.heapSlot + n, descriptorSize);
-			m_device->CreateConstantBufferView(&cbvDesc, cbvHandle);
-		}
-
-		uint32_t id = m_buffers.size();
-		m_buffers.push_back(internalBuffer);
-
-		return BufferHandle{ id };
+		CD3DX12_RANGE readRange(0, 0);
+		HR_CHECK(buffer->Map(0, &readRange, reinterpret_cast<void**>(&bufferDataBegin)));
+		memcpy(bufferDataBegin, initialData, desc.size);
+		buffer->Unmap(0, nullptr);
 	}
-	else
-	{
-		InternalBuffer internalBuffer;
-		internalBuffer.desc = desc;
 
-		ComPtr<ID3D12Resource> buffer;
-		UINT8* bufferDataBegin = nullptr;
+	uint32_t id = m_buffers.size();
+	m_buffers.push_back(internalBuffer);
 
-		auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-		auto resDesc = CD3DX12_RESOURCE_DESC::Buffer(desc.size);
-
-		HR_CHECK(m_device->CreateCommittedResource(
-			&heapProps,
-			D3D12_HEAP_FLAG_NONE,
-			&resDesc,
-			D3D12_RESOURCE_STATE_GENERIC_READ,
-			nullptr,
-			IID_PPV_ARGS(&buffer)));
-
-		internalBuffer.resource = buffer;
-
-		if (initialData)
-		{
-			CD3DX12_RANGE readRange(0, 0);
-			HR_CHECK(buffer->Map(0, &readRange, reinterpret_cast<void**>(&bufferDataBegin)));
-			memcpy(bufferDataBegin, initialData, desc.size);
-			buffer->Unmap(0, nullptr);
-		}
-
-		uint32_t id = m_buffers.size();
-		m_buffers.push_back(internalBuffer);
-
-		return BufferHandle{ id };
-	}
+	return BufferHandle{ id };
 }
 
 TextureHandle GraphicsDevice_DX12::CreateTexture(const TextureDesc desc, const void* initialData)
@@ -537,19 +493,31 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 	{
 		auto rootParamDesc = desc.rootSignatureDesc.rootParamDescs[i];
 
-		ranges.push_back({});
-		ranges[i].Init(
-			GetDX12DescriptorRangeType(rootParamDesc.rangeType),
-			rootParamDesc.numDescriptors,
-			rootParamDesc.baseRegister,
-			0, 
-			D3D12_DESCRIPTOR_RANGE_FLAG_NONE);
-		
-		rootParameters.push_back({});
-		rootParameters[i].InitAsDescriptorTable(
-			1,
-			&ranges[i], 
-			GetDX12ShaderVisibility(rootParamDesc.visibility));
+		if (rootParamDesc.type == RootParamType::RootCBV)
+		{
+			rootParameters.push_back({});
+			rootParameters[i].InitAsConstantBufferView(
+				rootParamDesc.baseRegister,
+				0,
+				D3D12_ROOT_DESCRIPTOR_FLAG_NONE,
+				GetDX12ShaderVisibility(rootParamDesc.visibility));
+		}
+		else
+		{
+			ranges.push_back({});
+			ranges.back().Init(
+				GetDX12DescriptorRangeType(rootParamDesc.rangeType),
+				rootParamDesc.numDescriptors,
+				rootParamDesc.baseRegister,
+				0,
+				D3D12_DESCRIPTOR_RANGE_FLAG_NONE);
+
+			rootParameters.push_back({});
+			rootParameters[i].InitAsDescriptorTable(
+				1,
+				&ranges.back(),
+				GetDX12ShaderVisibility(rootParamDesc.visibility));
+		}
 	}
 
 	// TODO : SAMPLER ABSTRACTION
@@ -696,25 +664,21 @@ inline D3D12_COMPARISON_FUNC GraphicsDevice_DX12::GetDX12ComparisonFunc(Comparis
 	}
 }
 
-void GraphicsDevice_DX12::UpdateBuffer(const BufferHandle handle, const void* data, const uint32_t size)
-{
-	auto mappedPointer = m_buffers[handle.id].mappedPointers[m_frameIndex];
-	memcpy(mappedPointer, data, size);
-}
+
 
 const ComPtr<ID3D12Resource> GraphicsDevice_DX12::GetTextureResource(TextureHandle handle)
 {
 	return m_textures[handle.id].resource;
 }
 
-inline D3D12_DESCRIPTOR_RANGE_TYPE GraphicsDevice_DX12::GetDX12DescriptorRangeType(DescriptorRangeType type)
+inline D3D12_DESCRIPTOR_RANGE_TYPE GraphicsDevice_DX12::GetDX12DescriptorRangeType(RangeType type)
 {
 	switch (type)
 	{
-	case DescriptorRangeType::SRV:		return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	case DescriptorRangeType::UAV:		return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-	case DescriptorRangeType::CBV:		return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-	case DescriptorRangeType::Sampler:  return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;;
+	case RangeType::SRV:		return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	case RangeType::UAV:		return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+	case RangeType::CBV:		return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+	case RangeType::Sampler:  return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;;
 	}
 }
 

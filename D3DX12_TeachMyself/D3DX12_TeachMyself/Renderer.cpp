@@ -30,8 +30,8 @@ void Renderer::Init(GraphicsDevice* device)
 
 
 	RootSignatureDesc depthPassRSDesc = {};
-	depthPassRSDesc.rootParamDescs.push_back({DescriptorRangeType::CBV, 0, 1, ShaderVisibility::Vertex});
-	depthPassRSDesc.rootParamDescs.push_back({DescriptorRangeType::CBV, 1, 1, ShaderVisibility::Vertex});
+	depthPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Vertex });
+	depthPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 1, ShaderVisibility::Vertex });
 
 	PipelineDesc depthPassPSDesc = {
 		depthPassRSDesc,
@@ -54,11 +54,11 @@ void Renderer::Init(GraphicsDevice* device)
 	m_gbufferMR = device->CreateTexture(mrTextureDesc, nullptr);
 
 	RootSignatureDesc gBufferPassRSDesc = {};
-	gBufferPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::CBV, 0, 1, ShaderVisibility::Vertex });
-	gBufferPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::CBV, 1, 1, ShaderVisibility::Vertex });
-	gBufferPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 0, 1, ShaderVisibility::Pixel });
-	gBufferPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 1, 1, ShaderVisibility::Pixel });
-	gBufferPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 2, 1, ShaderVisibility::Pixel });
+	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Vertex });
+	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 1, ShaderVisibility::Vertex });
+	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
+	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::Pixel });
+	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::Pixel });
 
 	auto gBufferVS = ShaderCompiler::CompileFromFile(
 		L"shaders_GBuffer_VS.hlsl",
@@ -83,11 +83,11 @@ void Renderer::Init(GraphicsDevice* device)
 
 
 	RootSignatureDesc lightingPassRSDesc = {};
-	lightingPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::CBV, 0, 1, ShaderVisibility::Pixel });
-	lightingPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 0, 1, ShaderVisibility::Pixel });
-	lightingPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 1, 1, ShaderVisibility::Pixel });
-	lightingPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 2, 1, ShaderVisibility::Pixel });
-	lightingPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 3, 1, ShaderVisibility::Pixel });
+	lightingPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Pixel });
+	lightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
+	lightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::Pixel });
+	lightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::Pixel });
+	lightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 3, 1, ShaderVisibility::Pixel });
 
 	auto lightingPassVS = ShaderCompiler::CompileFromFile(
 		L"shaders_Lighting_VS.hlsl",
@@ -130,7 +130,7 @@ void Renderer::Init(GraphicsDevice* device)
 	);
 
 	RootSignatureDesc debugPassRSDesc = {};
-	debugPassRSDesc.rootParamDescs.push_back({ DescriptorRangeType::SRV, 0, 1, ShaderVisibility::Pixel });
+	debugPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
 
 	PipelineDesc debugPassDesc = {
 		debugPassRSDesc,
@@ -152,16 +152,6 @@ void Renderer::Init(GraphicsDevice* device)
 
 	debugMode = DebugMode::None;
 	// Debug
-
-
-	BufferDesc perFrameCBDesc = { sizeof(PerFrameData), 0, BufferUsage::Constant, MemoryAccess::GpuOnly };
-	m_perFrameCB = device->CreateBuffer(perFrameCBDesc);
-
-	BufferDesc perObjectCBDesc = { sizeof(PerObjectData), 0, BufferUsage::Constant, MemoryAccess::GpuOnly };
-	m_perObjectCB = device->CreateBuffer(perObjectCBDesc);
-
-	BufferDesc lightingDataCBDesc = { sizeof(LightingData), 0, BufferUsage::Constant, MemoryAccess::GpuOnly };
-	m_lightingDataCB = device->CreateBuffer(lightingDataCBDesc);
 }
 
 void Renderer::Render(GraphicsDevice* device, const Scene& scene)
@@ -190,6 +180,8 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	DirectX::XMStoreFloat4x4(&perFrame.ViewProj, XMMatrixTranspose(vp));
 	perFrame.CameraPos = scene.cam.GetPos();
 
+	CBHandle perFrameCBHandle;
+
 	graph.AddPass(
 		"DepthPrePass",
 		[&](RGBuilder& builder) {
@@ -200,13 +192,13 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 			passCtx.SetRenderTarget(0, {}, m_depthTexture);
 			passCtx.SetPipeline(m_depthPrePassPipeline);
 
-			device->UpdateBuffer(m_perFrameCB, &perFrame, sizeof(perFrame));
-			passCtx.BindConstantBuffer(m_perFrameCB, 0);
+			perFrameCBHandle = passCtx.UpdateConstantBuffer(0, &perFrame, sizeof(perFrame));
+			passCtx.BindConstantBuffer(0, perFrameCBHandle);
 
 			for (const auto& obj : scene.renderObjects)
 			{
-				device->UpdateBuffer(m_perObjectCB, &obj.world, sizeof(obj.world));
-				passCtx.BindConstantBuffer(m_perObjectCB, 1);
+				auto perObjectCBHandle = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
+				passCtx.BindConstantBuffer(1, perObjectCBHandle);
 				passCtx.SetVertexBuffer(obj.vertexBuffer);
 				passCtx.SetIndexBuffer(obj.indexBuffer);
 				passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
@@ -229,12 +221,12 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 			passCtx.SetRenderTarget(3, renderTargets, m_depthTexture);
 			passCtx.SetPipeline(m_gBufferPassPipeline);
 
-			passCtx.BindConstantBuffer(m_perFrameCB, 0);
+			passCtx.BindConstantBuffer(0, perFrameCBHandle);
 
 			for (const auto& obj : scene.renderObjects)
 			{
-				device->UpdateBuffer(m_perObjectCB, &obj.world, sizeof(obj.world));
-				passCtx.BindConstantBuffer(m_perObjectCB, 1);
+				auto perObjectCBHandle = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
+				passCtx.BindConstantBuffer(1, perObjectCBHandle);
 				passCtx.SetVertexBuffer(obj.vertexBuffer);
 				passCtx.SetIndexBuffer(obj.indexBuffer);
 				passCtx.BindTexture(obj.material.baseColor, 2);
@@ -294,8 +286,8 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 				lightingData.ambient = { 0.07f, 0.07f, 0.07f };
 				lightingData.intensity = 1.1f;
 
-				device->UpdateBuffer(m_lightingDataCB, &lightingData, sizeof(lightingData));
-				passCtx.BindConstantBuffer(m_lightingDataCB, 0);
+				auto ligthDataCBHandle = passCtx.UpdateConstantBuffer(0, &lightingData, sizeof(lightingData));
+				passCtx.BindConstantBuffer(0, ligthDataCBHandle);
 
 				passCtx.BindTexture(m_depthTexture, 1);
 				passCtx.BindTexture(m_gbufferAlbedo, 2);

@@ -6,8 +6,8 @@ using namespace Microsoft::WRL;
 
 struct UploadAllocation
 {
-	void* cpuAddress;  // memcpy 대상
-	D3D12_GPU_VIRTUAL_ADDRESS    gpuAddress;  // CBV 바인딩용
+	void* cpuAddress;  // memcpy target
+	D3D12_GPU_VIRTUAL_ADDRESS    gpuAddress;  // CBV binding
 	UINT                         offset;
 };
 
@@ -29,8 +29,8 @@ private:
 	UINT AlignUp(UINT value, UINT alignment);
 
 	ComPtr<ID3D12Resource>  m_resource;
-	ID3D12Fence* m_fence;       // 비소유, 외부 수명 보장
-	void* m_cpuBase;     // Map으로 얻은 포인터
+	ID3D12Fence* m_fence;   
+	void* m_cpuBase;     // ptr obtained by map()
 	D3D12_GPU_VIRTUAL_ADDRESS m_gpuBase;
 	
 	UINT m_head = 0;

@@ -15,8 +15,6 @@ public:
 	virtual TextureHandle CreateTexture(const TextureDesc desc, const void* initialData = nullptr) = 0;
 	virtual PipelineHandle CreatePipeline(const PipelineDesc desc) = 0;
 
-	virtual void UpdateBuffer(const BufferHandle handle, const void* data, const uint32_t size) = 0;
-
 	virtual CommandContext& BeginFrame() = 0;
 	virtual void EndFrame() = 0;
 

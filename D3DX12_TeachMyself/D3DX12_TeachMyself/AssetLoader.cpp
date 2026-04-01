@@ -36,14 +36,6 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
         if (!img.uri.empty())
         {
             scene.textures[i].path = (baseDir / img.uri).wstring();
-
-            int w, h, ch;
-            unsigned char* pixels = stbi_load((baseDir / img.uri).string().c_str(), &w, &h, &ch, 4);
-            scene.textures[i].width = w;
-            scene.textures[i].height = h;
-            scene.textures[i].channels = 4;
-            scene.textures[i].data.assign(pixels, pixels + (w * h * 4));
-            stbi_image_free(pixels);
         }
         else
         {

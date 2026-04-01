@@ -2,6 +2,7 @@
 #include "stdafx.h"
 #include "GraphicsDevice.h"
 #include "CommandContext_DX12.h"
+#include "UploadHeapRingAllocator.h"
 
 using namespace Microsoft::WRL;
 using namespace DirectX;
@@ -19,8 +20,6 @@ public:
 	TextureHandle CreateTexture(const TextureDesc desc, const void* initialData = nullptr) override;
 	PipelineHandle CreatePipeline(const PipelineDesc desc) override;
 
-	void UpdateBuffer(const BufferHandle handle, const void* data, const uint32_t size) override;
-
 	CommandContext& BeginFrame() override;
 	void EndFrame() override;
 
@@ -32,7 +31,7 @@ public:
 
 	const ComPtr<ID3D12Resource> GetTextureResource(TextureHandle handle);
 private:
-	inline D3D12_DESCRIPTOR_RANGE_TYPE GetDX12DescriptorRangeType(DescriptorRangeType type);
+	inline D3D12_DESCRIPTOR_RANGE_TYPE GetDX12DescriptorRangeType(RangeType type);
 	inline D3D12_SHADER_VISIBILITY GetDX12ShaderVisibility(ShaderVisibility visibility);
 	inline D3D12_COMPARISON_FUNC GetDX12ComparisonFunc(ComparisonFunc func);
 	inline DXGI_FORMAT GetDXGIFormat(Format format);
@@ -55,6 +54,8 @@ private:
 	HANDLE m_fenceEvent;
 	ComPtr<ID3D12Fence> m_fence;
 	UINT64 m_fenceValues[FrameCount];
+
+	std::unique_ptr<UploadHeapRingAllocator> uploadHeapAllocator;
 
 	CD3DX12_VIEWPORT m_viewport;
 	CD3DX12_RECT m_scissorRect;
