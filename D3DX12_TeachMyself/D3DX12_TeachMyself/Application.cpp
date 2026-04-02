@@ -225,6 +225,7 @@ void Application::Render()
 		m_device->ResizeSwapChain(m_pendingWidth, m_pendingHeight);
 		m_renderer.OnResize(m_pendingWidth, m_pendingHeight);
 		m_needsResize = false;
+		return;
 	}
 	m_renderer.Render(m_device.get(), m_scene);
 }
