@@ -59,6 +59,7 @@ void Renderer::Init(GraphicsDevice* device)
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::Pixel });
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::Pixel });
+	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 2, 3, ShaderVisibility::Pixel });
 	gBufferPassRSDesc.staticSamplers.push_back({ SamplerFilter::Anisotropic, SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
 
 
@@ -94,7 +95,7 @@ void Renderer::Init(GraphicsDevice* device)
 	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
 	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::Pixel });
 	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::Pixel });
-	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 2, 1, ShaderVisibility::Pixel });
+	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 2, 3, ShaderVisibility::Pixel });
 	gBufferAlphaPassRSDesc.staticSamplers.push_back({ SamplerFilter::Anisotropic, SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
 
 
@@ -147,6 +148,37 @@ void Renderer::Init(GraphicsDevice* device)
 	m_lightingPassPipeline = device->CreatePipeline(m_lightingPassPipelineDesc);
 	// Lighting Pass
 
+	// PBR Pass
+	RootSignatureDesc PBRlightingPassRSDesc = {};
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 3, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.staticSamplers.push_back({ SamplerFilter::Point, SamplerAddressMode::Clamp, 0, ShaderVisibility::Pixel });
+
+	m_PBRlightingVS = ShaderCompiler::CompileFromFile(
+		L"shaders_PBRLighting_VS.hlsl",
+		"main",
+		"vs_5_0"
+	);
+
+	m_PBRlightingPS = ShaderCompiler::CompileFromFile(
+		L"shaders_PBRLighting_PS.hlsl",
+		"main",
+		"ps_5_0"
+	);
+
+	m_PBRlightingPassPipelineDesc = {
+		PBRlightingPassRSDesc,
+		ShaderCompiler::GetBytecode(m_PBRlightingVS), ShaderCompiler::GetBytecode(m_PBRlightingPS), vertexAttributes,
+		{ Format::R8G8B8A8_UNORM },
+		Format::UNKNOWN,
+		false, false, ComparisonFunc::Equal,
+		CullMode::None };
+	m_PBRlightingPassPipeline = device->CreatePipeline(m_PBRlightingPassPipelineDesc);
+	// PBR Pass
+
 
 
 
@@ -196,7 +228,7 @@ void Renderer::Init(GraphicsDevice* device)
 
 	m_depthDebugPipeline = device->CreatePipeline(m_depthDebugPipelineDesc);
 
-	debugMode = DebugMode::None;
+	debugMode = DebugMode::PBR_Disabled;
 	// Debug
 }
 
@@ -244,6 +276,17 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 		ShaderCompiler::ClearDirty(m_debugVS);
 		ShaderCompiler::ClearDirty(m_debugPS);
 		ShaderCompiler::ClearDirty(m_depthDebugPS);
+	}
+
+	if (ShaderCompiler::IsDirty(m_PBRlightingVS) || ShaderCompiler::IsDirty(m_PBRlightingPS))
+	{
+		m_PBRlightingPassPipelineDesc.vs = ShaderCompiler::GetBytecode(m_PBRlightingVS);
+		m_PBRlightingPassPipelineDesc.ps = ShaderCompiler::GetBytecode(m_PBRlightingPS);
+
+		m_PBRlightingPassPipeline = device->CreatePipeline(m_PBRlightingPassPipelineDesc);
+
+		ShaderCompiler::ClearDirty(m_PBRlightingVS);
+		ShaderCompiler::ClearDirty(m_PBRlightingPS);
 	}
 
 	if (m_needsResize)
@@ -332,6 +375,13 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 				{
 					if (obj.material.alphaMode == AlphaMode::Opaque)
 					{
+						MaterialConstants matConst;
+						matConst.alphaCutoff = obj.material.alphaCutoff;
+						matConst.metallicFactor = obj.material.metallicFactor;
+						matConst.roughnessFactor = obj.material.roughnessFactor;
+
+						passCtx.SetRootConstants(5, &matConst, 3);
+
 						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
 						passCtx.BindConstantBuffer(1, perObjectCBHandle);
 						passCtx.SetVertexBuffer(obj.vertexBuffer);
@@ -366,8 +416,13 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 				{
 					if (obj.material.alphaMode == AlphaMode::Mask)
 					{
-						float cutoff = obj.material.alphaCutoff;
-						passCtx.SetRootConstants(5, &cutoff, 1);
+						MaterialConstants matConst;
+						matConst.alphaCutoff = obj.material.alphaCutoff;
+						matConst.metallicFactor = obj.material.metallicFactor;
+						matConst.roughnessFactor = obj.material.roughnessFactor;
+
+						passCtx.SetRootConstants(5, &matConst, 3);
+
 						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
 						passCtx.BindConstantBuffer(1, perObjectCBHandle);
 						passCtx.SetVertexBuffer(obj.vertexBuffer);
@@ -383,7 +438,50 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 		}
 	);
 
-	if (debugMode == DebugMode::None)
+	if (debugMode == DebugMode::PBR_Enabled)
+	{
+		graph.AddPass(
+			"PBRLightingPass",
+			[&](RGBuilder& builder) {
+				builder.Read(depthTexture, RGResourceState::ShaderResource);
+				builder.Read(gbufferAlbedo, RGResourceState::ShaderResource);
+				builder.Read(gbufferNormal, RGResourceState::ShaderResource);
+				builder.Read(gbufferMR, RGResourceState::ShaderResource);
+				builder.Write(backBuffer, RGResourceState::RenderTarget);
+			},
+			[&](CommandContext& passCtx) {
+				passCtx.BeginTimestamp(PassID::PBRLightingPass);
+				{
+					passCtx.ClearRenderTarget(device->GetCurrentBackBuffer(), clearColor);
+					passCtx.SetRenderTarget(1, device->GetCurrentBackBufferPtr(), {});
+					passCtx.SetPipeline(m_PBRlightingPassPipeline);
+
+					PBRLightingData PBRlightingData;
+					XMMATRIX inverseVP = XMMatrixInverse(nullptr, vp);
+					XMStoreFloat4x4(&PBRlightingData.gInvViewProj, XMMatrixTranspose(inverseVP));
+					PBRlightingData.gCameraPos = scene.cam.GetPos();
+					PBRlightingData.gLightDir = { 1.0f, -0.82f, 0.4f };
+					float len = sqrtf(
+						PBRlightingData.gLightDir.x * PBRlightingData.gLightDir.x +
+						PBRlightingData.gLightDir.y * PBRlightingData.gLightDir.y +
+						PBRlightingData.gLightDir.z * PBRlightingData.gLightDir.z);
+					PBRlightingData.gLightDir = { 1.0f / len, -0.82f / len, 0.4f / len };
+					PBRlightingData.gLightColor = { 20.0f, 20.0f, 20.0f };
+					auto PBRligthDataCBHandle = passCtx.UpdateConstantBuffer(0, &PBRlightingData, sizeof(PBRlightingData));
+					passCtx.BindConstantBuffer(0, PBRligthDataCBHandle);
+
+					passCtx.BindTexture(m_depthTexture, 1);
+					passCtx.BindTexture(m_gbufferAlbedo, 2);
+					passCtx.BindTexture(m_gbufferNormal, 3);
+					passCtx.BindTexture(m_gbufferMR, 4);
+
+					passCtx.Draw(3, 0);
+				}
+				passCtx.EndTimestamp(PassID::PBRLightingPass);
+			}
+		);
+	}
+	else if (debugMode == DebugMode::PBR_Disabled)
 	{
 		graph.AddPass(
 			"LightingPass",
@@ -401,23 +499,11 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 					passCtx.SetRenderTarget(1, device->GetCurrentBackBufferPtr(), {});
 					passCtx.SetPipeline(m_lightingPassPipeline);
 
-					static auto lastTime = std::chrono::high_resolution_clock::now();
-					auto now = std::chrono::high_resolution_clock::now();
-					float deltaTime = std::chrono::duration<float>(now - lastTime).count();
-					lastTime = now;
-
 					LightingData lightingData;
 					XMMATRIX inverseVP = XMMatrixInverse(nullptr, vp);
 					XMStoreFloat4x4(&lightingData.inverseVP, XMMatrixTranspose(inverseVP));
 					lightingData.cameraPos = scene.cam.GetPos();
-
-
-					static float time = 0.0f;
-					time += deltaTime * 0.5f;
-
-					float x = sinf(time * 2) * 0.8f;
-
-					lightingData.direction = { x, -0.82f, 0.4f };
+					lightingData.direction = { 1.0f, -0.82f, 0.4f };
 
 					float len = sqrtf(
 						lightingData.direction.x * lightingData.direction.x +
@@ -427,8 +513,6 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 					lightingData.direction.x /= len;
 					lightingData.direction.y /= len;
 					lightingData.direction.z /= len;
-
-
 
 					lightingData.color = { 1.0f, 1.0f, 1.0f };
 					lightingData.ambient = { 0.07f, 0.07f, 0.07f };

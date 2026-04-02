@@ -83,6 +83,9 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
             mat.alphaMode = AlphaMode::Blend;
         }
 
+        mat.metallicFactor = static_cast<float>(gltfMat.pbrMetallicRoughness.metallicFactor);
+        mat.roughnessFactor = static_cast<float>(gltfMat.pbrMetallicRoughness.roughnessFactor);
+
         scene.materials.push_back(mat);
     }
 

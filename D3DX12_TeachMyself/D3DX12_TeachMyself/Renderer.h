@@ -7,6 +7,8 @@
 enum class DebugMode
 {
 	None,
+	PBR_Enabled,
+	PBR_Disabled,
 	DepthTexture,
 	Albedo,
 	Normal,
@@ -49,6 +51,11 @@ private:
 	ShaderHandle m_lightingPS;
 	PipelineDesc m_lightingPassPipelineDesc;
 	PipelineHandle m_lightingPassPipeline;
+
+	ShaderHandle m_PBRlightingVS;
+	ShaderHandle m_PBRlightingPS;
+	PipelineDesc m_PBRlightingPassPipelineDesc;
+	PipelineHandle m_PBRlightingPassPipeline;
 
 	ShaderHandle m_debugVS;
 	ShaderHandle m_debugPS;
@@ -94,6 +101,25 @@ private:
 		float      pad2;
 		XMFLOAT3   ambient;
 		float      intensity;
+	};
+
+	struct PBRLightingData
+	{
+		XMFLOAT4X4 gInvViewProj;
+		XMFLOAT3 gCameraPos;
+		float pad0;
+		XMFLOAT3 gLightDir;
+		float pad1;
+		XMFLOAT3 gLightColor;
+		float pad2;
+	};
+
+	struct MaterialConstants
+	{
+		float alphaCutoff;
+		float metallicFactor;
+		float roughnessFactor;
+		float _pad;
 	};
 
 	DebugMode debugMode;

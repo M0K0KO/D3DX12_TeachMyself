@@ -156,8 +156,13 @@ void Application::Update()
 
 	if (wnd.kbd.KeyIsPressed('1'))
 	{
-		m_renderer.ChangeDebugMode(DebugMode::None);
-		wnd.SetTitle(L"DebugMode :: NONE");
+		m_renderer.ChangeDebugMode(DebugMode::PBR_Enabled);
+		wnd.SetTitle(L"DebugMode :: PBR ENABLED");
+	}
+	else if (wnd.kbd.KeyIsPressed('2'))
+	{
+		m_renderer.ChangeDebugMode(DebugMode::PBR_Disabled);
+		wnd.SetTitle(L"DebugMode :: PBR DISABLED");
 	}
 	else if (wnd.kbd.KeyIsPressed('2'))
 	{

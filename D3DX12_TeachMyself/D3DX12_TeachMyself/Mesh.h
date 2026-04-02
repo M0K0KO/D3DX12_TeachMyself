@@ -24,6 +24,8 @@ namespace Mesh
 		int metallicRoughnessTexture = -1;
 		AlphaMode alphaMode = AlphaMode::Opaque;
 		float alphaCutoff = 0.5f;
+		float metallicFactor = 1.0f;
+		float roughnessFactor = 1.0f;
 	};
 
 	struct SubMesh

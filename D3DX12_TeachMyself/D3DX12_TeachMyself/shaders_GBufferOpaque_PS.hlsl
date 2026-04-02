@@ -1,6 +1,9 @@
-cbuffer AlphConstants : register(b2)
+cbuffer MaterialConstants : register(b2)
 {
     float alphaCutoff;
+    float metallicFactor;
+    float roughnessFactor;
+    float _pad;
 };
 
 Texture2D baseColorTex : register(t0);
@@ -42,7 +45,11 @@ PSOutput main(PSInput input)
     output.normal = float4(worldNormal * 0.5f + 0.5f, 1.0f);
     
     float4 mrSample = metallicRoughnessTex.Sample(samp, input.uv);
-    output.mr = float4(0.0f, mrSample.g, mrSample.b, 0.0f);
+    output.mr = float4(0,
+        mrSample.g * roughnessFactor,
+        mrSample.b * metallicFactor,
+        0
+    );
     
     return output;
 }
