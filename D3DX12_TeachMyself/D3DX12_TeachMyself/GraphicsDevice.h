@@ -26,6 +26,9 @@ public:
 	virtual TextureHandle GetCurrentBackBuffer() = 0;
 	virtual TextureHandle* GetCurrentBackBufferPtr() = 0;
 
-	virtual int GetWidth() = 0;
-	virtual int GetHeight() = 0;
+	virtual void ResizeSwapChain(uint32_t width, uint32_t height) = 0;
+	virtual uint32_t GetWidth() = 0;
+	virtual uint32_t GetHeight() = 0;
+
+	virtual float GetTimestampMs(uint32_t passIndex) = 0;
 };

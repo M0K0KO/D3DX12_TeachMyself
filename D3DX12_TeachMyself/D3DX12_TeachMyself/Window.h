@@ -2,6 +2,7 @@
 #include "stdafx.h"
 #include <optional>
 #include "Keyboard.h"
+#include <functional>
 #include "Mouse.h"
 
 class Window
@@ -38,6 +39,9 @@ public:
 	bool CursorEnabled() const;
 	static std::optional<int> ProcessMessages();
 
+	using ResizeCallback = std::function<void(uint32_t, uint32_t)>;
+	void SetResizeCallback(ResizeCallback callback) { m_resizeCallback = callback; }
+
 private:
 	void ConfineCursor();
 	void FreeCursor();
@@ -58,4 +62,7 @@ private:
 
 	std::vector<BYTE> rawBuffer;
 	bool cursorEnabled = true;
+
+	ResizeCallback m_resizeCallback;
+	bool m_isResizing = false;
 };

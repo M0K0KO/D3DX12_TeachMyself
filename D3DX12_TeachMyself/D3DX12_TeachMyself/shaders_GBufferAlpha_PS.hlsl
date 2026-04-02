@@ -1,3 +1,9 @@
+cbuffer AlphConstants : register(b2)
+{
+    float alphaCutoff;
+};
+
+
 Texture2D baseColorTex : register(t0);
 Texture2D normalTex : register(t1);
 Texture2D metallicRoughnessTex : register(t2);
@@ -16,7 +22,7 @@ struct PSOutput
 {
     float4 albedo : SV_TARGET0;
     float4 normal : SV_TARGET1;
-    float4 mr     : SV_TARGET2;
+    float4 mr : SV_TARGET2;
 };
 
 PSOutput main(PSInput input)
@@ -24,9 +30,10 @@ PSOutput main(PSInput input)
     PSOutput output;
     
     output.albedo = baseColorTex.Sample(samp, input.uv);
+    clip(output.albedo.a < alphaCutoff ? -1 : 1);
     
     float3 N = normalize(input.worldNormal);
-    float3 T = normalize(input.worldTangent).xyz;
+    float3 T = normalize(input.worldTangent.xyz);
     float3 B = cross(N, T) * input.worldTangent.w;
     
     float2 nxy = normalTex.Sample(samp, input.uv).rg * 2.0f - 1.0f;

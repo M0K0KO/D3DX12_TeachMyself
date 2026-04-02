@@ -7,6 +7,7 @@ Application::Application()
 	:
 	wnd(1920, 1080, L"Moko Engine")
 {
+
 }
 
 int Application::Run()
@@ -86,12 +87,25 @@ void Application::Init()
 			? gpuTextures[mat.normalTexture] : defaultNormal;
 		obj.material.metallicRoughness = (mat.metallicRoughnessTexture >= 0)
 			? gpuTextures[mat.metallicRoughnessTexture] : defaultMR;
+		obj.material.alphaMode = mat.alphaMode;
+		obj.material.alphaCutoff = mat.alphaCutoff;
 
 		XMStoreFloat4x4(&obj.world, XMMatrixIdentity());
 		m_scene.renderObjects.push_back(obj);
 	}
 
 	m_renderer.Init(m_device.get());
+
+	wnd.SetResizeCallback([this](uint32_t w, uint32_t h) {
+		if (w > 0 && h > 0 && m_initialized)
+		{
+			m_pendingWidth = w;
+			m_pendingHeight = h;
+			m_needsResize = true;
+		}
+	});
+
+	m_initialized = true;
 }
 
 void Application::Update()
@@ -206,5 +220,11 @@ void Application::Update()
 
 void Application::Render()
 {
+	if (m_needsResize)
+	{
+		m_device->ResizeSwapChain(m_pendingWidth, m_pendingHeight);
+		m_renderer.OnResize(m_pendingWidth, m_pendingHeight);
+		m_needsResize = false;
+	}
 	m_renderer.Render(m_device.get(), m_scene);
 }

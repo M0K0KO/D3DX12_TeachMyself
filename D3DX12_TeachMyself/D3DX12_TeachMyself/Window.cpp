@@ -44,11 +44,11 @@ Window::Window(int width, int height, const wchar_t* name) : width(width), heigh
 	wr.top = 100;
 	wr.bottom = height + wr.top;
 
-	AdjustWindowRect(&wr, WS_CAPTION | WS_MINIMIZEBOX | WS_SYSMENU, FALSE);
+	AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
 
 	hWnd = CreateWindow(
 		WindowClass::GetName(), name,
-		WS_CAPTION | WS_MINIMIZEBOX | WS_SYSMENU,
+		WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT, wr.right - wr.left, wr.bottom - wr.top,
 		nullptr, nullptr, WindowClass::GetInstance(), this
 	);
@@ -177,6 +177,29 @@ LRESULT Window::HandleMsg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	switch (msg)
 	{
+	case WM_ENTERSIZEMOVE:
+		m_isResizing = true;
+		return 0;
+
+	case WM_EXITSIZEMOVE:
+		m_isResizing = false;
+		if (m_resizeCallback)
+		{
+			RECT rc;
+			GetClientRect(hWnd, &rc);
+			m_resizeCallback(rc.right - rc.left, rc.bottom - rc.top);
+		}
+		return 0;
+
+	case WM_SIZE:
+		if (!m_isResizing && wParam != SIZE_MINIMIZED && m_resizeCallback)
+		{
+			uint32_t w = LOWORD(lParam);
+			uint32_t h = HIWORD(lParam);
+			if (w > 0 && h > 0)
+				m_resizeCallback(w, h);
+		}
+		return 0;
 	case WM_CLOSE:
 		PostQuitMessage(0);
 		return 0;

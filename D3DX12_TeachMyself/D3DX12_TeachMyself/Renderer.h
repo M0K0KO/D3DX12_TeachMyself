@@ -22,21 +22,28 @@ public:
 
 	void ChangeDebugMode(DebugMode mode) { debugMode = mode; };
 
+	void OnResize(uint32_t width, uint32_t height);
+
 private:
-	const float clearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
+	void Resize(GraphicsDevice* device);
+
+private:
+	static constexpr float clearColor[4] = { 0.0f, 0.0f,  0.0f,  0.0f };
 
 	UINT m_width;
 	UINT m_height;
 
 	ShaderHandle m_depthVS;
-	ShaderHandle m_depthPS;
 	PipelineDesc m_depthPrePassPipelinDesc;
 	PipelineHandle m_depthPrePassPipeline;
 
 	ShaderHandle m_gBufferVS;
-	ShaderHandle m_gBufferPS;
-	PipelineDesc m_gBufferPassPipelineDesc;
-	PipelineHandle m_gBufferPassPipeline;
+	ShaderHandle m_gBufferOpaquePS;
+	ShaderHandle m_gBufferAlphaPS;
+	PipelineDesc m_gBufferOpaquePassPipelineDesc;
+	PipelineDesc m_gBufferAlphaPassPipelineDesc;
+	PipelineHandle m_gBufferOpaquePassPipeline;
+	PipelineHandle m_gBufferAlphaPassPipeline;
 
 	ShaderHandle m_lightingVS;
 	ShaderHandle m_lightingPS;
@@ -90,4 +97,8 @@ private:
 	};
 
 	DebugMode debugMode;
+
+	uint32_t m_resizeWidth = 0;
+	uint32_t m_resizeHeight = 0;
+	bool m_needsResize = false;
 };

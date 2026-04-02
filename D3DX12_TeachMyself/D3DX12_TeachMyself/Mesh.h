@@ -1,6 +1,7 @@
 #pragma once
 
 #include "stdafx.h"
+#include "RHITypes.h"
 #include <optional>
 #include "DirectXTex/DirectXTex.h"
 
@@ -21,6 +22,8 @@ namespace Mesh
 		int baseColorTexture = -1;
 		int normalTexture = -1;
 		int metallicRoughnessTexture = -1;
+		AlphaMode alphaMode = AlphaMode::Opaque;
+		float alphaCutoff = 0.5f;
 	};
 
 	struct SubMesh

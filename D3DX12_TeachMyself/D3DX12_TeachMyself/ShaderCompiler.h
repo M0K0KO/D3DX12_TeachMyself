@@ -70,6 +70,11 @@ public:
         m_shaders[handle.id].dirty = false;
     }
 
+    static void Reserve(size_t count)
+    {
+        m_shaders.reserve(count);
+    }
+
     static ShaderBytecode GetBytecode(ShaderHandle handle)
     {
         auto& blob = m_shaders[handle.id].bytecode;

@@ -2,6 +2,7 @@
 #include "RenderGraph.h"
 #include "ShaderCompiler.h"
 #include "CommandContext.h"
+#include "GPUTimestampProfiler.h"
 #include <chrono>
 
 void Renderer::Init(GraphicsDevice* device)
@@ -9,17 +10,13 @@ void Renderer::Init(GraphicsDevice* device)
 	m_width = device->GetWidth();
 	m_height = device->GetHeight();
 
+	ShaderCompiler::Reserve(50);
+
 	// Depth Pre Pass
 	m_depthVS = ShaderCompiler::CompileFromFile(
-		L"shaders_VSMain.hlsl",
+		L"shaders_Depth_VS.hlsl",
 		"main",
 		"vs_5_0"
-	);
-
-	m_depthPS = ShaderCompiler::CompileFromFile(
-		L"shaders_PSMain.hlsl",
-		"main",
-		"ps_5_0"
 	);
 
 	std::vector<VertexAttribute> vertexAttributes;
@@ -36,7 +33,10 @@ void Renderer::Init(GraphicsDevice* device)
 	m_depthPrePassPipelinDesc = {
 		depthPassRSDesc,
 		ShaderCompiler::GetBytecode(m_depthVS), {}, vertexAttributes,
-		{ Format::UNKNOWN }, Format::D32_FLOAT, true, true, ComparisonFunc::Less };
+		{ Format::UNKNOWN }, Format::D32_FLOAT, 
+		true, true, ComparisonFunc::Less, 
+		CullMode::Back };
+
 
 	m_depthPrePassPipeline = device->CreatePipeline(m_depthPrePassPipelinDesc);
 
@@ -48,7 +48,7 @@ void Renderer::Init(GraphicsDevice* device)
 	// GBuffer Pass
 	TextureDesc albedoTextureDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
 	m_gbufferAlbedo = device->CreateTexture(albedoTextureDesc, nullptr);
-	TextureDesc normalTextureDesc = { m_width, m_height, Format::R16G16B16A16_SNORM, TextureUsage::RenderTarget };
+	TextureDesc normalTextureDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
 	m_gbufferNormal = device->CreateTexture(normalTextureDesc, nullptr);
 	TextureDesc mrTextureDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
 	m_gbufferMR = device->CreateTexture(mrTextureDesc, nullptr);
@@ -59,6 +59,9 @@ void Renderer::Init(GraphicsDevice* device)
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::Pixel });
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::Pixel });
+	gBufferPassRSDesc.staticSamplers.push_back({ SamplerFilter::Anisotropic, SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
+
+
 
 	m_gBufferVS = ShaderCompiler::CompileFromFile(
 		L"shaders_GBuffer_VS.hlsl",
@@ -66,30 +69,61 @@ void Renderer::Init(GraphicsDevice* device)
 		"vs_5_0"
 	);
 
-	m_gBufferPS = ShaderCompiler::CompileFromFile(
-		L"shaders_GBuffer_PS.hlsl",
+	m_gBufferOpaquePS = ShaderCompiler::CompileFromFile(
+		L"shaders_GBufferOpaque_PS.hlsl",
 		"main",
 		"ps_5_0"
 	);
 
-	
 
-	m_gBufferPassPipelineDesc = { 
+	m_gBufferOpaquePassPipelineDesc = { 
 		gBufferPassRSDesc,
-		ShaderCompiler::GetBytecode(m_gBufferVS), ShaderCompiler::GetBytecode(m_gBufferPS), vertexAttributes,
-		{ Format::R8G8B8A8_UNORM, Format::R16G16B16A16_SNORM, Format::R8G8B8A8_UNORM }, 
+		ShaderCompiler::GetBytecode(m_gBufferVS), ShaderCompiler::GetBytecode(m_gBufferOpaquePS), vertexAttributes,
+		{ Format::R8G8B8A8_UNORM, Format::R16G16B16A16_FLOAT, Format::R8G8B8A8_UNORM },
 		Format::D32_FLOAT,
-		true, false, ComparisonFunc::LessEqual };
-	m_gBufferPassPipeline = device->CreatePipeline(m_gBufferPassPipelineDesc);
+		true, false, ComparisonFunc::Equal,
+		CullMode::Back
+	};
+
+	m_gBufferOpaquePassPipeline = device->CreatePipeline(m_gBufferOpaquePassPipelineDesc);
+
+
+	RootSignatureDesc gBufferAlphaPassRSDesc = {};
+	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Vertex });
+	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 1, ShaderVisibility::Vertex });
+	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
+	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::Pixel });
+	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::Pixel });
+	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 2, 1, ShaderVisibility::Pixel });
+	gBufferAlphaPassRSDesc.staticSamplers.push_back({ SamplerFilter::Anisotropic, SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
+
+
+	m_gBufferAlphaPS = ShaderCompiler::CompileFromFile(
+		L"shaders_GBufferAlpha_PS.hlsl",
+		"main",
+		"ps_5_0"
+	);
+
+	m_gBufferAlphaPassPipelineDesc = {
+		gBufferAlphaPassRSDesc,
+		ShaderCompiler::GetBytecode(m_gBufferVS), ShaderCompiler::GetBytecode(m_gBufferAlphaPS), vertexAttributes,
+		{ Format::R8G8B8A8_UNORM, Format::R16G16B16A16_FLOAT, Format::R8G8B8A8_UNORM },
+		Format::D32_FLOAT,
+		true, true, ComparisonFunc::LessEqual,
+		CullMode::None
+	};
+	m_gBufferAlphaPassPipeline = device->CreatePipeline(m_gBufferAlphaPassPipelineDesc);
 	// GBuffer Pass
 
-
+	// Lighting Pass
 	RootSignatureDesc lightingPassRSDesc = {};
 	lightingPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Pixel });
 	lightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
 	lightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::Pixel });
 	lightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::Pixel });
 	lightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 3, 1, ShaderVisibility::Pixel });
+	lightingPassRSDesc.staticSamplers.push_back({ SamplerFilter::Point, SamplerAddressMode::Clamp, 0, ShaderVisibility::Pixel });
+
 
 	m_lightingVS = ShaderCompiler::CompileFromFile(
 		L"shaders_Lighting_VS.hlsl",
@@ -108,8 +142,12 @@ void Renderer::Init(GraphicsDevice* device)
 		ShaderCompiler::GetBytecode(m_lightingVS), ShaderCompiler::GetBytecode(m_lightingPS), vertexAttributes,
 		{ Format::R8G8B8A8_UNORM },
 		Format::UNKNOWN,
-		false, false, ComparisonFunc::Equal };
+		false, false, ComparisonFunc::Equal,
+		CullMode::None };
 	m_lightingPassPipeline = device->CreatePipeline(m_lightingPassPipelineDesc);
+	// Lighting Pass
+
+
 
 
 	// Debug
@@ -133,13 +171,17 @@ void Renderer::Init(GraphicsDevice* device)
 
 	RootSignatureDesc debugPassRSDesc = {};
 	debugPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
+	debugPassRSDesc.staticSamplers.push_back({ SamplerFilter::Anisotropic, SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
+
 
 	m_debugPipelineDesc = {
 		debugPassRSDesc,
 		ShaderCompiler::GetBytecode(m_debugVS), ShaderCompiler::GetBytecode(m_debugPS), {},
 		{ Format::R8G8B8A8_UNORM }, 
 		Format::UNKNOWN, 
-		false, false, ComparisonFunc::Equal };
+		false, false, ComparisonFunc::Equal,
+		CullMode::None 
+	};
 
 	m_debugPipeline = device->CreatePipeline(m_debugPipelineDesc);
 
@@ -148,7 +190,9 @@ void Renderer::Init(GraphicsDevice* device)
 		ShaderCompiler::GetBytecode(m_debugVS), ShaderCompiler::GetBytecode(m_depthDebugPS), {},
 		{ Format::R8G8B8A8_UNORM },
 		Format::UNKNOWN,
-		false, false, ComparisonFunc::Equal };
+		false, false, ComparisonFunc::Equal,
+		CullMode::None 
+	};
 
 	m_depthDebugPipeline = device->CreatePipeline(m_depthDebugPipelineDesc);
 
@@ -159,22 +203,23 @@ void Renderer::Init(GraphicsDevice* device)
 void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 {
 	ShaderCompiler::CheckForChanges();
-	if (ShaderCompiler::IsDirty(m_depthVS) || ShaderCompiler::IsDirty(m_depthPS))
+	if (ShaderCompiler::IsDirty(m_depthVS))
 	{
 		m_depthPrePassPipelinDesc.vs = ShaderCompiler::GetBytecode(m_depthVS);
-		m_depthPrePassPipelinDesc.ps = ShaderCompiler::GetBytecode(m_depthPS);
 		m_depthPrePassPipeline = device->CreatePipeline(m_depthPrePassPipelinDesc);
 		ShaderCompiler::ClearDirty(m_depthVS);
-		ShaderCompiler::ClearDirty(m_depthPS);
 	}
 
-	if (ShaderCompiler::IsDirty(m_gBufferVS) || ShaderCompiler::IsDirty(m_gBufferPS))
+	if (ShaderCompiler::IsDirty(m_gBufferVS) || ShaderCompiler::IsDirty(m_gBufferOpaquePS) || ShaderCompiler::IsDirty(m_gBufferAlphaPS))
 	{
-		m_gBufferPassPipelineDesc.vs = ShaderCompiler::GetBytecode(m_gBufferVS);
-		m_gBufferPassPipelineDesc.ps = ShaderCompiler::GetBytecode(m_gBufferPS);
-		m_gBufferPassPipeline = device->CreatePipeline(m_gBufferPassPipelineDesc);
+		m_gBufferOpaquePassPipelineDesc.vs = ShaderCompiler::GetBytecode(m_gBufferVS);
+		m_gBufferOpaquePassPipelineDesc.ps = ShaderCompiler::GetBytecode(m_gBufferOpaquePS);
+		m_gBufferAlphaPassPipelineDesc.ps = ShaderCompiler::GetBytecode(m_gBufferAlphaPS);
+		m_gBufferOpaquePassPipeline = device->CreatePipeline(m_gBufferOpaquePassPipelineDesc);
+		m_gBufferAlphaPassPipeline = device->CreatePipeline(m_gBufferAlphaPassPipelineDesc);
 		ShaderCompiler::ClearDirty(m_gBufferVS);
-		ShaderCompiler::ClearDirty(m_gBufferPS);
+		ShaderCompiler::ClearDirty(m_gBufferOpaquePS);
+		ShaderCompiler::ClearDirty(m_gBufferAlphaPS);
 	}
 
 	if (ShaderCompiler::IsDirty(m_lightingVS) || ShaderCompiler::IsDirty(m_lightingPS))
@@ -201,6 +246,11 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 		ShaderCompiler::ClearDirty(m_depthDebugPS);
 	}
 
+	if (m_needsResize)
+	{
+		Resize(device);
+	}
+
 
 	CommandContext& ctx = device->BeginFrame();
 
@@ -212,7 +262,7 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	RGResourceDesc gbufferAlbedoDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
 	auto gbufferAlbedo = graph.ImportTexture(m_gbufferAlbedo, gbufferAlbedoDesc, RGResourceState::RenderTarget);
 
-	RGResourceDesc gbufferNormalDesc = { m_width, m_height, Format::R16G16B16A16_SNORM, TextureUsage::RenderTarget };
+	RGResourceDesc gbufferNormalDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
 	auto gbufferNormal = graph.ImportTexture(m_gbufferNormal, gbufferNormalDesc, RGResourceState::RenderTarget);
 
 	RGResourceDesc gbufferMRDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
@@ -228,33 +278,41 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 
 	CBHandle perFrameCBHandle;
 
+
 	graph.AddPass(
 		"DepthPrePass",
 		[&](RGBuilder& builder) {
 			builder.Write(depthTexture, RGResourceState::DepthWrite);
 		},
 		[&](CommandContext& passCtx) {
-			passCtx.ClearDepthStencil(m_depthTexture, 1.0f);
-			passCtx.SetRenderTarget(0, {}, m_depthTexture);
-			passCtx.SetPipeline(m_depthPrePassPipeline);
-
-			perFrameCBHandle = passCtx.UpdateConstantBuffer(0, &perFrame, sizeof(perFrame));
-			passCtx.BindConstantBuffer(0, perFrameCBHandle);
-
-			for (const auto& obj : scene.renderObjects)
+			passCtx.BeginTimestamp(PassID::DepthPrePass);
 			{
-				auto perObjectCBHandle = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
-				passCtx.BindConstantBuffer(1, perObjectCBHandle);
-				passCtx.SetVertexBuffer(obj.vertexBuffer);
-				passCtx.SetIndexBuffer(obj.indexBuffer);
-				passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
+				passCtx.ClearDepthStencil(m_depthTexture, 1.0f);
+				passCtx.SetRenderTarget(0, {}, m_depthTexture);
+				passCtx.SetPipeline(m_depthPrePassPipeline);
+
+				perFrameCBHandle = passCtx.UpdateConstantBuffer(0, &perFrame, sizeof(perFrame));
+				passCtx.BindConstantBuffer(0, perFrameCBHandle);
+
+				for (const auto& obj : scene.renderObjects)
+				{
+					if (obj.material.alphaMode == AlphaMode::Opaque)
+					{
+						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
+						passCtx.BindConstantBuffer(1, perObjectCBHandle);
+						passCtx.SetVertexBuffer(obj.vertexBuffer);
+						passCtx.SetIndexBuffer(obj.indexBuffer);
+						passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
+					}
+				}
 			}
+			passCtx.EndTimestamp(PassID::DepthPrePass);
 		}
 	);
 
 
 	graph.AddPass(
-		"GBufferPass",
+		"GBufferOpaquePass",
 		[&](RGBuilder& builder) {
 			builder.Read(depthTexture, RGResourceState::DepthRead);
 			builder.Write(gbufferAlbedo, RGResourceState::RenderTarget);
@@ -262,24 +320,66 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 			builder.Write(gbufferMR, RGResourceState::RenderTarget);
 		},
 		[&](CommandContext& passCtx) {
-			TextureHandle renderTargets[] = { m_gbufferAlbedo, m_gbufferNormal, m_gbufferMR };
-			passCtx.ClearRenderTargets(3, renderTargets, clearColor);
-			passCtx.SetRenderTarget(3, renderTargets, m_depthTexture);
-			passCtx.SetPipeline(m_gBufferPassPipeline);
-
-			passCtx.BindConstantBuffer(0, perFrameCBHandle);
-
-			for (const auto& obj : scene.renderObjects)
+			passCtx.BeginTimestamp(PassID::GBufferPass);
 			{
-				auto perObjectCBHandle = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
-				passCtx.BindConstantBuffer(1, perObjectCBHandle);
-				passCtx.SetVertexBuffer(obj.vertexBuffer);
-				passCtx.SetIndexBuffer(obj.indexBuffer);
-				passCtx.BindTexture(obj.material.baseColor, 2);
-				passCtx.BindTexture(obj.material.normal, 3);
-				passCtx.BindTexture(obj.material.metallicRoughness, 4);
-				passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
+				TextureHandle renderTargets[] = { m_gbufferAlbedo, m_gbufferNormal, m_gbufferMR };
+				passCtx.ClearRenderTargets(3, renderTargets, clearColor);
+				passCtx.SetRenderTarget(3, renderTargets, m_depthTexture);
+
+				passCtx.SetPipeline(m_gBufferOpaquePassPipeline);
+				passCtx.BindConstantBuffer(0, perFrameCBHandle);
+				for (const auto& obj : scene.renderObjects)
+				{
+					if (obj.material.alphaMode == AlphaMode::Opaque)
+					{
+						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
+						passCtx.BindConstantBuffer(1, perObjectCBHandle);
+						passCtx.SetVertexBuffer(obj.vertexBuffer);
+						passCtx.SetIndexBuffer(obj.indexBuffer);
+						passCtx.BindTexture(obj.material.baseColor, 2);
+						passCtx.BindTexture(obj.material.normal, 3);
+						passCtx.BindTexture(obj.material.metallicRoughness, 4);
+						passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
+					}
+				}
 			}
+			passCtx.EndTimestamp(PassID::GBufferPass);
+		}
+	);
+
+	graph.AddPass(
+		"GBufferAlphaPass",
+		[&](RGBuilder& builder) {
+			builder.Write(depthTexture, RGResourceState::DepthWrite);
+			builder.Write(gbufferAlbedo, RGResourceState::RenderTarget);
+			builder.Write(gbufferNormal, RGResourceState::RenderTarget);
+			builder.Write(gbufferMR, RGResourceState::RenderTarget);
+		},
+		[&](CommandContext& passCtx) {
+			passCtx.BeginTimestamp(PassID::GBufferAlphaPass);
+			{
+				TextureHandle renderTargets[] = { m_gbufferAlbedo, m_gbufferNormal, m_gbufferMR };
+				passCtx.SetRenderTarget(3, renderTargets, m_depthTexture);
+				passCtx.SetPipeline(m_gBufferAlphaPassPipeline);
+				passCtx.BindConstantBuffer(0, perFrameCBHandle);
+				for (const auto& obj : scene.renderObjects)
+				{
+					if (obj.material.alphaMode == AlphaMode::Mask)
+					{
+						float cutoff = obj.material.alphaCutoff;
+						passCtx.SetRootConstants(5, &cutoff, 1);
+						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
+						passCtx.BindConstantBuffer(1, perObjectCBHandle);
+						passCtx.SetVertexBuffer(obj.vertexBuffer);
+						passCtx.SetIndexBuffer(obj.indexBuffer);
+						passCtx.BindTexture(obj.material.baseColor, 2);
+						passCtx.BindTexture(obj.material.normal, 3);
+						passCtx.BindTexture(obj.material.metallicRoughness, 4);
+						passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
+					}
+				}
+			}
+			passCtx.EndTimestamp(PassID::GBufferAlphaPass);
 		}
 	);
 
@@ -295,52 +395,56 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 				builder.Write(backBuffer, RGResourceState::RenderTarget);
 			},
 			[&](CommandContext& passCtx) {
-				passCtx.ClearRenderTarget(device->GetCurrentBackBuffer(), clearColor);
-				passCtx.SetRenderTarget(1, device->GetCurrentBackBufferPtr(), {});
-				passCtx.SetPipeline(m_lightingPassPipeline);
+				passCtx.BeginTimestamp(PassID::LightingPass);
+				{
+					passCtx.ClearRenderTarget(device->GetCurrentBackBuffer(), clearColor);
+					passCtx.SetRenderTarget(1, device->GetCurrentBackBufferPtr(), {});
+					passCtx.SetPipeline(m_lightingPassPipeline);
 
-				static auto lastTime = std::chrono::high_resolution_clock::now();
-				auto now = std::chrono::high_resolution_clock::now();
-				float deltaTime = std::chrono::duration<float>(now - lastTime).count();
-				lastTime = now;
+					static auto lastTime = std::chrono::high_resolution_clock::now();
+					auto now = std::chrono::high_resolution_clock::now();
+					float deltaTime = std::chrono::duration<float>(now - lastTime).count();
+					lastTime = now;
 
-				LightingData lightingData;
-				XMMATRIX inverseVP = XMMatrixInverse(nullptr, vp);
-				XMStoreFloat4x4(&lightingData.inverseVP, XMMatrixTranspose(inverseVP));
-				lightingData.cameraPos = scene.cam.GetPos();
-
-
-				static float time = 0.0f;
-				time += deltaTime * 0.5f;
-
-				float x = sinf(time * 2) * 0.8f;
-
-				lightingData.direction = { x, -0.82f, 0.4f };
-
-				float len = sqrtf(
-					lightingData.direction.x * lightingData.direction.x +
-					lightingData.direction.y * lightingData.direction.y +
-					lightingData.direction.z * lightingData.direction.z);
-
-				lightingData.direction.x /= len;
-				lightingData.direction.y /= len;
-				lightingData.direction.z /= len;
+					LightingData lightingData;
+					XMMATRIX inverseVP = XMMatrixInverse(nullptr, vp);
+					XMStoreFloat4x4(&lightingData.inverseVP, XMMatrixTranspose(inverseVP));
+					lightingData.cameraPos = scene.cam.GetPos();
 
 
+					static float time = 0.0f;
+					time += deltaTime * 0.5f;
 
-				lightingData.color = { 1.0f, 1.0f, 1.0f };
-				lightingData.ambient = { 0.07f, 0.07f, 0.07f };
-				lightingData.intensity = 1.1f;
+					float x = sinf(time * 2) * 0.8f;
 
-				auto ligthDataCBHandle = passCtx.UpdateConstantBuffer(0, &lightingData, sizeof(lightingData));
-				passCtx.BindConstantBuffer(0, ligthDataCBHandle);
+					lightingData.direction = { x, -0.82f, 0.4f };
 
-				passCtx.BindTexture(m_depthTexture, 1);
-				passCtx.BindTexture(m_gbufferAlbedo, 2);
-				passCtx.BindTexture(m_gbufferNormal, 3);
-				passCtx.BindTexture(m_gbufferMR, 4);
+					float len = sqrtf(
+						lightingData.direction.x * lightingData.direction.x +
+						lightingData.direction.y * lightingData.direction.y +
+						lightingData.direction.z * lightingData.direction.z);
 
-				passCtx.Draw(3, 0);
+					lightingData.direction.x /= len;
+					lightingData.direction.y /= len;
+					lightingData.direction.z /= len;
+
+
+
+					lightingData.color = { 1.0f, 1.0f, 1.0f };
+					lightingData.ambient = { 0.07f, 0.07f, 0.07f };
+					lightingData.intensity = 1.1f;
+
+					auto ligthDataCBHandle = passCtx.UpdateConstantBuffer(0, &lightingData, sizeof(lightingData));
+					passCtx.BindConstantBuffer(0, ligthDataCBHandle);
+
+					passCtx.BindTexture(m_depthTexture, 1);
+					passCtx.BindTexture(m_gbufferAlbedo, 2);
+					passCtx.BindTexture(m_gbufferNormal, 3);
+					passCtx.BindTexture(m_gbufferMR, 4);
+
+					passCtx.Draw(3, 0);
+				}
+				passCtx.EndTimestamp(PassID::LightingPass);
 			}
 		);
 	}
@@ -392,4 +496,50 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	graph.Clear();
 
 	device->EndFrame();
+
+
+	float depthPrePassTime = device->GetTimestampMs(PassID::DepthPrePass);
+	float gBufferPassTime = device->GetTimestampMs(PassID::GBufferPass);
+	float gBufferAlphaPassTime = device->GetTimestampMs(PassID::GBufferAlphaPass);
+	float lightingPassTime = device->GetTimestampMs(PassID::LightingPass);
+
+	char buffer[256];
+	sprintf_s(
+		buffer,
+		"GPU Times | DepthPre: %6.2f ms | GBuffer: %6.2f ms | GBufferAlpha: %6.2f ms | Lighting: %6.2f ms\n",
+		depthPrePassTime,
+		gBufferPassTime,
+		gBufferAlphaPassTime,
+		lightingPassTime);
+
+	OutputDebugStringA(buffer);
+}
+
+void Renderer::Resize(GraphicsDevice* device)
+{
+	TextureDesc gbufferDesc = { m_resizeWidth, m_resizeHeight,
+							 Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	m_gbufferAlbedo = device->CreateTexture(gbufferDesc, nullptr);
+
+	gbufferDesc.format = Format::R16G16B16A16_FLOAT;
+	m_gbufferNormal = device->CreateTexture(gbufferDesc, nullptr);
+
+	gbufferDesc.format = Format::R8G8B8A8_UNORM;
+	m_gbufferMR = device->CreateTexture(gbufferDesc, nullptr);
+
+	TextureDesc depthDesc = { m_resizeWidth, m_resizeHeight,
+							   Format::D32_FLOAT, TextureUsage::DepthStencil };
+	m_depthTexture = device->CreateTexture(depthDesc, nullptr);
+
+	m_width = m_resizeWidth;
+	m_height = m_resizeHeight;
+
+	m_needsResize = false;
+}
+
+void Renderer::OnResize(uint32_t width, uint32_t height)
+{
+	m_resizeWidth = width;
+	m_resizeHeight = height;
+	m_needsResize = true;
 }

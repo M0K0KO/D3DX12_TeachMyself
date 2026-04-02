@@ -23,4 +23,10 @@ private:
 	Window wnd;
 	Scene m_scene;
 	Renderer m_renderer;
+
+	uint32_t m_pendingWidth = 0;
+	uint32_t m_pendingHeight = 0;
+	bool m_needsResize = false;
+
+	bool m_initialized = false;
 };

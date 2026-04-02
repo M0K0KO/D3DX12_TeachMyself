@@ -132,7 +132,8 @@ void RenderGraph::Compile()
 
 			if (producer.refCount == 0)
 			{
-				producer.culled = true;
+				producer.
+					culled = true;
 
 				for (auto& readHandle : producer.reads)
 				{

@@ -79,7 +79,8 @@ enum class RangeType
 enum class RootParamType
 {
 	DescriptorTable,
-	RootCBV
+	RootCBV,
+	RootConstants,
 };
 
 enum class ShaderVisibility
@@ -87,6 +88,34 @@ enum class ShaderVisibility
 	Vertex,
 	Pixel,
 	All,
+};
+
+enum class AlphaMode
+{
+	Opaque,
+	Mask,
+	Blend
+};
+
+enum class CullMode
+{
+	None, 
+	Front, 
+	Back
+};
+
+enum class SamplerFilter 
+{ 
+	Point,
+	Bilinear, 
+	Trilinear, 
+	Anisotropic 
+};
+
+enum class SamplerAddressMode{ 
+	Wrap, 
+	Clamp,
+	Border
 };
 
 struct CBHandle
@@ -147,6 +176,8 @@ struct GPUMaterial
 	TextureHandle baseColor;
 	TextureHandle normal;
 	TextureHandle metallicRoughness;
+	AlphaMode alphaMode = AlphaMode::Opaque;
+	float alphaCutoff = 0.5f;
 };
 
 struct RootParamDesc
@@ -158,9 +189,18 @@ struct RootParamDesc
 	ShaderVisibility visibility;
 };
 
+struct StaticSamplerDesc
+{
+	SamplerFilter filter = SamplerFilter::Anisotropic;
+	SamplerAddressMode addressMode = SamplerAddressMode::Wrap;
+	uint32_t shaderRegister = 0;
+	ShaderVisibility visibility = ShaderVisibility::Pixel;
+};
+
 struct RootSignatureDesc
 {
 	std::vector<RootParamDesc> rootParamDescs;
+	std::vector<StaticSamplerDesc> staticSamplers;
 };
 
 struct PipelineDesc
@@ -175,4 +215,5 @@ struct PipelineDesc
 	bool depthEnable;
 	bool depthWrite;
 	ComparisonFunc depthFunc;
+	CullMode cullMode;
 };

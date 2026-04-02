@@ -58,6 +58,9 @@
     <Filter Include="Source Files\Allocator">
       <UniqueIdentifier>{25226278-a6b8-4495-a0b8-c337ee91ed4d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Profile">
+      <UniqueIdentifier>{5c23e2f4-4188-43c4-99c7-5233316e8ddf}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -185,12 +188,12 @@
     <ClInclude Include="TextureLoader.h">
       <Filter>Header Files\Asset</Filter>
     </ClInclude>
+    <ClInclude Include="GPUTimestampProfiler.h">
+      <Filter>Header Files\Profile</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="shaders_PSMain.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders_VSMain.hlsl">
+    <FxCompile Include="shaders_Depth_VS.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="debugshaders_VS.hlsl">
@@ -199,7 +202,7 @@
     <FxCompile Include="debugshaders_Depth_PS.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="shaders_GBuffer_PS.hlsl">
+    <FxCompile Include="shaders_GBufferOpaque_PS.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="shaders_GBuffer_VS.hlsl">
@@ -212,6 +215,9 @@
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="shaders_Lighting_VS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="shaders_GBufferAlpha_PS.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

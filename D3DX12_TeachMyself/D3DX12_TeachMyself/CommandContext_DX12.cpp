@@ -19,7 +19,11 @@ void CommandContext_DX12::SetPipeline(PipelineHandle handle)
 {
 	auto internalPSO = m_pDevice->m_pipelines[handle.id];
 	m_commandList->SetPipelineState(internalPSO.pso.Get());
-	m_commandList->SetGraphicsRootSignature(internalPSO.rootSignature.Get());
+	if (m_currentRootSignature != internalPSO.rootSignature.Get())
+	{
+		m_commandList->SetGraphicsRootSignature(internalPSO.rootSignature.Get());
+		m_currentRootSignature = internalPSO.rootSignature.Get();
+	}
 	m_commandList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
@@ -45,6 +49,11 @@ void CommandContext_DX12::SetIndexBuffer(BufferHandle handle)
 	bufferView.SizeInBytes = buffer.desc.size;
 
 	m_commandList->IASetIndexBuffer(&bufferView);
+}
+
+void CommandContext_DX12::SetRootConstants(UINT slot, const void* data, UINT count32Bit)
+{
+	m_commandList->SetGraphicsRoot32BitConstants(slot, count32Bit, data, 0);
 }
 
 void CommandContext_DX12::BindConstantBuffer(uint32_t slot, CBHandle handle)
@@ -124,4 +133,14 @@ void CommandContext_DX12::DrawIndexed(uint32_t indexCount, uint32_t startIndex, 
 void CommandContext_DX12::Draw(uint32_t vertexCount, uint32_t startVertex)
 {
 	m_commandList->DrawInstanced(vertexCount, 1, startVertex, 0);
+}
+
+void CommandContext_DX12::BeginTimestamp(uint32_t passIndex)
+{
+	m_pDevice->m_profiler.BeginTimestamp(m_pDevice->m_commandList.Get(), passIndex);
+}
+
+void CommandContext_DX12::EndTimestamp(uint32_t passIndex)
+{
+	m_pDevice->m_profiler.EndTimestamp(m_pDevice->m_commandList.Get(), passIndex);
 }

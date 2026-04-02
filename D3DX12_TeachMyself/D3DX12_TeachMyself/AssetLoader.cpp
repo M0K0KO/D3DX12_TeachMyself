@@ -73,6 +73,16 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
             mat.metallicRoughnessTexture = model.textures[texIndex].source;
         }
 
+        if (gltfMat.alphaMode == "MASK")
+        {
+            mat.alphaMode = AlphaMode::Mask;
+            mat.alphaCutoff = static_cast<float>(gltfMat.alphaCutoff);
+        }
+        else if (gltfMat.alphaMode == "BLEND")
+        {
+            mat.alphaMode = AlphaMode::Blend;
+        }
+
         scene.materials.push_back(mat);
     }
 
@@ -217,10 +227,14 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
                     for (size_t i = 0; i < vertexCount; ++i)
                     {
                         const float* t = reinterpret_cast<const float*>(base + i * stride);
+                        DirectX::XMVECTOR tangent = DirectX::XMVectorSet(t[0], t[1], t[2], 0.0f);
+                        tangent = DirectX::XMVector3TransformNormal(tangent, world);
+                        tangent = DirectX::XMVector3Normalize(tangent);
 
-                        scene.vertices[vertexOffset + i].tangent = {
-                            t[0], t[1], t[2], t[3]
-                        };
+                        DirectX::XMStoreFloat3(
+                            reinterpret_cast<DirectX::XMFLOAT3*>(
+                                &scene.vertices[vertexOffset + i].tangent), tangent);
+                        scene.vertices[vertexOffset + i].tangent.w = t[3]; 
                     }
                 }
 

@@ -164,6 +164,8 @@ void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uin
 	m_pTextureLoader = std::make_unique<TextureLoader>(m_device.Get());
 
 	m_cbvSrvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	m_profiler.Initialize(m_device.Get(), m_commandQueue.Get());
 }
 
 void GraphicsDevice_DX12::WaitForGpu()
@@ -204,12 +206,15 @@ CommandContext& GraphicsDevice_DX12::BeginFrame()
 	m_commandList->SetDescriptorHeaps(1, ppHeaps);
 
 	uploadHeapAllocator->ReleaseCompleted();
+	m_profiler.BeginFrame(m_frameIndex);
 
 	return m_commandContext;
 }
 
 void GraphicsDevice_DX12::EndFrame()
 {
+	m_profiler.Resolve(m_commandList.Get());
+
 	HR_CHECK(m_commandList->Close());
 
 	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
@@ -270,7 +275,6 @@ TextureHandle GraphicsDevice_DX12::CreateTexture(const TextureDesc desc, const v
 
 	if (desc.usage == TextureUsage::RenderTarget)
 	{
-		// TO DO : PHASE 4
 		D3D12_RESOURCE_DESC textureDesc = {};
 		textureDesc.MipLevels = 1;
 		textureDesc.Format = GetDXGIFormat(desc.format);
@@ -284,12 +288,19 @@ TextureHandle GraphicsDevice_DX12::CreateTexture(const TextureDesc desc, const v
 
 		auto defaultHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 
+		D3D12_CLEAR_VALUE clearValue = {};
+		clearValue.Format = GetDXGIFormat(desc.format);
+		clearValue.Color[0] = 0.0f;
+		clearValue.Color[1] = 0.0f;
+		clearValue.Color[2] = 0.0f;
+		clearValue.Color[3] = 0.0f;
+
 		HR_CHECK(m_device->CreateCommittedResource(
 			&defaultHeapProps,
 			D3D12_HEAP_FLAG_NONE,
 			&textureDesc,
 			D3D12_RESOURCE_STATE_RENDER_TARGET,
-			nullptr,
+			&clearValue,
 			IID_PPV_ARGS(&texture)));
 
 		UINT rtvHeapSlot = m_rtvHeapNextSlot++;
@@ -503,7 +514,7 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 				D3D12_ROOT_DESCRIPTOR_FLAG_NONE,
 				GetDX12ShaderVisibility(rootParamDesc.visibility));
 		}
-		else
+		else if (rootParamDesc.type == RootParamType::DescriptorTable)
 		{
 			ranges.push_back({});
 			ranges.back().Init(
@@ -519,32 +530,36 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 				&ranges.back(),
 				GetDX12ShaderVisibility(rootParamDesc.visibility));
 		}
+		else if (rootParamDesc.type == RootParamType::RootConstants)
+		{
+			rootParameters.push_back({});
+			rootParameters[i].InitAsConstants(
+				rootParamDesc.numDescriptors, 
+				rootParamDesc.baseRegister,
+				0,
+				GetDX12ShaderVisibility(rootParamDesc.visibility));
+		}
 	}
 
-	// TODO : SAMPLER ABSTRACTION
-	D3D12_STATIC_SAMPLER_DESC sampler = {};
-	sampler.Filter = D3D12_FILTER_ANISOTROPIC;
-	sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	sampler.MipLODBias = 0;
-	sampler.MaxAnisotropy = 16;
-	sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-	sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
-	sampler.MinLOD = 0.0f;
-	sampler.MaxLOD = D3D12_FLOAT32_MAX;
-	sampler.ShaderRegister = 0;
-	sampler.RegisterSpace = 0;
-	sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+	std::vector<D3D12_STATIC_SAMPLER_DESC> staticSamplerDescs;
+	for (auto& samplerDesc : desc.rootSignatureDesc.staticSamplers)
+	{
+		staticSamplerDescs.push_back(GetDX12StaticSamplerDesc(samplerDesc));
+	}
 
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-	rootSignatureDesc.Init_1_1(rootParamCount, rootParameters.data(), 1, &sampler, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	rootSignatureDesc.Init_1_1(
+		rootParamCount, 
+		rootParameters.data(), 
+		staticSamplerDescs.size(), 
+		staticSamplerDescs.data(), 
+		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	ComPtr<ID3DBlob> signature;
 	ComPtr<ID3DBlob> error;
 	HR_CHECK(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, featureData.HighestVersion, &signature, &error));
 	HR_CHECK(m_device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rs)));
-
 
 
 	const UINT inputElementCount = desc.vertexAttributes.size();
@@ -569,7 +584,10 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 	if (desc.ps.data != nullptr)
 		psoDesc.PS = { desc.ps.data, desc.ps.size };
 
-	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	D3D12_RASTERIZER_DESC rasterDesc = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	rasterDesc.CullMode = GetDX12CullMode(desc.cullMode);
+	psoDesc.RasterizerState = rasterDesc;
+	
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 
 	psoDesc.SampleMask = UINT_MAX;
@@ -736,6 +754,16 @@ inline D3D12_COMPARISON_FUNC GraphicsDevice_DX12::GetDX12ComparisonFunc(Comparis
 	}
 }
 
+inline D3D12_CULL_MODE GraphicsDevice_DX12::GetDX12CullMode(CullMode mode)
+{
+	switch (mode)
+	{
+	case CullMode::None:  return D3D12_CULL_MODE_NONE;
+	case CullMode::Front: return D3D12_CULL_MODE_FRONT;
+	case CullMode::Back:  return D3D12_CULL_MODE_BACK;
+	default:              return D3D12_CULL_MODE_BACK;
+	}
+}
 
 const ComPtr<ID3D12Resource> GraphicsDevice_DX12::GetTextureResource(TextureHandle handle)
 {
@@ -763,6 +791,40 @@ inline D3D12_SHADER_VISIBILITY GraphicsDevice_DX12::GetDX12ShaderVisibility(Shad
 	}
 }
 
+inline D3D12_STATIC_SAMPLER_DESC GraphicsDevice_DX12::GetDX12StaticSamplerDesc(const StaticSamplerDesc& desc)
+{
+	D3D12_STATIC_SAMPLER_DESC out = {};
+	switch (desc.filter)
+	{
+	case SamplerFilter::Point:
+		out.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT; break;
+	case SamplerFilter::Bilinear:
+		out.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR; break;
+	case SamplerFilter::Anisotropic:
+		out.Filter = D3D12_FILTER_ANISOTROPIC; break;
+	}
+
+	auto mode = [](SamplerAddressMode m) {
+		switch (m)
+		{
+		case SamplerAddressMode::Wrap:   return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		case SamplerAddressMode::Clamp:  return D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+		case SamplerAddressMode::Border: return D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+		default: return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		}
+		};
+
+	out.AddressU = mode(desc.addressMode);
+	out.AddressV = mode(desc.addressMode);
+	out.AddressW = mode(desc.addressMode);
+	out.MaxAnisotropy = (desc.filter == SamplerFilter::Anisotropic) ? 16 : 1;
+	out.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	out.MaxLOD = D3D12_FLOAT32_MAX;
+	out.ShaderRegister = desc.shaderRegister;
+	out.ShaderVisibility = GetDX12ShaderVisibility(desc.visibility);
+	return out;
+}
+
 TextureHandle* GraphicsDevice_DX12::GetCurrentBackBufferPtr()
 {
 	return &(m_backBufferHandles[m_frameIndex]);
@@ -773,12 +835,57 @@ TextureHandle GraphicsDevice_DX12::GetCurrentBackBuffer()
 	return m_backBufferHandles[m_frameIndex];
 }
 
-int GraphicsDevice_DX12::GetWidth()
+void GraphicsDevice_DX12::ResizeSwapChain(uint32_t width, uint32_t height)
+{
+	if (width == 0 || height == 0) return;
+
+	WaitForGpu();
+
+	for (UINT i = 0; i < FrameCount; i++)
+	{
+		m_textures[m_backBufferHandles[i].id].resource.Reset();
+		m_renderTargets[i].Reset();
+	}
+
+	HR_CHECK(m_swapChain->ResizeBuffers(
+		FrameCount,
+		width, height,
+		DXGI_FORMAT_R8G8B8A8_UNORM,
+		0));
+
+	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+
+	for (UINT i = 0; i < FrameCount; i++)
+	{
+		HR_CHECK(m_swapChain->GetBuffer(i, IID_PPV_ARGS(&m_renderTargets[i])));
+
+		CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(
+			m_rtvHeap->GetCPUDescriptorHandleForHeapStart(),
+			i, m_rtvDescriptorSize);
+		m_device->CreateRenderTargetView(m_renderTargets[i].Get(), nullptr, rtvHandle);
+
+		auto& tex = m_textures[m_backBufferHandles[i].id];
+		tex.resource = m_renderTargets[i];
+		tex.desc.width = width;
+		tex.desc.height = height;
+		tex.rtvHandle = rtvHandle;
+	}
+
+	m_width = width;
+	m_height = height;
+}
+
+uint32_t GraphicsDevice_DX12::GetWidth()
 {
 	return m_width;
 }
 
-int GraphicsDevice_DX12::GetHeight()
+uint32_t GraphicsDevice_DX12::GetHeight()
 {
 	return m_height;
+}
+
+float GraphicsDevice_DX12::GetTimestampMs(uint32_t passIndex)
+{
+	return m_profiler.GetTimestampMs(passIndex);
 }

@@ -4,6 +4,7 @@
 #include "CommandContext_DX12.h"
 #include "UploadHeapRingAllocator.h"
 #include "TextureLoader.h"
+#include "GPUTimestampProfiler.h"
 
 
 using namespace Microsoft::WRL;
@@ -32,15 +33,20 @@ public:
 	TextureHandle GetCurrentBackBuffer() override;
 	TextureHandle* GetCurrentBackBufferPtr() override;
 
-	int GetWidth() override;
-	int GetHeight() override;
+	void ResizeSwapChain(uint32_t width, uint32_t height) override;
+	uint32_t GetWidth() override;
+	uint32_t GetHeight() override;
+
+	float GetTimestampMs(uint32_t passIndex) override;
 
 	const ComPtr<ID3D12Resource> GetTextureResource(TextureHandle handle);
 private:
 	inline D3D12_DESCRIPTOR_RANGE_TYPE GetDX12DescriptorRangeType(RangeType type);
 	inline D3D12_SHADER_VISIBILITY GetDX12ShaderVisibility(ShaderVisibility visibility);
 	inline D3D12_COMPARISON_FUNC GetDX12ComparisonFunc(ComparisonFunc func);
+	inline D3D12_CULL_MODE GetDX12CullMode(CullMode mode);
 	inline DXGI_FORMAT GetDXGIFormat(Format format);
+	inline D3D12_STATIC_SAMPLER_DESC GetDX12StaticSamplerDesc(const StaticSamplerDesc& desc);
 	inline Format GetRHIFormat(DXGI_FORMAT format);
 	inline const char* GetSemanticString(Semantic semantic);
 	inline UINT Align256(UINT size);
@@ -112,4 +118,6 @@ private:
 	std::unique_ptr<TextureLoader> m_pTextureLoader;
 
 	UINT m_cbvSrvDescriptorSize;
+
+	GPUTimestampProfiler m_profiler;
 };
