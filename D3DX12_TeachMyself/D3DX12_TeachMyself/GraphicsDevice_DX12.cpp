@@ -1,7 +1,5 @@
-#include "stdafx.h"
 #include "HRException.h"
 #include "GraphicsDevice_DX12.h"
-#include "CommandContext_DX12.h"
 #include "Renderer.h"
 
 void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uint32_t height)
@@ -163,6 +161,9 @@ void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uin
 	}
 
 	uploadHeapAllocator = std::make_unique<UploadHeapRingAllocator>(m_device.Get(), m_fence.Get());
+	m_pTextureLoader = std::make_unique<TextureLoader>(m_device.Get());
+
+	m_cbvSrvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 }
 
 void GraphicsDevice_DX12::WaitForGpu()
@@ -522,12 +523,12 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 
 	// TODO : SAMPLER ABSTRACTION
 	D3D12_STATIC_SAMPLER_DESC sampler = {};
-	sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+	sampler.Filter = D3D12_FILTER_ANISOTROPIC;
 	sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	sampler.MipLODBias = 0;
-	sampler.MaxAnisotropy = 2;
+	sampler.MaxAnisotropy = 16;
 	sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
 	sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
 	sampler.MinLOD = 0.0f;
@@ -609,6 +610,55 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 	return PipelineHandle{ id };
 }
 
+void GraphicsDevice_DX12::BeginTextureUpload()
+{
+	HR_CHECK(m_commandAllocators[m_frameIndex]->Reset());
+	HR_CHECK(m_commandList->Reset(
+		m_commandAllocators[m_frameIndex].Get(), nullptr));
+}
+
+TextureHandle GraphicsDevice_DX12::LoadTexture(const std::wstring& path)
+{
+	auto result = m_pTextureLoader->LoadDDS(m_commandList.Get(), path);
+
+	InternalTexture internal = {};
+	internal.resource = result.resource;
+	internal.desc.width = result.width;
+	internal.desc.height = result.height;
+	internal.desc.format = GetRHIFormat(result.format);
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = result.format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Texture2D.MipLevels = result.mipLevels;
+
+	UINT slot = m_cbvSrvHeapNextSlot++;
+	internal.srvHeapSlot = slot;
+	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuHandle(
+		m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart(),
+		slot, m_cbvSrvDescriptorSize);
+
+	m_device->CreateShaderResourceView(
+		result.resource.Get(), &srvDesc, cpuHandle);
+
+	uint32_t id = (uint32_t)m_textures.size();
+	m_textures.push_back(internal);
+	return TextureHandle{ id };
+}
+
+void GraphicsDevice_DX12::FlushTextureUploads()
+{
+	HR_CHECK(m_commandList->Close());
+
+	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
+	m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+
+	WaitForGpu();
+
+	m_pTextureLoader->CleanupUploads();
+}
+
 inline UINT GraphicsDevice_DX12::Align256(UINT size)
 {
 	return (size + 255) & ~255;
@@ -653,6 +703,28 @@ inline DXGI_FORMAT GraphicsDevice_DX12::GetDXGIFormat(Format format)
 	}
 }
 
+inline Format GraphicsDevice_DX12::GetRHIFormat(DXGI_FORMAT format)
+{
+	switch (format)
+	{
+	case DXGI_FORMAT_R8_UNORM:             return Format::R8_UNORM;
+	case DXGI_FORMAT_R8G8B8A8_UNORM:       return Format::R8G8B8A8_UNORM;
+	case DXGI_FORMAT_R16G16_FLOAT:         return Format::R16G16_FLOAT;
+	case DXGI_FORMAT_R16G16B16A16_FLOAT:   return Format::R16G16B16A16_FLOAT;
+	case DXGI_FORMAT_R16G16B16A16_SNORM:   return Format::R16G16B16A16_SNORM;
+	case DXGI_FORMAT_R32_FLOAT:            return Format::R32_FLOAT;
+	case DXGI_FORMAT_R32G32_FLOAT:         return Format::R32G32_FLOAT;
+	case DXGI_FORMAT_R32G32B32_FLOAT:      return Format::R32G32B32_FLOAT;
+	case DXGI_FORMAT_R32G32B32A32_FLOAT:   return Format::R32G32B32A32_FLOAT;
+	case DXGI_FORMAT_R16_UINT:             return Format::R16_UINT;
+	case DXGI_FORMAT_R32_UINT:             return Format::R32_UINT;
+	case DXGI_FORMAT_D24_UNORM_S8_UINT:    return Format::D24_UNORM_S8_UINT;
+	case DXGI_FORMAT_D32_FLOAT:            return Format::D32_FLOAT;
+	case DXGI_FORMAT_R32_TYPELESS:         return Format::R32_TYPELESS;
+	default:                               return Format::UNKNOWN;
+	}
+}
+
 inline D3D12_COMPARISON_FUNC GraphicsDevice_DX12::GetDX12ComparisonFunc(ComparisonFunc func)
 {
 	switch (func)
@@ -663,7 +735,6 @@ inline D3D12_COMPARISON_FUNC GraphicsDevice_DX12::GetDX12ComparisonFunc(Comparis
 	default:                           return D3D12_COMPARISON_FUNC_NEVER;
 	}
 }
-
 
 
 const ComPtr<ID3D12Resource> GraphicsDevice_DX12::GetTextureResource(TextureHandle handle)

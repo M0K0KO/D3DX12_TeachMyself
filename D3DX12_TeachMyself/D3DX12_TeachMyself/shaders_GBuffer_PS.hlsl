@@ -29,7 +29,9 @@ PSOutput main(PSInput input)
     float3 T = normalize(input.worldTangent).xyz;
     float3 B = cross(N, T) * input.worldTangent.w;
     
-    float3 tangentNormal = normalTex.Sample(samp, input.uv).rgb * 2.0f - 1.0f;
+    float2 nxy = normalTex.Sample(samp, input.uv).rg * 2.0f - 1.0f;
+    float nz = sqrt(saturate(1.0f - dot(nxy, nxy)));
+    float3 tangentNormal = float3(nxy, nz);
     float3 worldNormal = normalize(T * tangentNormal.x + B * tangentNormal.y + N * tangentNormal.z);
     output.normal = float4(worldNormal * 0.5f + 0.5f, 1.0f);
     

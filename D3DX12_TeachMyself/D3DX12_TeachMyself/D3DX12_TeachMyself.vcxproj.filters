@@ -99,6 +99,9 @@
     <ClCompile Include="UploadHeapRingAllocator.cpp">
       <Filter>Source Files\Allocator</Filter>
     </ClCompile>
+    <ClCompile Include="TextureLoader.cpp">
+      <Filter>Source Files\Assets</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -178,6 +181,9 @@
     </ClInclude>
     <ClInclude Include="UploadHeapRingAllocator.h">
       <Filter>Header Files\Allocator</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureLoader.h">
+      <Filter>Header Files\Asset</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

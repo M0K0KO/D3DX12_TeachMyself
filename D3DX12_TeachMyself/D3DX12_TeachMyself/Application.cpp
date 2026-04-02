@@ -1,5 +1,6 @@
 #include "Application.h"
 #include "AssetLoader.h"
+#include "TextureLoader.h"
 #include <chrono>
 
 Application::Application()
@@ -53,13 +54,13 @@ void Application::Init()
 	auto ib = m_device->CreateBuffer(ibDesc, sponzaScene.indices.data());
 
 	std::vector<TextureHandle> gpuTextures;
+
+	m_device->BeginTextureUpload();
 	for (auto& tex : sponzaScene.textures)
 	{
-		TextureDesc texDesc = { static_cast<uint32_t>(tex.width),  static_cast<uint32_t>(tex.height), 
-			Format::R8G8B8A8_UNORM, TextureUsage::ShaderResource };
-		TextureHandle h = m_device->CreateTexture(texDesc, tex.data.data());
-		gpuTextures.push_back(h);
+		gpuTextures.push_back(m_device->LoadTexture(tex.path));
 	}
+	m_device->FlushTextureUploads();
 
 
 	uint8_t white[] = { 255, 255, 255, 255 };

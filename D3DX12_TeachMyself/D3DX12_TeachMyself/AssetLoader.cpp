@@ -35,7 +35,10 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
         
         if (!img.uri.empty())
         {
-            scene.textures[i].path = (baseDir / img.uri).wstring();
+            auto path = baseDir / img.uri;
+            path.replace_extension(".dds");
+
+            scene.textures[i].path = path.wstring();
         }
         else
         {

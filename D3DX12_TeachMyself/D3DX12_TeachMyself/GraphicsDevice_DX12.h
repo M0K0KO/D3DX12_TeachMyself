@@ -3,6 +3,8 @@
 #include "GraphicsDevice.h"
 #include "CommandContext_DX12.h"
 #include "UploadHeapRingAllocator.h"
+#include "TextureLoader.h"
+
 
 using namespace Microsoft::WRL;
 using namespace DirectX;
@@ -20,6 +22,10 @@ public:
 	TextureHandle CreateTexture(const TextureDesc desc, const void* initialData = nullptr) override;
 	PipelineHandle CreatePipeline(const PipelineDesc desc) override;
 
+	void BeginTextureUpload() override;
+	TextureHandle LoadTexture(const std::wstring& path) override;
+	void FlushTextureUploads() override;
+
 	CommandContext& BeginFrame() override;
 	void EndFrame() override;
 
@@ -35,6 +41,7 @@ private:
 	inline D3D12_SHADER_VISIBILITY GetDX12ShaderVisibility(ShaderVisibility visibility);
 	inline D3D12_COMPARISON_FUNC GetDX12ComparisonFunc(ComparisonFunc func);
 	inline DXGI_FORMAT GetDXGIFormat(Format format);
+	inline Format GetRHIFormat(DXGI_FORMAT format);
 	inline const char* GetSemanticString(Semantic semantic);
 	inline UINT Align256(UINT size);
 	void WaitForGpu();
@@ -101,4 +108,8 @@ private:
 
 	uint32_t m_rtvHeapNextSlot = 0;
 	uint32_t m_cbvSrvHeapNextSlot = 0;
+
+	std::unique_ptr<TextureLoader> m_pTextureLoader;
+
+	UINT m_cbvSrvDescriptorSize;
 };

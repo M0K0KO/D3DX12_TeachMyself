@@ -10,13 +10,13 @@ void Renderer::Init(GraphicsDevice* device)
 	m_height = device->GetHeight();
 
 	// Depth Pre Pass
-	auto vsBytecode = ShaderCompiler::CompileFromFile(
+	m_depthVS = ShaderCompiler::CompileFromFile(
 		L"shaders_VSMain.hlsl",
 		"main",
 		"vs_5_0"
 	);
 
-	auto psBytecode = ShaderCompiler::CompileFromFile(
+	m_depthPS = ShaderCompiler::CompileFromFile(
 		L"shaders_PSMain.hlsl",
 		"main",
 		"ps_5_0"
@@ -33,12 +33,12 @@ void Renderer::Init(GraphicsDevice* device)
 	depthPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Vertex });
 	depthPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 1, ShaderVisibility::Vertex });
 
-	PipelineDesc depthPassPSDesc = {
+	m_depthPrePassPipelinDesc = {
 		depthPassRSDesc,
-		vsBytecode, {}, vertexAttributes, 
+		ShaderCompiler::GetBytecode(m_depthVS), {}, vertexAttributes,
 		{ Format::UNKNOWN }, Format::D32_FLOAT, true, true, ComparisonFunc::Less };
 
-	m_depthPrePassPipeline = device->CreatePipeline(depthPassPSDesc);
+	m_depthPrePassPipeline = device->CreatePipeline(m_depthPrePassPipelinDesc);
 
 	TextureDesc depthTextureDesc = { m_width, m_height, Format::D32_FLOAT, TextureUsage::DepthStencil };
 	m_depthTexture = device->CreateTexture(depthTextureDesc, nullptr);
@@ -60,25 +60,27 @@ void Renderer::Init(GraphicsDevice* device)
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::Pixel });
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::Pixel });
 
-	auto gBufferVS = ShaderCompiler::CompileFromFile(
+	m_gBufferVS = ShaderCompiler::CompileFromFile(
 		L"shaders_GBuffer_VS.hlsl",
 		"main",
 		"vs_5_0"
 	);
 
-	auto gBufferPS = ShaderCompiler::CompileFromFile(
+	m_gBufferPS = ShaderCompiler::CompileFromFile(
 		L"shaders_GBuffer_PS.hlsl",
 		"main",
 		"ps_5_0"
 	);
 
-	PipelineDesc gBufferPassPSDesc = { 
+	
+
+	m_gBufferPassPipelineDesc = { 
 		gBufferPassRSDesc,
-		gBufferVS, gBufferPS, vertexAttributes,
+		ShaderCompiler::GetBytecode(m_gBufferVS), ShaderCompiler::GetBytecode(m_gBufferPS), vertexAttributes,
 		{ Format::R8G8B8A8_UNORM, Format::R16G16B16A16_SNORM, Format::R8G8B8A8_UNORM }, 
 		Format::D32_FLOAT,
 		true, false, ComparisonFunc::LessEqual };
-	m_gBufferPassPipeline = device->CreatePipeline(gBufferPassPSDesc);
+	m_gBufferPassPipeline = device->CreatePipeline(m_gBufferPassPipelineDesc);
 	// GBuffer Pass
 
 
@@ -89,41 +91,41 @@ void Renderer::Init(GraphicsDevice* device)
 	lightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::Pixel });
 	lightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 3, 1, ShaderVisibility::Pixel });
 
-	auto lightingPassVS = ShaderCompiler::CompileFromFile(
+	m_lightingVS = ShaderCompiler::CompileFromFile(
 		L"shaders_Lighting_VS.hlsl",
 		"main",
 		"vs_5_0"
 	);
 
-	auto lightingPassPS = ShaderCompiler::CompileFromFile(
+	m_lightingPS = ShaderCompiler::CompileFromFile(
 		L"shaders_Lighting_PS.hlsl",
 		"main",
 		"ps_5_0"
 	);
 
-	PipelineDesc lightingPassPSDesc = {
+	m_lightingPassPipelineDesc = {
 		lightingPassRSDesc,
-		lightingPassVS, lightingPassPS, vertexAttributes,
+		ShaderCompiler::GetBytecode(m_lightingVS), ShaderCompiler::GetBytecode(m_lightingPS), vertexAttributes,
 		{ Format::R8G8B8A8_UNORM },
 		Format::UNKNOWN,
 		false, false, ComparisonFunc::Equal };
-	m_lightingPassPipeline = device->CreatePipeline(lightingPassPSDesc);
+	m_lightingPassPipeline = device->CreatePipeline(m_lightingPassPipelineDesc);
 
 
 	// Debug
-	auto debugVSBytecode = ShaderCompiler::CompileFromFile(
+	m_debugVS = ShaderCompiler::CompileFromFile(
 		L"debugshaders_VS.hlsl",
 		"main",
 		"vs_5_0"
 	);
 
-	auto debugPSBytecode = ShaderCompiler::CompileFromFile(
+	m_debugPS = ShaderCompiler::CompileFromFile(
 		L"debugshaders_PS.hlsl",
 		"main",
 		"ps_5_0"
 	);
 
-	auto depthDebugPSBytecode = ShaderCompiler::CompileFromFile(
+	m_depthDebugPS = ShaderCompiler::CompileFromFile(
 		L"debugshaders_Depth_PS.hlsl",
 		"main",
 		"ps_5_0"
@@ -132,23 +134,23 @@ void Renderer::Init(GraphicsDevice* device)
 	RootSignatureDesc debugPassRSDesc = {};
 	debugPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
 
-	PipelineDesc debugPassDesc = {
+	m_debugPipelineDesc = {
 		debugPassRSDesc,
-		debugVSBytecode, debugPSBytecode, {},
+		ShaderCompiler::GetBytecode(m_debugVS), ShaderCompiler::GetBytecode(m_debugPS), {},
 		{ Format::R8G8B8A8_UNORM }, 
 		Format::UNKNOWN, 
 		false, false, ComparisonFunc::Equal };
 
-	m_debugPipeline = device->CreatePipeline(debugPassDesc);
+	m_debugPipeline = device->CreatePipeline(m_debugPipelineDesc);
 
-	PipelineDesc depthDebugPassDesc = {
+	m_depthDebugPipelineDesc = {
 		debugPassRSDesc,
-		debugVSBytecode, depthDebugPSBytecode, {},
+		ShaderCompiler::GetBytecode(m_debugVS), ShaderCompiler::GetBytecode(m_depthDebugPS), {},
 		{ Format::R8G8B8A8_UNORM },
 		Format::UNKNOWN,
 		false, false, ComparisonFunc::Equal };
 
-	m_depthDebugPipeline = device->CreatePipeline(depthDebugPassDesc);
+	m_depthDebugPipeline = device->CreatePipeline(m_depthDebugPipelineDesc);
 
 	debugMode = DebugMode::None;
 	// Debug
@@ -156,6 +158,50 @@ void Renderer::Init(GraphicsDevice* device)
 
 void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 {
+	ShaderCompiler::CheckForChanges();
+	if (ShaderCompiler::IsDirty(m_depthVS) || ShaderCompiler::IsDirty(m_depthPS))
+	{
+		m_depthPrePassPipelinDesc.vs = ShaderCompiler::GetBytecode(m_depthVS);
+		m_depthPrePassPipelinDesc.ps = ShaderCompiler::GetBytecode(m_depthPS);
+		m_depthPrePassPipeline = device->CreatePipeline(m_depthPrePassPipelinDesc);
+		ShaderCompiler::ClearDirty(m_depthVS);
+		ShaderCompiler::ClearDirty(m_depthPS);
+	}
+
+	if (ShaderCompiler::IsDirty(m_gBufferVS) || ShaderCompiler::IsDirty(m_gBufferPS))
+	{
+		m_gBufferPassPipelineDesc.vs = ShaderCompiler::GetBytecode(m_gBufferVS);
+		m_gBufferPassPipelineDesc.ps = ShaderCompiler::GetBytecode(m_gBufferPS);
+		m_gBufferPassPipeline = device->CreatePipeline(m_gBufferPassPipelineDesc);
+		ShaderCompiler::ClearDirty(m_gBufferVS);
+		ShaderCompiler::ClearDirty(m_gBufferPS);
+	}
+
+	if (ShaderCompiler::IsDirty(m_lightingVS) || ShaderCompiler::IsDirty(m_lightingPS))
+	{
+		m_lightingPassPipelineDesc.vs = ShaderCompiler::GetBytecode(m_lightingVS);
+		m_lightingPassPipelineDesc.ps = ShaderCompiler::GetBytecode(m_lightingPS);
+		m_lightingPassPipeline = device->CreatePipeline(m_lightingPassPipelineDesc);
+		ShaderCompiler::ClearDirty(m_lightingVS);
+		ShaderCompiler::ClearDirty(m_lightingPS);
+	}
+
+	if (ShaderCompiler::IsDirty(m_debugVS) || ShaderCompiler::IsDirty(m_debugPS) || ShaderCompiler::IsDirty(m_depthDebugPS))
+	{
+		m_debugPipelineDesc.vs = ShaderCompiler::GetBytecode(m_debugVS);
+		m_debugPipelineDesc.ps = ShaderCompiler::GetBytecode(m_debugPS);
+		m_depthDebugPipelineDesc.vs = ShaderCompiler::GetBytecode(m_debugVS);
+		m_depthDebugPipelineDesc.ps = ShaderCompiler::GetBytecode(m_depthDebugPS);
+
+		m_debugPipeline = device->CreatePipeline(m_debugPipelineDesc);
+		m_depthDebugPipeline = device->CreatePipeline(m_depthDebugPipelineDesc);
+
+		ShaderCompiler::ClearDirty(m_debugVS);
+		ShaderCompiler::ClearDirty(m_debugPS);
+		ShaderCompiler::ClearDirty(m_depthDebugPS);
+	}
+
+
 	CommandContext& ctx = device->BeginFrame();
 
 	RenderGraph graph(device);

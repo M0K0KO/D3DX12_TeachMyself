@@ -1,5 +1,6 @@
 #pragma once
 #include "RHITypes.h"
+#include <string>
 
 class CommandContext;
 
@@ -14,6 +15,10 @@ public:
 	virtual BufferHandle CreateBuffer(const BufferDesc desc, const void* initialData = nullptr) = 0;
 	virtual TextureHandle CreateTexture(const TextureDesc desc, const void* initialData = nullptr) = 0;
 	virtual PipelineHandle CreatePipeline(const PipelineDesc desc) = 0;
+
+	virtual void BeginTextureUpload() = 0;
+	virtual TextureHandle LoadTexture(const std::wstring& path) = 0;
+	virtual void FlushTextureUploads() = 0;
 
 	virtual CommandContext& BeginFrame() = 0;
 	virtual void EndFrame() = 0;

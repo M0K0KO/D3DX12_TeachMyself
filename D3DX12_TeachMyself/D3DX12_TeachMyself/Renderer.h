@@ -1,6 +1,7 @@
 #pragma once
 #include "RHITypes.h"
 #include "GraphicsDevice.h"
+#include "ShaderCompiler.h"
 #include "Scene.h"
 
 enum class DebugMode
@@ -27,11 +28,28 @@ private:
 	UINT m_width;
 	UINT m_height;
 
+	ShaderHandle m_depthVS;
+	ShaderHandle m_depthPS;
+	PipelineDesc m_depthPrePassPipelinDesc;
 	PipelineHandle m_depthPrePassPipeline;
+
+	ShaderHandle m_gBufferVS;
+	ShaderHandle m_gBufferPS;
+	PipelineDesc m_gBufferPassPipelineDesc;
 	PipelineHandle m_gBufferPassPipeline;
+
+	ShaderHandle m_lightingVS;
+	ShaderHandle m_lightingPS;
+	PipelineDesc m_lightingPassPipelineDesc;
 	PipelineHandle m_lightingPassPipeline;
 
+	ShaderHandle m_debugVS;
+	ShaderHandle m_debugPS;
+	PipelineDesc m_debugPipelineDesc;
 	PipelineHandle m_debugPipeline;
+
+	ShaderHandle m_depthDebugPS;
+	PipelineDesc m_depthDebugPipelineDesc;
 	PipelineHandle m_depthDebugPipeline;
 
 	BufferHandle m_perFrameCB;
