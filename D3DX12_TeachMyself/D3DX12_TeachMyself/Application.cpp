@@ -118,7 +118,7 @@ void Application::Update()
 	float fps = 1.0f / deltaTime;
 
 	char buffer[64];
-	sprintf_s(buffer, "FPS: %.1f\n", fps);
+	sprintf_s(buffer, "FPS: %.1f\n\n", fps);
 	OutputDebugStringA(buffer);
 
 	//static float angle = 0.0f;
@@ -224,6 +224,7 @@ void Application::Render()
 	{
 		m_device->ResizeSwapChain(m_pendingWidth, m_pendingHeight);
 		m_renderer.OnResize(m_pendingWidth, m_pendingHeight);
+		m_scene.cam.SetAspectRatio(m_pendingWidth, m_pendingHeight);
 		m_needsResize = false;
 		return;
 	}

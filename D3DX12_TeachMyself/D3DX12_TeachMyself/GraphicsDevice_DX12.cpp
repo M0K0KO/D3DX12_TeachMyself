@@ -196,7 +196,6 @@ void GraphicsDevice_DX12::MoveToNextFrame()
 
 CommandContext& GraphicsDevice_DX12::BeginFrame()
 {
-	OutputDebugStringA("BeginFrame start\n");
 	HR_CHECK(m_commandAllocators[m_frameIndex]->Reset());
 	HR_CHECK(m_commandList->Reset(m_commandAllocators[m_frameIndex].Get(), nullptr));
 
@@ -210,12 +209,10 @@ CommandContext& GraphicsDevice_DX12::BeginFrame()
 	m_profiler.BeginFrame(m_frameIndex);
 
 	return m_commandContext;
-	OutputDebugStringA("BeginFrame end\n");
 }
 
 void GraphicsDevice_DX12::EndFrame()
 {
-	OutputDebugStringA("EndFrame start\n");
 	m_profiler.Resolve(m_commandList.Get());
 
 	HR_CHECK(m_commandList->Close());
@@ -226,7 +223,6 @@ void GraphicsDevice_DX12::EndFrame()
 	HR_CHECK_DEVICE(m_swapChain->Present(1, 0), m_device.Get());
 
 	MoveToNextFrame();
-	OutputDebugStringA("EndFrame end\n");
 }
 
 void GraphicsDevice_DX12::Shutdown()
@@ -874,6 +870,9 @@ void GraphicsDevice_DX12::ResizeSwapChain(uint32_t width, uint32_t height)
 		tex.desc.height = height;
 		tex.rtvHandle = rtvHandle;
 	} 
+
+	m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
+	m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(width), static_cast<LONG>(height));
 
 	const UINT64 currentFence = m_fenceValues[m_frameIndex];
 	for (UINT i = 0; i < FrameCount; i++)
