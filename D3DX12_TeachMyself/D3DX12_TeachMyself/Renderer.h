@@ -27,13 +27,17 @@ public:
 	void OnResize(uint32_t width, uint32_t height);
 
 private:
+	void ReloadPSO(GraphicsDevice* device);
 	void Resize(GraphicsDevice* device);
+	void PrintGPUTimes(GraphicsDevice* device);
 
 private:
 	static constexpr float clearColor[4] = { 0.0f, 0.0f,  0.0f,  0.0f };
 
 	UINT m_width;
 	UINT m_height;
+
+	ShaderHandle m_fullscreenVS;
 
 	ShaderHandle m_depthVS;
 	PipelineDesc m_depthPrePassPipelinDesc;
@@ -47,17 +51,14 @@ private:
 	PipelineHandle m_gBufferOpaquePassPipeline;
 	PipelineHandle m_gBufferAlphaPassPipeline;
 
-	ShaderHandle m_lightingVS;
 	ShaderHandle m_lightingPS;
 	PipelineDesc m_lightingPassPipelineDesc;
 	PipelineHandle m_lightingPassPipeline;
 
-	ShaderHandle m_PBRlightingVS;
 	ShaderHandle m_PBRlightingPS;
 	PipelineDesc m_PBRlightingPassPipelineDesc;
 	PipelineHandle m_PBRlightingPassPipeline;
 
-	ShaderHandle m_debugVS;
 	ShaderHandle m_debugPS;
 	PipelineDesc m_debugPipelineDesc;
 	PipelineHandle m_debugPipeline;
@@ -65,6 +66,13 @@ private:
 	ShaderHandle m_depthDebugPS;
 	PipelineDesc m_depthDebugPipelineDesc;
 	PipelineHandle m_depthDebugPipeline;
+
+	ShaderHandle m_equirectConvertCS;
+	PipelineHandle m_equirectCSPipeline;
+
+	ShaderHandle m_skyboxPS;
+	PipelineDesc m_skyboxPipelineDesc;
+	PipelineHandle m_skyboxPipeline;
 
 	BufferHandle m_perFrameCB;
 	BufferHandle m_perObjectCB;
@@ -75,6 +83,9 @@ private:
 	TextureHandle m_gbufferAlbedo;
 	TextureHandle m_gbufferNormal;
 	TextureHandle m_gbufferMR;
+
+	TextureHandle m_equirectTexture;
+	TextureHandle m_cubemapTexture;
 
 	struct PerFrameData
 	{

@@ -192,6 +192,9 @@ LRESULT Window::HandleMsg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		return 0;
 
 	case WM_SIZE:
+		if (IsZoomed(hWnd))
+			return 0;
+
 		if (!m_isResizing && wParam != SIZE_MINIMIZED && m_resizeCallback)
 		{
 			uint32_t w = LOWORD(lParam);

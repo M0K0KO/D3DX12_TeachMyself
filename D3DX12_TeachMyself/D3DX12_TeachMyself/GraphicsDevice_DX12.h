@@ -5,6 +5,7 @@
 #include "UploadHeapRingAllocator.h"
 #include "TextureLoader.h"
 #include "GPUTimestampProfiler.h"
+#include <functional>
 
 
 using namespace Microsoft::WRL;
@@ -21,12 +22,18 @@ public:
 
 	BufferHandle CreateBuffer(const BufferDesc desc, const void* initialData = nullptr) override;
 	TextureHandle CreateTexture(const TextureDesc desc, const void* initialData = nullptr) override;
+	TextureHandle CreateCubemapTexture(const CubemapTextureDesc desc, const void* initialData = nullptr) override;
 	PipelineHandle CreatePipeline(const PipelineDesc desc) override;
+	PipelineHandle CreateComputePipeline(const ComputePipelineDesc desc) override;
+
+	uint32_t GetSRVHeapSlot(TextureHandle handle) override;
+	uint32_t GetUAVHeapSlot(TextureHandle handle) override;
 
 	void BeginTextureUpload() override;
 	TextureHandle LoadTexture(const std::wstring& path) override;
 	void FlushTextureUploads() override;
 
+	void ExecuteImmediate(std::function<void(CommandContext&)> fn) override;
 	CommandContext& BeginFrame() override;
 	void EndFrame() override;
 
@@ -50,6 +57,7 @@ private:
 	inline Format GetRHIFormat(DXGI_FORMAT format);
 	inline const char* GetSemanticString(Semantic semantic);
 	inline UINT Align256(UINT size);
+	inline UINT GetBytesPerPixel(Format format);
 	void WaitForGpu();
 	void MoveToNextFrame();
 
@@ -75,6 +83,7 @@ private:
 	ComPtr<IDXGISwapChain3> m_swapChain;
 	ComPtr<ID3D12Resource> m_renderTargets[FrameCount];
 	ComPtr<ID3D12CommandAllocator> m_commandAllocators[FrameCount];
+	ComPtr<ID3D12CommandAllocator> m_immediateAllocator;
 	ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
 	ComPtr<ID3D12DescriptorHeap> m_cbvSrvHeap;
 	ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
@@ -95,7 +104,9 @@ private:
 	{
 		ComPtr<ID3D12Resource> resource;
 		TextureDesc desc;
+		CubemapTextureDesc cubeDesc;
 		uint32_t srvHeapSlot = UINT32_MAX;
+		uint32_t uavHeapSlot = UINT32_MAX;
 		D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle;
 		D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle;
 	};

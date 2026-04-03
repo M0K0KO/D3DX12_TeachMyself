@@ -39,7 +39,8 @@ enum class TextureUsage
 {
 	ShaderResource,
 	RenderTarget,
-	DepthStencil
+	DepthStencil,
+	UnorderedAccess,
 };
 
 enum class Semantic
@@ -64,6 +65,7 @@ enum class RGResourceState
 	DepthWrite,
 	DepthRead,
 	ShaderResource,
+	UnorderedAccess,
 	Present,
 	CopyDest,
 };
@@ -157,6 +159,13 @@ struct TextureDesc
 	TextureUsage usage;
 };
 
+struct CubemapTextureDesc
+{
+	uint32_t width;
+	uint32_t height;
+	Format format;
+};
+
 struct VertexAttribute
 {
 	Semantic semantic;
@@ -218,4 +227,10 @@ struct PipelineDesc
 	bool depthWrite;
 	ComparisonFunc depthFunc;
 	CullMode cullMode;
+};
+
+struct ComputePipelineDesc
+{
+	RootSignatureDesc rootSignatureDesc;
+	ShaderBytecode cs;
 };

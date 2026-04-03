@@ -68,3 +68,11 @@ UINT UploadHeapRingAllocator::AlignUp(UINT value, UINT alignment)
 {
 	return (value + alignment - 1) & ~(alignment - 1);
 }
+
+size_t UploadHeapRingAllocator::GetEmptySpaceSize()
+{
+	if (m_head >= m_tail)
+		return (kCapacity - m_head) + m_tail - 1;
+	else
+		return (m_tail - m_head) - 1;
+}

@@ -1,0 +1,25 @@
+TextureCube<float4> SkyboxCubemap : register(t0);
+SamplerState LinearSampler : register(s0);
+
+cbuffer SkyboxCB : register(b0)
+{
+    float4x4 invViewProj;
+};
+
+struct PSInput
+{
+    float4 position : SV_POSITION;
+    float2 uv : TEXCOORD0;
+};
+
+float4 main(PSInput input) : SV_Target
+{
+    // NDC ¡æ clip space (depth = 1.0 = far plane)
+    float4 clip = float4(input.uv * 2.0 - 1.0, 1.0, 1.0);
+    clip.y = -clip.y; // DX UV convention
+
+    float4 worldPos = mul(clip, invViewProj);
+    float3 dir = normalize(worldPos.xyz / worldPos.w);
+
+    return SkyboxCubemap.Sample(LinearSampler, dir);
+}

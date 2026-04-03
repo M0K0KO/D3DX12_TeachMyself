@@ -22,6 +22,8 @@ public:
 	UploadAllocation Allocate(size_t size);
 	void FinishFrame(UINT64 fenceValue);
 
+	size_t GetEmptySpaceSize();
+
 private:
 	static constexpr UINT kCapacity = 64 * 1024 * 1024; // 64MB
 	static constexpr UINT kAlignment = 256;

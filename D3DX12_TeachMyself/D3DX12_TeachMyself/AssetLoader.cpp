@@ -330,3 +330,38 @@ const uint8_t* AssetLoader::GetBufferPointer(const tinygltf::Model& model, const
         + view.byteOffset
         + acc.byteOffset;
 }
+
+float* AssetLoader::LoadHDR(
+    const std::string& path,
+    int& width,
+    int& height,
+    int& channels,
+    int desiredChannels)
+{
+    stbi_set_flip_vertically_on_load(true);
+
+    float* data = stbi_loadf(
+        path.c_str(),
+        &width,
+        &height,
+        &channels,
+        desiredChannels
+    );
+
+    if (!data)
+    {
+        throw std::runtime_error(
+            "Failed to load HDR image: " + path
+        );
+    }
+
+    if (desiredChannels != 0)
+        channels = desiredChannels;
+
+    return data;
+}
+
+void AssetLoader::FreeImage(float* data)
+{
+    stbi_image_free(data);
+}

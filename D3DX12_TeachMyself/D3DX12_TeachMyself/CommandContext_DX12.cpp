@@ -17,7 +17,7 @@ CBHandle CommandContext_DX12::UpdateConstantBuffer(UINT slot, const void* data, 
 
 void CommandContext_DX12::SetPipeline(PipelineHandle handle)
 {
-	auto internalPSO = m_pDevice->m_pipelines[handle.id];
+	auto& internalPSO = m_pDevice->m_pipelines[handle.id];
 	m_commandList->SetPipelineState(internalPSO.pso.Get());
 	if (m_currentRootSignature != internalPSO.rootSignature.Get())
 	{
@@ -25,6 +25,13 @@ void CommandContext_DX12::SetPipeline(PipelineHandle handle)
 		m_currentRootSignature = internalPSO.rootSignature.Get();
 	}
 	m_commandList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+}
+
+void CommandContext_DX12::SetComputePipeline(PipelineHandle handle)
+{
+	auto& internalPSO = m_pDevice->m_pipelines[handle.id];
+	m_commandList->SetPipelineState(internalPSO.pso.Get());
+	m_commandList->SetComputeRootSignature(internalPSO.rootSignature.Get());
 }
 
 void CommandContext_DX12::SetVertexBuffer(BufferHandle handle)
@@ -56,6 +63,11 @@ void CommandContext_DX12::SetRootConstants(UINT slot, const void* data, UINT cou
 	m_commandList->SetGraphicsRoot32BitConstants(slot, count32Bit, data, 0);
 }
 
+void CommandContext_DX12::SetComputeRootConstants(UINT slot, const void* data, UINT count32Bit)
+{
+	m_commandList->SetComputeRoot32BitConstants(slot, count32Bit, data, 0);
+}
+
 void CommandContext_DX12::BindConstantBuffer(uint32_t slot, CBHandle handle)
 {
 	m_commandList->SetGraphicsRootConstantBufferView(slot, handle.gpuAddress);
@@ -68,6 +80,20 @@ void CommandContext_DX12::BindTexture(TextureHandle handle, uint32_t slot)
 	UINT descriptorSize = m_pDevice->m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuHandle(m_pDevice->m_cbvSrvHeap->GetGPUDescriptorHandleForHeapStart(), texture.srvHeapSlot, descriptorSize);
 	m_commandList->SetGraphicsRootDescriptorTable(slot, srvGpuHandle);
+}
+
+void CommandContext_DX12::SetComputeDescriptorTable(UINT slot, UINT heapSlot)
+{
+	UINT descriptorSize =
+		m_pDevice->m_device->GetDescriptorHandleIncrementSize(
+			D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle(
+		m_pDevice->m_cbvSrvHeap->GetGPUDescriptorHandleForHeapStart(),
+		heapSlot,
+		descriptorSize);
+
+	m_commandList->SetComputeRootDescriptorTable(slot, gpuHandle);
 }
 
 void CommandContext_DX12::TransitionBarrier(TextureHandle handle, RGResourceState before, RGResourceState after)
@@ -143,4 +169,9 @@ void CommandContext_DX12::BeginTimestamp(uint32_t passIndex)
 void CommandContext_DX12::EndTimestamp(uint32_t passIndex)
 {
 	m_pDevice->m_profiler.EndTimestamp(m_pDevice->m_commandList.Get(), passIndex);
+}
+
+void CommandContext_DX12::Dispatch(UINT x, UINT y, UINT z)
+{
+	m_commandList->Dispatch(x, y, z);
 }
