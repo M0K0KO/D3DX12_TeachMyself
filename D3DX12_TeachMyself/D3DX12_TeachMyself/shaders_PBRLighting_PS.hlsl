@@ -112,12 +112,12 @@ float4 main(PSInput input) : SV_TARGET
     float3 albedo = albedoAO.rgb;
     float ao = albedoAO.a;
 
-    float2 normalRG = gNormalMap.Sample(gSamplerPoint, uv).rg;
-    float3 N = DecodeNormal(normalRG);
+    float3 normalRGB = gNormalMap.Sample(gSamplerPoint, uv).rgb;
+    float3 N = normalize(normalRGB * 2.0f - 1.0f);
     
     float4 mr = gMetallicRoughness.Sample(gSamplerPoint, uv);
-    float metallic = mr.g;
-    float roughness = mr.b;
+    float metallic = mr.b;
+    float roughness = mr.g;
 
     float depth = gDepth.Sample(gSamplerPoint, uv).r;
 
@@ -155,8 +155,10 @@ float4 main(PSInput input) : SV_TARGET
     Lo *= ao;
 
     // Temporary ambient until skybox / IBL exists
-    float3 ambient = 0.03 * albedo * ao;
+    float3 ambient = 0.04f * albedo * ao;
     float3 color = ambient + Lo;
 
     return float4(color, 1.0);
+    //eturn float4(specular, 1.0);
+
 }

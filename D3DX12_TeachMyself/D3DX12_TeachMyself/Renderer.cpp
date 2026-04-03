@@ -458,15 +458,17 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 
 					PBRLightingData PBRlightingData;
 					XMMATRIX inverseVP = XMMatrixInverse(nullptr, vp);
-					XMStoreFloat4x4(&PBRlightingData.gInvViewProj, XMMatrixTranspose(inverseVP));
+					XMStoreFloat4x4(&PBRlightingData.gInvViewProj, inverseVP);
 					PBRlightingData.gCameraPos = scene.cam.GetPos();
-					PBRlightingData.gLightDir = { 1.0f, -0.82f, 0.4f };
+					PBRlightingData.gLightDir = { -0.5f, -1.0f, -0.5f };
 					float len = sqrtf(
 						PBRlightingData.gLightDir.x * PBRlightingData.gLightDir.x +
 						PBRlightingData.gLightDir.y * PBRlightingData.gLightDir.y +
 						PBRlightingData.gLightDir.z * PBRlightingData.gLightDir.z);
-					PBRlightingData.gLightDir = { 1.0f / len, -0.82f / len, 0.4f / len };
-					PBRlightingData.gLightColor = { 20.0f, 20.0f, 20.0f };
+					PBRlightingData.gLightDir.x /= len;
+					PBRlightingData.gLightDir.y /= len;
+					PBRlightingData.gLightDir.z /= len;
+					PBRlightingData.gLightColor = { 4.0f, 4.0f, 4.0f };
 					auto PBRligthDataCBHandle = passCtx.UpdateConstantBuffer(0, &PBRlightingData, sizeof(PBRlightingData));
 					passCtx.BindConstantBuffer(0, PBRligthDataCBHandle);
 
@@ -503,7 +505,7 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 					XMMATRIX inverseVP = XMMatrixInverse(nullptr, vp);
 					XMStoreFloat4x4(&lightingData.inverseVP, XMMatrixTranspose(inverseVP));
 					lightingData.cameraPos = scene.cam.GetPos();
-					lightingData.direction = { 1.0f, -0.82f, 0.4f };
+					lightingData.direction = { -0.5f, -1.0f, -0.5f };
 
 					float len = sqrtf(
 						lightingData.direction.x * lightingData.direction.x +
@@ -585,7 +587,7 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	float depthPrePassTime = device->GetTimestampMs(PassID::DepthPrePass);
 	float gBufferPassTime = device->GetTimestampMs(PassID::GBufferPass);
 	float gBufferAlphaPassTime = device->GetTimestampMs(PassID::GBufferAlphaPass);
-	float lightingPassTime = device->GetTimestampMs(PassID::LightingPass);
+	float lightingPassTime = device->GetTimestampMs(PassID::PBRLightingPass);
 
 	char buffer[256];
 	sprintf_s(

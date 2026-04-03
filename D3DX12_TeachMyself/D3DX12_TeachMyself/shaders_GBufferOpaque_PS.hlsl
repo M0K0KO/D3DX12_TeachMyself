@@ -46,8 +46,8 @@ PSOutput main(PSInput input)
     
     float4 mrSample = metallicRoughnessTex.Sample(samp, input.uv);
     output.mr = float4(0,
-        mrSample.g * roughnessFactor,
-        mrSample.b * metallicFactor,
+        mrSample.g,
+        mrSample.b,
         0
     );
     
