@@ -13,7 +13,10 @@ enum class DebugMode
 	DepthTexture,
 	Albedo,
 	Normal,
-	MR
+	MR,
+	BRDF_LUT,
+	IrradianceMap,
+	PreFilteredEnvrionmentMap
 };
 
 struct FrameContext
@@ -24,6 +27,10 @@ struct FrameContext
 	RGResourceHandle gbufferMR;
 	RGResourceHandle depthTexture;
 	RGResourceHandle skyboxTexture;
+	RGResourceHandle irradianceMap;
+	RGResourceHandle prefilteredEnvMap;
+	RGResourceHandle brdfLutTexture;
+
 
 	CBHandle perFrameCB;
 	CBHandle lightCB;
@@ -103,6 +110,15 @@ private:
 	PipelineDesc m_skyboxPipelineDesc;
 	PipelineHandle m_skyboxPipeline;
 
+	ShaderHandle m_brdfLUTCS;
+	PipelineHandle m_brdfLUTCSPipeline;
+
+	ShaderHandle m_irradianceMapCS;
+	PipelineHandle m_irradianceMapCSPipeline;
+
+	ShaderHandle m_prefilteredEnvironmentMapCS;
+	PipelineHandle m_prefilteredEnvironmentMapCSPipeline;
+
 	BufferHandle m_perFrameCB;
 	BufferHandle m_perObjectCB;
 	BufferHandle m_lightingDataCB;
@@ -115,6 +131,12 @@ private:
 
 	TextureHandle m_equirectTexture;
 	TextureHandle m_cubemapTexture;
+
+	TextureHandle m_brdfLUTTexture;
+
+	TextureHandle m_irradianceMapTexture;
+
+	TextureHandle m_prefilteredMapTexture;
 
 
 

@@ -20,7 +20,7 @@ public:
 	virtual PipelineHandle CreateComputePipeline(const ComputePipelineDesc desc) = 0;
 
 	virtual uint32_t GetSRVHeapSlot(TextureHandle handle) = 0;
-	virtual uint32_t GetUAVHeapSlot(TextureHandle handle) = 0;
+	virtual uint32_t GetUAVHeapSlot(TextureHandle handle, uint32_t mip = 0) = 0;
 
 	virtual void BeginTextureUpload() = 0;
 	virtual TextureHandle LoadTexture(const std::wstring& path) = 0;

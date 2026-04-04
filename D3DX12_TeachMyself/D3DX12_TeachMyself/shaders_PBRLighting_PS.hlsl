@@ -10,7 +10,12 @@ Texture2D gAlbedoAO : register(t1); // RGB=Albedo, A=AO
 Texture2D gNormalMap : register(t2); // RG=WorldNormal XY (BC5)
 Texture2D gMetallicRoughness : register(t3); // R=Metallic, G=Roughness
 
+TextureCube<float4> gIrradianceMap : register(t4);
+TextureCube<float4> gPrefilteredEnvMap : register(t5);
+Texture2D<float2> gBRDF_LUT : register(t6);
+
 SamplerState gSamplerPoint : register(s0); // Point Clamp for lighting
+SamplerState gSamplerLinear : register(s1);
 
 // ----- Per-Frame CB (Root CBV) -----
 cbuffer PerFrameData : register(b0)
@@ -105,6 +110,11 @@ float3 FresnelSchlick(float VdotH, float3 F0)
     return F0 + (1.0 - F0) * pow(1.0 - VdotH, 5.0);
 }
 
+float3 FresnelSchlickRoughness(float NdotV, float3 F0, float roughness)
+{
+    return F0 + (max(1.0 - roughness, F0) - F0) * pow(1.0 - NdotV, 5.0);
+}
+
 // =============================================================
 // Fullscreen Triangle Vertex -> PS Input
 // =============================================================
@@ -162,17 +172,26 @@ float4 main(PSInput input) : SV_TARGET
     float3 kD = (1.0 - kS) * (1.0 - metallic);
     float3 diffuse = kD * albedo / PI;
 
-    // --- Final Lighting ---
+    // --- Direct Lighting ---
     float3 Lo = (diffuse + specular) * lightColor * NdotL;
 
-    // Temporary AO application
-    Lo *= ao;
+    // --- IBL: Diffuse ---
+    float3 F_ibl = FresnelSchlickRoughness(NdotV, F0, roughness);
+    float3 kD_ibl = (1.0 - F_ibl) * (1.0 - metallic);
+    float3 irradiance = gIrradianceMap.SampleLevel(gSamplerLinear, N, 0).rgb;
+    float3 diffuseIBL = kD_ibl * irradiance * albedo;
 
-    // Temporary ambient until skybox / IBL exists
-    float3 ambient = 0.04f * albedo * ao;
+    // --- IBL: Specular ---
+    float3 R = reflect(-V, N);
+    static const float MAX_MIP = 4.0; // mipLevels - 1
+    float3 prefilteredColor = gPrefilteredEnvMap.SampleLevel(gSamplerLinear, R, roughness * MAX_MIP).rgb;
+    float2 envBRDF = gBRDF_LUT.Sample(gSamplerLinear, float2(NdotV, roughness)).rg;
+    float3 specularIBL = prefilteredColor * (F0 * envBRDF.x + envBRDF.y);
+
+    // --- Final ---
+    float3 ambient = (diffuseIBL + specularIBL) * ao;
     float3 color = ambient + Lo;
 
+    color = color / (color + 1.0); // Reinhard tonemap
     return float4(color, 1.0);
-    //eturn float4(specular, 1.0);
-
 }

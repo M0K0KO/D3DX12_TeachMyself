@@ -199,6 +199,21 @@ void  Application::HandleDebugModeInput()
 		m_renderer.ChangeDebugMode(DebugMode::MR);
 		wnd.SetTitle(L"DebugMode :: METALLIC_ROUGHNESS");
 	}
+	else if (wnd.kbd.KeyIsPressed('7'))
+	{
+		m_renderer.ChangeDebugMode(DebugMode::BRDF_LUT);
+		wnd.SetTitle(L"DebugMode :: BRDF LUT");
+	}
+	else if (wnd.kbd.KeyIsPressed('8'))
+	{
+		m_renderer.ChangeDebugMode(DebugMode::IrradianceMap);
+		wnd.SetTitle(L"DebugMode :: IRRADIANCE MAP");
+	}
+	else if (wnd.kbd.KeyIsPressed('9'))
+	{
+		m_renderer.ChangeDebugMode(DebugMode::PreFilteredEnvrionmentMap);
+		wnd.SetTitle(L"DebugMode :: PREFILTERED ENVIRONMENT MAP");
+	}
 }
 void  Application::HandleCameraMovement(float deltaTime)
 {

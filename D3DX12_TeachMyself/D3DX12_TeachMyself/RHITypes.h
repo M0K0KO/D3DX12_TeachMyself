@@ -164,6 +164,7 @@ struct CubemapTextureDesc
 	uint32_t width;
 	uint32_t height;
 	Format format;
+	uint32_t mipLevels = 1;
 };
 
 struct VertexAttribute

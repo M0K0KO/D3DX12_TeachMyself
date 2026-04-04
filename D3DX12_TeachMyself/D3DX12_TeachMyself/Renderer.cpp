@@ -22,7 +22,7 @@ void Renderer::Init(GraphicsDevice* device)
 	InitDebugPass(device);
 
 
-	// Skybox Pass
+	// Equirect -> CubeMap
 	RootSignatureDesc equirectConvertRSDesc = {};
 	equirectConvertRSDesc.allowIA = false;
 	equirectConvertRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::All });
@@ -43,7 +43,8 @@ void Renderer::Init(GraphicsDevice* device)
 
 	AssetLoader loader;
 	int w, h, ch;
-	float* hdrData = loader.LoadHDR("../citrus_orchard_puresky_4k.hdr", w, h, ch, 4);
+	//float* hdrData = loader.LoadHDR("../citrus_orchard_puresky_4k.hdr", w, h, ch, 4);
+	float* hdrData = loader.LoadHDR("../venice_sunset_4k.hdr", w, h, ch, 4);
 
 	TextureDesc equirectDesc = {};
 	equirectDesc.width = w;
@@ -74,7 +75,127 @@ void Renderer::Init(GraphicsDevice* device)
 			ctx.TransitionBarrier(m_cubemapTexture, RGResourceState::UnorderedAccess, RGResourceState::ShaderResource);
 		}
 	);
-	// Skybox Pass
+	// Equirect -> CubeMap
+
+	// BRDF LUT 
+	TextureDesc brdfLUTDesc = { 512, 512, Format::R16G16_FLOAT, TextureUsage::UnorderedAccess };
+	m_brdfLUTTexture = device->CreateTexture(brdfLUTDesc);
+
+	
+	m_brdfLUTCS = ShaderCompiler::CompileFromFile(
+		L"shaders_brdfLUT_CS.hlsl",
+		"CSMain",
+		"cs_5_1"
+	);
+
+	RootSignatureDesc brdfLUTRSDesc = {};
+	brdfLUTRSDesc.allowIA = false;
+	brdfLUTRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
+
+	ComputePipelineDesc brdfLUTPipelineDesc = {};
+	brdfLUTPipelineDesc.cs = ShaderCompiler::GetBytecode(m_brdfLUTCS);
+	brdfLUTPipelineDesc.rootSignatureDesc = brdfLUTRSDesc;
+
+	m_brdfLUTCSPipeline = device->CreateComputePipeline(brdfLUTPipelineDesc);
+
+	device->ExecuteImmediate(
+		[&](CommandContext& ctx) {
+			ctx.SetComputePipeline(m_brdfLUTCSPipeline);
+			ctx.SetComputeDescriptorTable(0, device->GetUAVHeapSlot(m_brdfLUTTexture));
+			ctx.Dispatch(512 / 16, 512 / 16, 1);
+
+			ctx.TransitionBarrier(m_brdfLUTTexture, RGResourceState::UnorderedAccess, RGResourceState::ShaderResource);
+		}
+	);
+	// BRDF LUT
+
+	// Irradiance Map
+	RootSignatureDesc irradianceMapRSDesc = {};
+	irradianceMapRSDesc.allowIA = false;
+	irradianceMapRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::All });
+	irradianceMapRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
+	irradianceMapRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 0, ShaderVisibility::All });
+
+	m_irradianceMapCS = ShaderCompiler::CompileFromFile(
+		L"shaders_IrradianceMap_CS.hlsl",
+		"CSMain",
+		"cs_5_1"
+	);
+
+	ComputePipelineDesc irradianceMapPSODesc = {};
+	irradianceMapPSODesc.rootSignatureDesc = irradianceMapRSDesc;
+	irradianceMapPSODesc.cs = ShaderCompiler::GetBytecode(m_irradianceMapCS);
+	m_irradianceMapCSPipeline = device->CreateComputePipeline(irradianceMapPSODesc);
+
+	CubemapTextureDesc irradianceCubeMapDesc = {};
+	irradianceCubeMapDesc.width = 32;
+	irradianceCubeMapDesc.height = 32;
+	irradianceCubeMapDesc.format = Format::R16G16B16A16_FLOAT;
+	m_irradianceMapTexture = device->CreateCubemapTexture(irradianceCubeMapDesc);
+
+	device->ExecuteImmediate(
+		[&](CommandContext& ctx) {
+			ctx.SetComputePipeline(m_irradianceMapCSPipeline);
+			ctx.SetComputeDescriptorTable(0, device->GetSRVHeapSlot(m_cubemapTexture));
+			ctx.SetComputeDescriptorTable(1, device->GetUAVHeapSlot(m_irradianceMapTexture));
+			ctx.Dispatch(32 / 8, 32 / 8, 6);
+
+			ctx.TransitionBarrier(m_irradianceMapTexture, RGResourceState::UnorderedAccess, RGResourceState::ShaderResource);
+		}
+	);
+	// Irradiance Map
+
+	// PreFiltered Environment Map
+	RootSignatureDesc perfilteredEnvironmentMapDesc = {};
+	perfilteredEnvironmentMapDesc.allowIA = false;
+	perfilteredEnvironmentMapDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::All });
+	perfilteredEnvironmentMapDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
+	perfilteredEnvironmentMapDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 0, 1, ShaderVisibility::All });
+	perfilteredEnvironmentMapDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 0, ShaderVisibility::All });
+
+	m_prefilteredEnvironmentMapCS = ShaderCompiler::CompileFromFile(
+		L"shaders_PrefilteredEnvironmentMap_CS.hlsl",
+		"CSMain",
+		"cs_5_1"
+	);
+
+	ComputePipelineDesc prefilteredEnvironmentMapPSODesc = {};
+	prefilteredEnvironmentMapPSODesc.rootSignatureDesc = perfilteredEnvironmentMapDesc;
+	prefilteredEnvironmentMapPSODesc.cs = ShaderCompiler::GetBytecode(m_prefilteredEnvironmentMapCS);
+	m_prefilteredEnvironmentMapCSPipeline = device->CreateComputePipeline(prefilteredEnvironmentMapPSODesc);
+
+	const uint32_t mipLevels = 5;
+
+	CubemapTextureDesc prefiltredEnvironmentCubeMapDesc = {};
+	prefiltredEnvironmentCubeMapDesc.width = kCubemapSize;
+	prefiltredEnvironmentCubeMapDesc.height = kCubemapSize;
+	prefiltredEnvironmentCubeMapDesc.format = Format::R16G16B16A16_FLOAT;
+	prefiltredEnvironmentCubeMapDesc.mipLevels = mipLevels;
+	m_prefilteredMapTexture = device->CreateCubemapTexture(prefiltredEnvironmentCubeMapDesc);
+
+	device->ExecuteImmediate(
+		[&](CommandContext& ctx) {
+			ctx.SetComputePipeline(m_prefilteredEnvironmentMapCSPipeline);
+			ctx.SetComputeDescriptorTable(0, device->GetSRVHeapSlot(m_cubemapTexture));
+
+			for (uint32_t mip = 0; mip < mipLevels; mip++)
+			{
+				float roughness = (float)mip / (float(mipLevels - 1));
+				uint32_t mipSize = 512 >> mip;
+
+				ctx.SetComputeDescriptorTable(1, device->GetUAVHeapSlot(m_prefilteredMapTexture, mip));
+				ctx.SetComputeRootConstants(2, &roughness, 1);
+				ctx.Dispatch(
+					std::max(mipSize / 8u, 1u),
+					std::max(mipSize / 8u, 1u),
+					6
+				);
+			}
+
+			ctx.TransitionBarrier(m_prefilteredMapTexture, RGResourceState::UnorderedAccess, RGResourceState::ShaderResource);
+		}
+	);
+	// PreFiltered Environment Map
 
 	debugMode = DebugMode::PBR_Enabled;
 }
@@ -108,6 +229,15 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	RGResourceDesc skyboxTextureDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
 	RGResourceHandle skyboxTexture = graph.ImportTexture(m_cubemapTexture, skyboxTextureDesc, RGResourceState::ShaderResource);
 
+	RGResourceDesc irradiacneMapDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
+	RGResourceHandle irradiacneMap = graph.ImportTexture(m_irradianceMapTexture, irradiacneMapDesc, RGResourceState::ShaderResource);
+
+	RGResourceDesc prefilteredEnvMapDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
+	RGResourceHandle prefilteredEnvMap = graph.ImportTexture(m_prefilteredMapTexture, prefilteredEnvMapDesc, RGResourceState::ShaderResource);
+
+	RGResourceDesc brdfLUTDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
+	RGResourceHandle brdfLUT = graph.ImportTexture(m_brdfLUTTexture, brdfLUTDesc, RGResourceState::ShaderResource);
+
 	PerFrameCB perFrame;
 	XMMATRIX vp = scene.cam.GetViewMatrix() * scene.cam.GetProjectionMatrix();
 	XMStoreFloat4x4(&perFrame.ViewProj, XMMatrixTranspose(vp));
@@ -118,7 +248,7 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	
 	LightCB light;
 	XMStoreFloat3(&light.Direction, XMVector3Normalize({ -0.5f, -1.0f, -0.5f }));
-	XMStoreFloat3(&light.Color, { 4.0f, 4.0f, 4.0f });
+	XMStoreFloat3(&light.Color, XMVectorSet(1.2f, 1.0f, 0.7f, 0.0f));
 	XMStoreFloat3(&light.Ambient, { 0.07f, 0.07f, 0.07f });
 	light.Intensity = 1.1f;
 
@@ -129,6 +259,7 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	FrameContext fc = {
 		backBuffer, gbufferAlbedo, gbufferNormal, gbufferMR,
 		depthTexture, skyboxTexture,
+		irradiacneMap, prefilteredEnvMap, brdfLUT,
 		{}, {} 
 	};
 
@@ -470,7 +601,11 @@ void Renderer::InitPBRLightingPass(GraphicsDevice* device)
 	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 3, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 4, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 5, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 6, 1, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.staticSamplers.push_back({ SamplerFilter::Point, SamplerAddressMode::Clamp, 0, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 1, ShaderVisibility::Pixel });
 
 	std::vector<VertexAttribute> vertexAttributes;
 	vertexAttributes.push_back({ Semantic::POSITION, Format::R32G32B32_FLOAT, 0 });
@@ -719,6 +854,10 @@ void Renderer::AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, Fr
 			builder.Read(fc.gbufferAlbedo, RGResourceState::ShaderResource);
 			builder.Read(fc.gbufferNormal, RGResourceState::ShaderResource);
 			builder.Read(fc.gbufferMR, RGResourceState::ShaderResource);
+			builder.Read(fc.irradianceMap, RGResourceState::ShaderResource);
+			builder.Read(fc.prefilteredEnvMap, RGResourceState::ShaderResource);
+			builder.Read(fc.brdfLutTexture, RGResourceState::ShaderResource);
+
 			builder.Write(fc.backBuffer, RGResourceState::RenderTarget);
 		},
 		[this, &fc, device](CommandContext& passCtx) {
@@ -734,6 +873,9 @@ void Renderer::AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, Fr
 				passCtx.BindTexture(m_gbufferAlbedo, 3);
 				passCtx.BindTexture(m_gbufferNormal, 4);
 				passCtx.BindTexture(m_gbufferMR, 5);
+				passCtx.BindTexture(m_irradianceMapTexture, 6);
+				passCtx.BindTexture(m_prefilteredMapTexture, 7);
+				passCtx.BindTexture(m_brdfLUTTexture, 8);
 
 				passCtx.Draw(3, 0);
 			}
@@ -802,6 +944,21 @@ void Renderer::AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameCon
 			{
 				passCtx.SetPipeline(m_debugPipeline);
 				passCtx.BindTexture(m_gbufferMR, 0);
+			}
+			else if (debugMode == DebugMode::BRDF_LUT)
+			{
+				passCtx.SetPipeline(m_debugPipeline);
+				passCtx.BindTexture(m_brdfLUTTexture, 0);
+			}
+			else if (debugMode == DebugMode::IrradianceMap)
+			{
+				passCtx.SetPipeline(m_debugPipeline);
+				passCtx.BindTexture(m_irradianceMapTexture, 0);
+			}
+			else if (debugMode == DebugMode::PreFilteredEnvrionmentMap)
+			{
+				passCtx.SetPipeline(m_debugPipeline);
+				passCtx.BindTexture(m_prefilteredMapTexture, 0);
 			}
 
 			passCtx.Draw(3, 0);

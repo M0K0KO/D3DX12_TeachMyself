@@ -28,7 +28,7 @@ public:
 	PipelineHandle CreateComputePipeline(const ComputePipelineDesc desc) override;
 
 	uint32_t GetSRVHeapSlot(TextureHandle handle) override;
-	uint32_t GetUAVHeapSlot(TextureHandle handle) override;
+	uint32_t GetUAVHeapSlot(TextureHandle handle, uint32_t mip = 0) override;
 
 	void BeginTextureUpload() override;
 	TextureHandle LoadTexture(const std::wstring& path) override;
@@ -53,6 +53,7 @@ private:
 	TextureHandle CreateRTTexture(const TextureDesc& desc);
 	TextureHandle CreateSRTexture(const TextureDesc& desc, const void* initialData);
 	TextureHandle CreateDSTexture(const TextureDesc& desc);
+	TextureHandle CreateUAVTexture(const TextureDesc& desc);
 	
 	void WaitForGpu();
 	void MoveToNextFrame();
@@ -102,7 +103,7 @@ private:
 		TextureDesc desc;
 		CubemapTextureDesc cubeDesc;
 		uint32_t srvHeapSlot = UINT32_MAX;
-		uint32_t uavHeapSlot = UINT32_MAX;
+		std::vector<UINT> uavHeapSlots;
 		D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle;
 		D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle;
 	};
