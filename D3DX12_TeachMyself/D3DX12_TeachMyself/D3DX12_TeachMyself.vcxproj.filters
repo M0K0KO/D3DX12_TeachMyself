@@ -105,6 +105,9 @@
     <ClCompile Include="TextureLoader.cpp">
       <Filter>Source Files\Assets</Filter>
     </ClCompile>
+    <ClCompile Include="DX12Helpers.cpp">
+      <Filter>Source Files\RHI\DX12</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -196,6 +199,9 @@
     </ClInclude>
     <ClInclude Include="MokoLog.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DX12Helpers.h">
+      <Filter>Header Files\RHI\DX12</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

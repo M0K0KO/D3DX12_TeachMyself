@@ -54,16 +54,6 @@ private:
 	TextureHandle CreateSRTexture(const TextureDesc& desc, const void* initialData);
 	TextureHandle CreateDSTexture(const TextureDesc& desc);
 	
-	inline D3D12_DESCRIPTOR_RANGE_TYPE GetDX12DescriptorRangeType(RangeType type);
-	inline D3D12_SHADER_VISIBILITY GetDX12ShaderVisibility(ShaderVisibility visibility);
-	inline D3D12_COMPARISON_FUNC GetDX12ComparisonFunc(ComparisonFunc func);
-	inline D3D12_CULL_MODE GetDX12CullMode(CullMode mode);
-	inline DXGI_FORMAT GetDXGIFormat(Format format);
-	inline D3D12_STATIC_SAMPLER_DESC GetDX12StaticSamplerDesc(const StaticSamplerDesc& desc);
-	inline Format GetRHIFormat(DXGI_FORMAT format);
-	inline const char* GetSemanticString(Semantic semantic);
-	inline UINT Align256(UINT size);
-	inline UINT GetBytesPerPixel(Format format);
 	void WaitForGpu();
 	void MoveToNextFrame();
 

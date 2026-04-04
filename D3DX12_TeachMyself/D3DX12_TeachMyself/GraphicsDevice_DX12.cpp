@@ -1,6 +1,7 @@
 #include "HRException.h"
 #include "GraphicsDevice_DX12.h"
 #include "Renderer.h"
+#include "DX12Helpers.h"
 
 void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uint32_t height)
 {
@@ -297,7 +298,7 @@ TextureHandle GraphicsDevice_DX12::CreateRTTexture(const TextureDesc& desc)
 
 	D3D12_RESOURCE_DESC textureDesc = {};
 	textureDesc.MipLevels = 1;
-	textureDesc.Format = GetDXGIFormat(desc.format);
+	textureDesc.Format = DX12Helpers::ToDXGIFormat(desc.format);
 	textureDesc.Width = desc.width;
 	textureDesc.Height = desc.height;
 	textureDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
@@ -309,7 +310,7 @@ TextureHandle GraphicsDevice_DX12::CreateRTTexture(const TextureDesc& desc)
 	auto defaultHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 
 	D3D12_CLEAR_VALUE clearValue = {};
-	clearValue.Format = GetDXGIFormat(desc.format);
+	clearValue.Format = DX12Helpers::ToDXGIFormat(desc.format);
 	clearValue.Color[0] = 0.0f;
 	clearValue.Color[1] = 0.0f;
 	clearValue.Color[2] = 0.0f;
@@ -332,7 +333,7 @@ TextureHandle GraphicsDevice_DX12::CreateRTTexture(const TextureDesc& desc)
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = GetDXGIFormat(desc.format);
+	srvDesc.Format = DX12Helpers::ToDXGIFormat(desc.format);
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Texture2D.MipLevels = 1;
 
@@ -364,7 +365,7 @@ TextureHandle GraphicsDevice_DX12::CreateSRTexture(const TextureDesc& desc, cons
 
 	D3D12_RESOURCE_DESC textureDesc = {};
 	textureDesc.MipLevels = 1;
-	textureDesc.Format = GetDXGIFormat(desc.format);
+	textureDesc.Format = DX12Helpers::ToDXGIFormat(desc.format);
 	textureDesc.Width = desc.width;
 	textureDesc.Height = desc.height;
 	textureDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
@@ -388,7 +389,7 @@ TextureHandle GraphicsDevice_DX12::CreateSRTexture(const TextureDesc& desc, cons
 
 	D3D12_SUBRESOURCE_DATA textureData = {};
 	textureData.pData = initialData;
-	textureData.RowPitch = desc.width * GetBytesPerPixel(desc.format);
+	textureData.RowPitch = desc.width * DX12Helpers::GetBytesPerPixel(desc.format);
 	textureData.SlicePitch = textureData.RowPitch * desc.height;
 
 	ExecuteImmediate([&](CommandContext& ctx) {
@@ -510,7 +511,7 @@ TextureHandle GraphicsDevice_DX12::CreateCubemapTexture(const CubemapTextureDesc
 
 	D3D12_RESOURCE_DESC textureDesc = {};
 	textureDesc.MipLevels = 1;
-	textureDesc.Format = GetDXGIFormat(desc.format);
+	textureDesc.Format = DX12Helpers::ToDXGIFormat(desc.format);
 	textureDesc.Width = desc.width;
 	textureDesc.Height = desc.height;
 	textureDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
@@ -577,9 +578,9 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 	inputElementDescs.resize(inputElementCount);
 	for (UINT i = 0; i < inputElementCount; i++)
 	{
-		inputElementDescs[i].SemanticName = GetSemanticString(desc.vertexAttributes[i].semantic);
+		inputElementDescs[i].SemanticName = DX12Helpers::ToSemanticString(desc.vertexAttributes[i].semantic);
 		inputElementDescs[i].SemanticIndex = 0;
-		inputElementDescs[i].Format = GetDXGIFormat(desc.vertexAttributes[i].format);
+		inputElementDescs[i].Format = DX12Helpers::ToDXGIFormat(desc.vertexAttributes[i].format);
 		inputElementDescs[i].InputSlot = 0;
 		inputElementDescs[i].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
 		inputElementDescs[i].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
@@ -595,7 +596,7 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 		psoDesc.PS = { desc.ps.data, desc.ps.size };
 
 	D3D12_RASTERIZER_DESC rasterDesc = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	rasterDesc.CullMode = GetDX12CullMode(desc.cullMode);
+	rasterDesc.CullMode = DX12Helpers::ToCullMode(desc.cullMode);
 	psoDesc.RasterizerState = rasterDesc;
 	
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
@@ -609,20 +610,20 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 		if (desc.rtvFormats[i] != Format::UNKNOWN)
 		{
 			numRT++;
-			psoDesc.RTVFormats[i] = GetDXGIFormat(desc.rtvFormats[i]);
+			psoDesc.RTVFormats[i] = DX12Helpers::ToDXGIFormat(desc.rtvFormats[i]);
 		}
 	}
 	psoDesc.NumRenderTargets = numRT;
 
 	if (desc.dsvFormat != Format::UNKNOWN)
 	{
-		psoDesc.DSVFormat = GetDXGIFormat(desc.dsvFormat);
+		psoDesc.DSVFormat = DX12Helpers::ToDXGIFormat(desc.dsvFormat);
 	}
 
 	psoDesc.DepthStencilState.DepthEnable = desc.depthEnable;
 	psoDesc.DepthStencilState.DepthWriteMask = desc.depthWrite
 		? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
-	psoDesc.DepthStencilState.DepthFunc = GetDX12ComparisonFunc(desc.depthFunc);
+	psoDesc.DepthStencilState.DepthFunc = DX12Helpers::ToComparisonFunc(desc.depthFunc);
 
 	psoDesc.DepthStencilState.StencilEnable = FALSE;
 
@@ -689,13 +690,13 @@ ComPtr<ID3D12RootSignature> GraphicsDevice_DX12::BuildRootSignature(const RootSi
 				rootParamDesc.baseRegister,
 				0,
 				D3D12_ROOT_DESCRIPTOR_FLAG_NONE,
-				GetDX12ShaderVisibility(rootParamDesc.visibility));
+				DX12Helpers::ToVisibility(rootParamDesc.visibility));
 		}
 		else if (rootParamDesc.type == RootParamType::DescriptorTable)
 		{
 			ranges.push_back({});
 			ranges.back().Init(
-				GetDX12DescriptorRangeType(rootParamDesc.rangeType),
+				DX12Helpers::ToRangeType(rootParamDesc.rangeType),
 				rootParamDesc.numDescriptors,
 				rootParamDesc.baseRegister,
 				0,
@@ -705,7 +706,7 @@ ComPtr<ID3D12RootSignature> GraphicsDevice_DX12::BuildRootSignature(const RootSi
 			rootParameters[i].InitAsDescriptorTable(
 				1,
 				&ranges.back(),
-				GetDX12ShaderVisibility(rootParamDesc.visibility));
+				DX12Helpers::ToVisibility(rootParamDesc.visibility));
 		}
 		else if (rootParamDesc.type == RootParamType::RootConstants)
 		{
@@ -714,7 +715,7 @@ ComPtr<ID3D12RootSignature> GraphicsDevice_DX12::BuildRootSignature(const RootSi
 				rootParamDesc.numDescriptors,
 				rootParamDesc.baseRegister,
 				0,
-				GetDX12ShaderVisibility(rootParamDesc.visibility));
+				DX12Helpers::ToVisibility(rootParamDesc.visibility));
 		}
 	}
 
@@ -722,7 +723,7 @@ ComPtr<ID3D12RootSignature> GraphicsDevice_DX12::BuildRootSignature(const RootSi
 	std::vector<D3D12_STATIC_SAMPLER_DESC> staticSamplerDescs;
 	for (auto& samplerDesc : desc.staticSamplers)
 	{
-		staticSamplerDescs.push_back(GetDX12StaticSamplerDesc(samplerDesc));
+		staticSamplerDescs.push_back(DX12Helpers::ToStaticSampler(samplerDesc));
 	}
 
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
@@ -768,7 +769,7 @@ TextureHandle GraphicsDevice_DX12::LoadTexture(const std::wstring& path)
 	internal.resource = result.resource;
 	internal.desc.width = result.width;
 	internal.desc.height = result.height;
-	internal.desc.format = GetRHIFormat(result.format);
+	internal.desc.format = DX12Helpers::ToRHIFormat(result.format);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Format = result.format;
@@ -802,152 +803,10 @@ void GraphicsDevice_DX12::FlushTextureUploads()
 	m_pTextureLoader->CleanupUploads();
 }
 
-inline UINT GraphicsDevice_DX12::Align256(UINT size)
-{
-	return (size + 255) & ~255;
-}
-
-inline const char* GraphicsDevice_DX12::GetSemanticString(Semantic semantic)
-{
-	switch (semantic)
-	{
-	case Semantic::POSITION:
-		return "POSITION";
-	case Semantic::NORMAL:
-		return "NORMAL";
-	case Semantic::TANGENT:
-		return "TANGENT";
-	case Semantic::COLOR:
-		return "COLOR";
-	case Semantic::TEXCOORD:
-		return "TEXCOORD";
-	}
-}
-
-inline DXGI_FORMAT GraphicsDevice_DX12::GetDXGIFormat(Format format)
-{
-	switch (format)
-	{
-	case Format::R8_UNORM:             return DXGI_FORMAT_R8_UNORM;
-	case Format::R8G8B8A8_UNORM:       return DXGI_FORMAT_R8G8B8A8_UNORM;
-	case Format::R16G16_FLOAT:         return DXGI_FORMAT_R16G16_FLOAT;
-	case Format::R16G16B16A16_FLOAT:   return DXGI_FORMAT_R16G16B16A16_FLOAT;
-	case Format::R16G16B16A16_SNORM:   return DXGI_FORMAT_R16G16B16A16_SNORM;
-	case Format::R32_FLOAT:            return DXGI_FORMAT_R32_FLOAT;
-	case Format::R32G32_FLOAT:         return DXGI_FORMAT_R32G32_FLOAT;
-	case Format::R32G32B32_FLOAT:      return DXGI_FORMAT_R32G32B32_FLOAT;
-	case Format::R32G32B32A32_FLOAT:   return DXGI_FORMAT_R32G32B32A32_FLOAT;
-	case Format::R16_UINT:             return DXGI_FORMAT_R16_UINT;
-	case Format::R32_UINT:             return DXGI_FORMAT_R32_UINT;
-	case Format::D24_UNORM_S8_UINT:    return DXGI_FORMAT_D24_UNORM_S8_UINT;
-	case Format::D32_FLOAT:            return DXGI_FORMAT_D32_FLOAT;
-	case Format::R32_TYPELESS:		   return DXGI_FORMAT_R32_TYPELESS;
-	default:                           return DXGI_FORMAT_UNKNOWN;
-	}
-}
-
-inline Format GraphicsDevice_DX12::GetRHIFormat(DXGI_FORMAT format)
-{
-	switch (format)
-	{
-	case DXGI_FORMAT_R8_UNORM:             return Format::R8_UNORM;
-	case DXGI_FORMAT_R8G8B8A8_UNORM:       return Format::R8G8B8A8_UNORM;
-	case DXGI_FORMAT_R16G16_FLOAT:         return Format::R16G16_FLOAT;
-	case DXGI_FORMAT_R16G16B16A16_FLOAT:   return Format::R16G16B16A16_FLOAT;
-	case DXGI_FORMAT_R16G16B16A16_SNORM:   return Format::R16G16B16A16_SNORM;
-	case DXGI_FORMAT_R32_FLOAT:            return Format::R32_FLOAT;
-	case DXGI_FORMAT_R32G32_FLOAT:         return Format::R32G32_FLOAT;
-	case DXGI_FORMAT_R32G32B32_FLOAT:      return Format::R32G32B32_FLOAT;
-	case DXGI_FORMAT_R32G32B32A32_FLOAT:   return Format::R32G32B32A32_FLOAT;
-	case DXGI_FORMAT_R16_UINT:             return Format::R16_UINT;
-	case DXGI_FORMAT_R32_UINT:             return Format::R32_UINT;
-	case DXGI_FORMAT_D24_UNORM_S8_UINT:    return Format::D24_UNORM_S8_UINT;
-	case DXGI_FORMAT_D32_FLOAT:            return Format::D32_FLOAT;
-	case DXGI_FORMAT_R32_TYPELESS:         return Format::R32_TYPELESS;
-	default:                               return Format::UNKNOWN;
-	}
-}
-
-inline D3D12_COMPARISON_FUNC GraphicsDevice_DX12::GetDX12ComparisonFunc(ComparisonFunc func)
-{
-	switch (func)
-	{
-	case ComparisonFunc::Less:         return D3D12_COMPARISON_FUNC_LESS;
-	case ComparisonFunc::LessEqual:    return D3D12_COMPARISON_FUNC_LESS_EQUAL;
-	case ComparisonFunc::Equal:        return D3D12_COMPARISON_FUNC_EQUAL;
-	default:                           return D3D12_COMPARISON_FUNC_NEVER;
-	}
-}
-
-inline D3D12_CULL_MODE GraphicsDevice_DX12::GetDX12CullMode(CullMode mode)
-{
-	switch (mode)
-	{
-	case CullMode::None:  return D3D12_CULL_MODE_NONE;
-	case CullMode::Front: return D3D12_CULL_MODE_FRONT;
-	case CullMode::Back:  return D3D12_CULL_MODE_BACK;
-	default:              return D3D12_CULL_MODE_BACK;
-	}
-}
 
 const ComPtr<ID3D12Resource> GraphicsDevice_DX12::GetTextureResource(TextureHandle handle)
 {
 	return m_textures[handle.id].resource;
-}
-
-inline D3D12_DESCRIPTOR_RANGE_TYPE GraphicsDevice_DX12::GetDX12DescriptorRangeType(RangeType type)
-{
-	switch (type)
-	{
-	case RangeType::SRV:		return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	case RangeType::UAV:		return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-	case RangeType::CBV:		return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-	case RangeType::Sampler:  return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;;
-	}
-}
-
-inline D3D12_SHADER_VISIBILITY GraphicsDevice_DX12::GetDX12ShaderVisibility(ShaderVisibility visibility)
-{
-	switch (visibility)
-	{
-	case ShaderVisibility::All: return D3D12_SHADER_VISIBILITY_ALL;
-	case ShaderVisibility::Vertex: return D3D12_SHADER_VISIBILITY_VERTEX;
-	case ShaderVisibility::Pixel: return D3D12_SHADER_VISIBILITY_PIXEL;
-	}
-}
-
-inline D3D12_STATIC_SAMPLER_DESC GraphicsDevice_DX12::GetDX12StaticSamplerDesc(const StaticSamplerDesc& desc)
-{
-	D3D12_STATIC_SAMPLER_DESC out = {};
-	switch (desc.filter)
-	{
-	case SamplerFilter::Point:
-		out.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT; break;
-	case SamplerFilter::Bilinear:
-		out.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR; break;
-	case SamplerFilter::Anisotropic:
-		out.Filter = D3D12_FILTER_ANISOTROPIC; break;
-	}
-
-	auto mode = [](SamplerAddressMode m) {
-		switch (m)
-		{
-		case SamplerAddressMode::Wrap:   return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-		case SamplerAddressMode::Clamp:  return D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-		case SamplerAddressMode::Border: return D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-		default: return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-		}
-		};
-
-	out.AddressU = mode(desc.addressMode);
-	out.AddressV = mode(desc.addressMode);
-	out.AddressW = mode(desc.addressMode);
-	out.MaxAnisotropy = (desc.filter == SamplerFilter::Anisotropic) ? 16 : 1;
-	out.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-	out.MaxLOD = D3D12_FLOAT32_MAX;
-	out.ShaderRegister = desc.shaderRegister;
-	out.ShaderVisibility = GetDX12ShaderVisibility(desc.visibility);
-	return out;
 }
 
 TextureHandle* GraphicsDevice_DX12::GetCurrentBackBufferPtr()
@@ -1022,13 +881,3 @@ float GraphicsDevice_DX12::GetTimestampMs(uint32_t passIndex)
 	return m_profiler.GetTimestampMs(passIndex);
 }
 
-inline UINT GraphicsDevice_DX12::GetBytesPerPixel(Format format)
-{
-	switch (format)
-	{
-	case Format::R8G8B8A8_UNORM:      return 4;
-	case Format::R16G16B16A16_FLOAT:   return 8;
-	case Format::R32G32B32A32_FLOAT:   return 16;
-	default: return 4;
-	}
-}

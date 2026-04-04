@@ -206,6 +206,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="CommandContext_DX12.h" />
     <ClInclude Include="d3dx12.h" />
     <ClInclude Include="DirectXTex\DirectXTex.h" />
+    <ClInclude Include="DX12Helpers.h" />
     <ClInclude Include="GPUTimestampProfiler.h" />
     <ClInclude Include="GraphicsDevice.h" />
     <ClInclude Include="GraphicsDevice_DX12.h" />
@@ -235,6 +236,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="AssetLoader.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CommandContext_DX12.cpp" />
+    <ClCompile Include="DX12Helpers.cpp" />
     <ClCompile Include="GraphicsDevice_DX12.cpp" />
     <ClCompile Include="Keyboard.cpp" />
     <ClCompile Include="main.cpp" />
