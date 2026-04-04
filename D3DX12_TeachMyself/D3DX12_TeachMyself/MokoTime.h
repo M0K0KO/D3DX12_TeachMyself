@@ -3,12 +3,19 @@
 
 class MokoTime
 {
+    using Clock = std::chrono::high_resolution_clock;
+    using TimePoint = Clock::time_point;
 public:
     static void Tick()
     {
-        auto now = std::chrono::high_resolution_clock::now();
+        auto now = Clock::now();
         s_deltaTime = std::chrono::duration<float>(now - s_lastTime).count();
         s_lastTime = now;
+    }
+
+    static TimePoint Now()
+    {
+        return Clock::now();
     }
 
     static float GetDeltaTime()
@@ -16,9 +23,17 @@ public:
         return s_deltaTime;
     }
 
-private:
-    inline static std::chrono::high_resolution_clock::time_point s_lastTime =
-        std::chrono::high_resolution_clock::now();
+    static float ElapsedMS(TimePoint start, TimePoint end)
+    {
+        return std::chrono::duration<float, std::milli>(end - start).count();
+    }
 
+    static float ElapsedMS(TimePoint start)
+    {
+        return ElapsedMS(start, Clock::now());
+    }
+
+private:
+    inline static Clock::time_point s_lastTime = Clock::now();
     inline static float s_deltaTime = 0.0f;
 };

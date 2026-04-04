@@ -306,7 +306,7 @@ void Renderer::PrintGPUTimes(GraphicsDevice* device)
 	float skyboxPassTime = device->GetTimestampMs(PassID::SkyboxPass);
 
 	LOG_INFO(
-		"GPU Times | DepthPre: %6.3f ms | GBuffer: %6.3f ms | GBufferAlpha: %6.3f ms | PBRLighting: %6.3f ms | Skybox: %6.3f ms\n",
+		"[GPU Time] | DepthPre: %6.3f ms | GBuffer: %6.3f ms | GBufferAlpha: %6.3f ms | PBRLighting: %6.3f ms | Skybox: %6.3f ms\n",
 		depthPrePassTime,
 		gBufferPassTime,
 		gBufferAlphaPassTime,

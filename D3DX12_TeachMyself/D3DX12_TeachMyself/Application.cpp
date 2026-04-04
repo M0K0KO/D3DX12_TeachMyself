@@ -2,6 +2,7 @@
 #include "AssetLoader.h"
 #include "TextureLoader.h"
 #include "MokoTime.h"
+#include "MokoLog.h"
 
 Application::Application()
 	:
@@ -20,8 +21,21 @@ int Application::Run()
 			return *exitCode;
 
 		MokoTime::Tick();
+
+		float dt = MokoTime::GetDeltaTime();
+		float fps = 1.0f / dt;
+
+		LOG_INFO(" FPS: %.1f | Frame: %.2f ms\n", fps, dt * 1000.0f);
+
+		auto t0 = MokoTime::Now();
+
 		Update();
+
+		auto t1 = MokoTime::Now();
+
 		Render();
+
+		LOG_INFO("[CPU Time] Update: %.3f ms | Render: %.3f ms\n", MokoTime::ElapsedMS(t0, t1), MokoTime::ElapsedMS(t1));
 	}
 }
 
