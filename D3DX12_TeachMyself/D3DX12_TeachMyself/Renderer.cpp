@@ -5,6 +5,7 @@
 #include <chrono>
 #include "AssetLoader.h"
 #include "MokoLog.h"
+#include "MokoTime.h"
 
 void Renderer::Init(GraphicsDevice* device)
 {
@@ -166,9 +167,11 @@ void Renderer::Init(GraphicsDevice* device)
 
 	const uint32_t mipLevels = 5;
 
+	const uint32_t kPrefilteredMapSize = 512;
+
 	CubemapTextureDesc prefiltredEnvironmentCubeMapDesc = {};
-	prefiltredEnvironmentCubeMapDesc.width = kCubemapSize;
-	prefiltredEnvironmentCubeMapDesc.height = kCubemapSize;
+	prefiltredEnvironmentCubeMapDesc.width = kPrefilteredMapSize;
+	prefiltredEnvironmentCubeMapDesc.height = kPrefilteredMapSize;
 	prefiltredEnvironmentCubeMapDesc.format = Format::R16G16B16A16_FLOAT;
 	prefiltredEnvironmentCubeMapDesc.mipLevels = mipLevels;
 	m_prefilteredMapTexture = device->CreateCubemapTexture(prefiltredEnvironmentCubeMapDesc);
@@ -246,9 +249,20 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	perFrame.CameraPos = scene.cam.GetPos();
 	XMStoreFloat2(&perFrame.ScreenSize, { static_cast<float>(m_width), static_cast<float>(m_height) });
 	
+	static float time = 0;
+	time += MokoTime::GetDeltaTime();
+
+	float sunSpeed = 0.6f;
+	float angle = time * sunSpeed;
+	float elevation = sinf(angle * 0.5f) * 0.8f;
+
+	XMVECTOR dir = XMVector3Normalize(XMVectorSet(
+		cosf(angle), -fabsf(elevation) - 0.2f, sinf(angle), 0.0f
+	));
+
 	LightCB light;
-	XMStoreFloat3(&light.Direction, XMVector3Normalize({ -0.5f, -1.0f, -0.5f }));
-	XMStoreFloat3(&light.Color, XMVectorSet(1.2f, 1.0f, 0.7f, 0.0f));
+	XMStoreFloat3(&light.Direction, dir);
+	XMStoreFloat3(&light.Color, XMVectorSet(2.0f, 1.8f, 1.5f, 0.0f));
 	XMStoreFloat3(&light.Ambient, { 0.07f, 0.07f, 0.07f });
 	light.Intensity = 1.1f;
 
