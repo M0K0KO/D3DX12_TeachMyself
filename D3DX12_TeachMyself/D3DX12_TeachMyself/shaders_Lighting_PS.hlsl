@@ -1,11 +1,26 @@
-cbuffer LightingData : register(b0)
+cbuffer PerFrameData : register(b0)
 {
+    float4x4 VP;
+    
     float4x4 inverseVP;
+    
     float3 cameraPos;
-    float3 lightDir;
+    float pad0;
+    
+    float2 screenSize;
+    float2 pad1;
+};
+
+cbuffer LightData : register(b1)
+{
+    float3 lightDirection;
+    float pad2;
+    
     float3 lightColor;
-    float3 ambient;
     float lightIntensity;
+    
+    float3 ambient;
+    float pad4;
 };
 
 Texture2D depthTex : register(t0);
@@ -41,7 +56,7 @@ float4 main(VSOutput input) : SV_Target
     float3 worldPos = ReconstructWorldPos(input.uv, depth);
     float3 N = normal;
     float3 V = normalize(cameraPos - worldPos);
-    float3 L = normalize(-lightDir);
+    float3 L = normalize(-lightDirection);
     float3 H = normalize(V + L);
 
     // Lambert Diffuse

@@ -13,15 +13,29 @@ Texture2D gMetallicRoughness : register(t3); // R=Metallic, G=Roughness
 SamplerState gSamplerPoint : register(s0); // Point Clamp for lighting
 
 // ----- Per-Frame CB (Root CBV) -----
-cbuffer cbPerFrame : register(b0)
+cbuffer PerFrameData : register(b0)
 {
-    float4x4 gInvViewProj;
-    float3 gCameraPos;
-    float _pad0;
-    float3 gLightDir; // Sun direction (surface to light, normalized)
-    float _pad1;
-    float3 gLightColor; // Light color with intensity already applied
-    float _pad2;
+    float4x4 VP;
+    
+    float4x4 inverseVP;
+    
+    float3 cameraPos;
+    float pad0;
+    
+    float2 screenSize;
+    float2 pad1;
+};
+
+cbuffer LightData : register(b1)
+{
+    float3 lightDirection;
+    float pad2;
+    
+    float3 lightColor;
+    float lightIntensity;
+    
+    float3 ambient;
+    float pad4;
 };
 
 // ----- Constants -----
@@ -36,7 +50,7 @@ float3 ReconstructWorldPos(float2 uv, float depth)
     float4 ndc = float4(uv * 2.0 - 1.0, depth, 1.0);
     ndc.y = -ndc.y; // DX UV is top-to-bottom
 
-    float4 worldPos = mul(gInvViewProj, ndc);
+    float4 worldPos = mul(inverseVP, ndc);
     return worldPos.xyz / worldPos.w;
 }
 
@@ -123,8 +137,8 @@ float4 main(PSInput input) : SV_TARGET
 
     // --- Build Vectors ---
     float3 worldPos = ReconstructWorldPos(uv, depth);
-    float3 V = normalize(gCameraPos - worldPos); // surface to eye
-    float3 L = normalize(-gLightDir); // surface to light
+    float3 V = normalize(cameraPos - worldPos); // surface to eye
+    float3 L = normalize(-lightDirection); // surface to light
     float3 H = normalize(V + L); // half vector
 
     float NdotL = max(dot(N, L), 0.0);
@@ -149,7 +163,7 @@ float4 main(PSInput input) : SV_TARGET
     float3 diffuse = kD * albedo / PI;
 
     // --- Final Lighting ---
-    float3 Lo = (diffuse + specular) * gLightColor * NdotL;
+    float3 Lo = (diffuse + specular) * lightColor * NdotL;
 
     // Temporary AO application
     Lo *= ao;

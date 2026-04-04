@@ -23,6 +23,7 @@ public:
 	BufferHandle CreateBuffer(const BufferDesc desc, const void* initialData = nullptr) override;
 	TextureHandle CreateTexture(const TextureDesc desc, const void* initialData = nullptr) override;
 	TextureHandle CreateCubemapTexture(const CubemapTextureDesc desc, const void* initialData = nullptr) override;
+
 	PipelineHandle CreatePipeline(const PipelineDesc desc) override;
 	PipelineHandle CreateComputePipeline(const ComputePipelineDesc desc) override;
 
@@ -48,6 +49,11 @@ public:
 
 	const ComPtr<ID3D12Resource> GetTextureResource(TextureHandle handle);
 private:
+	ComPtr<ID3D12RootSignature> BuildRootSignature(const RootSignatureDesc& desc);
+	TextureHandle CreateRTTexture(const TextureDesc& desc);
+	TextureHandle CreateSRTexture(const TextureDesc& desc, const void* initialData);
+	TextureHandle CreateDSTexture(const TextureDesc& desc);
+	
 	inline D3D12_DESCRIPTOR_RANGE_TYPE GetDX12DescriptorRangeType(RangeType type);
 	inline D3D12_SHADER_VISIBILITY GetDX12ShaderVisibility(ShaderVisibility visibility);
 	inline D3D12_COMPARISON_FUNC GetDX12ComparisonFunc(ComparisonFunc func);

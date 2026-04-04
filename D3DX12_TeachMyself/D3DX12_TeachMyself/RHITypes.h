@@ -210,6 +210,7 @@ struct StaticSamplerDesc
 
 struct RootSignatureDesc
 {
+	bool allowIA = true;
 	std::vector<RootParamDesc> rootParamDescs;
 	std::vector<StaticSamplerDesc> staticSamplers;
 };

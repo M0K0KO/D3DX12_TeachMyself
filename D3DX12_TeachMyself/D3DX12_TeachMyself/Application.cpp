@@ -1,7 +1,7 @@
 #include "Application.h"
 #include "AssetLoader.h"
 #include "TextureLoader.h"
-#include <chrono>
+#include "MokoTime.h"
 
 Application::Application()
 	:
@@ -12,11 +12,6 @@ Application::Application()
 
 int Application::Run()
 {
-	wchar_t buffer[MAX_PATH];
-	GetCurrentDirectoryW(MAX_PATH, buffer);
-	OutputDebugStringW(buffer);
-	OutputDebugStringW(L"\n");
-
 	Init();
 
 	while (true)
@@ -24,6 +19,7 @@ int Application::Run()
 		if (auto exitCode = Window::ProcessMessages())
 			return *exitCode;
 
+		MokoTime::Tick();
 		Update();
 		Render();
 	}
@@ -112,25 +108,26 @@ void Application::Init()
 
 void Application::Update()
 {
-	static auto lastTime = std::chrono::high_resolution_clock::now();
-	auto now = std::chrono::high_resolution_clock::now();
-	float deltaTime = std::chrono::duration<float>(now - lastTime).count();
-	lastTime = now;
+	HandleKeyboardEvents();
+	HandleDebugModeInput();
+	HandleCameraMovement(MokoTime::GetDeltaTime());
+}
 
-	float fps = 1.0f / deltaTime;
+void Application::Render()
+{
+	if (m_needsResize)
+	{
+		m_device->ResizeSwapChain(m_pendingWidth, m_pendingHeight);
+		m_renderer.OnResize(m_pendingWidth, m_pendingHeight);
+		m_scene.cam.SetAspectRatio(m_pendingWidth, m_pendingHeight);
+		m_needsResize = false;
+		return;
+	}
+	m_renderer.Render(m_device.get(), m_scene);
+}
 
-	char buffer[64];
-	sprintf_s(buffer, "FPS: %.1f\n\n", fps);
-	OutputDebugStringA(buffer);
-
-	//static float angle = 0.0f;
-	//angle += 0.3f * deltaTime;
-
-	//XMMATRIX world = XMMatrixRotationY(angle);
-	//XMStoreFloat4x4(&m_scene.renderObjects[0].world, XMMatrixTranspose(world));
-
-
-	// Debug
+void  Application::HandleKeyboardEvents()
+{
 	while (const auto e = wnd.kbd.ReadKey())
 	{
 		if (!e->IsPress())
@@ -155,7 +152,9 @@ void Application::Update()
 		}
 	}
 
-
+}
+void  Application::HandleDebugModeInput()
+{
 	if (wnd.kbd.KeyIsPressed('1'))
 	{
 		m_renderer.ChangeDebugMode(DebugMode::PBR_Enabled);
@@ -166,27 +165,29 @@ void Application::Update()
 		m_renderer.ChangeDebugMode(DebugMode::PBR_Disabled);
 		wnd.SetTitle(L"DebugMode :: PBR DISABLED");
 	}
-	else if (wnd.kbd.KeyIsPressed('2'))
+	else if (wnd.kbd.KeyIsPressed('3'))
 	{
 		m_renderer.ChangeDebugMode(DebugMode::DepthTexture);
 		wnd.SetTitle(L"DebugMode :: DEPTH");
 	}
-	else if (wnd.kbd.KeyIsPressed('3'))
+	else if (wnd.kbd.KeyIsPressed('4'))
 	{
 		m_renderer.ChangeDebugMode(DebugMode::Albedo);
 		wnd.SetTitle(L"DebugMode :: ALBEDO");
 	}
-	else if (wnd.kbd.KeyIsPressed('4'))
+	else if (wnd.kbd.KeyIsPressed('5'))
 	{
 		m_renderer.ChangeDebugMode(DebugMode::Normal);
 		wnd.SetTitle(L"DebugMode :: NORMAL");
 	}
-	else if (wnd.kbd.KeyIsPressed('5'))
+	else if (wnd.kbd.KeyIsPressed('6'))
 	{
 		m_renderer.ChangeDebugMode(DebugMode::MR);
 		wnd.SetTitle(L"DebugMode :: METALLIC_ROUGHNESS");
 	}
-
+}
+void  Application::HandleCameraMovement(float deltaTime)
+{
 	if (!wnd.CursorEnabled())
 	{
 		if (wnd.kbd.KeyIsPressed('W'))
@@ -222,18 +223,4 @@ void Application::Update()
 			m_scene.cam.Rotate((float)delta->x, (float)delta->y);
 		}
 	}
-	// Debug
-}
-
-void Application::Render()
-{
-	if (m_needsResize)
-	{
-		m_device->ResizeSwapChain(m_pendingWidth, m_pendingHeight);
-		m_renderer.OnResize(m_pendingWidth, m_pendingHeight);
-		m_scene.cam.SetAspectRatio(m_pendingWidth, m_pendingHeight);
-		m_needsResize = false;
-		return;
-	}
-	m_renderer.Render(m_device.get(), m_scene);
 }

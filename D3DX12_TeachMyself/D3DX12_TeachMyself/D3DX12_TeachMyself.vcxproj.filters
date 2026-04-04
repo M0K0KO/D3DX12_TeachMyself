@@ -191,6 +191,12 @@
     <ClInclude Include="GPUTimestampProfiler.h">
       <Filter>Header Files\Profile</Filter>
     </ClInclude>
+    <ClInclude Include="MokoTime.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MokoLog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shaders_Depth_VS.hlsl">

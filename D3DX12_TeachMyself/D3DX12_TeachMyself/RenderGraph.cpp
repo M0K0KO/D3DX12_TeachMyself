@@ -2,6 +2,7 @@
 #include "GraphicsDevice.h"
 #include "CommandContext.h"
 #include <debugapi.h>
+#include "MokoLog.h"
 
 void RGBuilder::Read(RGResourceHandle handle, RGResourceState state)
 {
@@ -270,37 +271,30 @@ void RenderGraph::DebugPrintPasses() const
 	{
 		const auto& pass = m_passes[i];
 
-		char buf[256];
-		snprintf(buf, sizeof(buf), "  [%u] %-12s | refCount: %u | culled: %s\n",
+		LOG_INFO("  [%u] %-12s | refCount: %u | culled: %s\n",
 			i,
 			pass.name.c_str(),
 			pass.refCount,
 			pass.culled ? "YES" : "no");
-
-		OutputDebugStringA(buf);
 	}
 }
 
 void RenderGraph::DebugPrintBarriers() const
 {
-	OutputDebugStringA("=== Barriers ===\n");
+	LOG_INFO("=== Barriers ===\n");
 	for (auto& pass : m_passes)
 	{
 		if (pass.culled) continue;
 		for (auto& b : pass.barrierInfos)
 		{
-			char buf[256];
-			snprintf(buf, sizeof(buf), "  [%s] res[%u]: %d -> %d\n",
+			LOG_INFO("  [%s] res[%u]: %d -> %d\n",
 				pass.name.c_str(), b.handle.index,
 				(int)b.before, (int)b.after);
-			OutputDebugStringA(buf);
 		}
 	}
 	for (auto& b : m_epilogueBarriers)
 	{
-		char buf[256];
-		snprintf(buf, sizeof(buf), "  [Epilogue] res[%u]: %d -> %d\n",
+		LOG_INFO("  [Epilogue] res[%u]: %d -> %d\n",
 			b.handle.index, (int)b.before, (int)b.after);
-		OutputDebugStringA(buf);
 	}
 }

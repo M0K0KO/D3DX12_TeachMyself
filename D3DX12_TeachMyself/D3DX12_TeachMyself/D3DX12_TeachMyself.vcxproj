@@ -213,7 +213,9 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="json.hpp" />
     <ClInclude Include="Keyboard.h" />
     <ClInclude Include="Mesh.h" />
+    <ClInclude Include="MokoLog.h" />
     <ClInclude Include="MokoMath.h" />
+    <ClInclude Include="MokoTime.h" />
     <ClInclude Include="Mouse.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="RenderGraph.h" />

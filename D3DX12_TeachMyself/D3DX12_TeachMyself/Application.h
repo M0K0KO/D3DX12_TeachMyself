@@ -17,6 +17,10 @@ private:
 	void Update();
 	void Render();
 
+	void HandleKeyboardEvents();
+	void HandleDebugModeInput();
+	void HandleCameraMovement(float deltaTime);
+
 private:
 	std::unique_ptr<GraphicsDevice> m_device;
 

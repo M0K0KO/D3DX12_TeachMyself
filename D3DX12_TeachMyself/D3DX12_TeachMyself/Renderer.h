@@ -3,6 +3,7 @@
 #include "GraphicsDevice.h"
 #include "ShaderCompiler.h"
 #include "Scene.h"
+#include "RenderGraph.h"
 
 enum class DebugMode
 {
@@ -13,6 +14,19 @@ enum class DebugMode
 	Albedo,
 	Normal,
 	MR
+};
+
+struct FrameContext
+{
+	RGResourceHandle backBuffer;
+	RGResourceHandle gbufferAlbedo;
+	RGResourceHandle gbufferNormal;
+	RGResourceHandle gbufferMR;
+	RGResourceHandle depthTexture;
+	RGResourceHandle skyboxTexture;
+
+	CBHandle perFrameCB;
+	CBHandle lightCB;
 };
 
 class Renderer
@@ -29,6 +43,21 @@ public:
 private:
 	void ReloadPSO(GraphicsDevice* device);
 	void Resize(GraphicsDevice* device);
+	
+	void InitDepthPrePass(GraphicsDevice* device);
+	void InitGBufferPass(GraphicsDevice* device);
+	void InitLightingPass(GraphicsDevice* device);
+	void InitPBRLightingPass(GraphicsDevice* device);
+	void InitSkyboxPass(GraphicsDevice* device);
+	void InitDebugPass(GraphicsDevice* device);
+
+	void AddDepthPrePass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
+	void AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
+	void AddLightingPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
+	void AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
+	void AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
+	void AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
+
 	void PrintGPUTimes(GraphicsDevice* device);
 
 private:
@@ -87,42 +116,34 @@ private:
 	TextureHandle m_equirectTexture;
 	TextureHandle m_cubemapTexture;
 
-	struct PerFrameData
+
+
+	struct PerFrameCB
 	{
 		XMFLOAT4X4 ViewProj;
+		XMFLOAT4X4 InvViewProj;
 		XMFLOAT3 CameraPos;
-		float padding;
-	};
-	PerFrameData m_perFrameCBData;
+		float padding0;
 
-	struct PerObjectData
+		XMFLOAT2 ScreenSize;
+		XMFLOAT2 padding1;
+	};
+	PerFrameCB m_perFrameCBData;
+
+	struct PerObjectCB
 	{
 		XMFLOAT4X4 World;
 	};
-	PerObjectData m_perObjectCBData;
+	PerObjectCB m_perObjectCBData;
 
-	struct LightingData
+	struct LightCB
 	{
-		XMFLOAT4X4 inverseVP;
-		XMFLOAT3   cameraPos;
-		float      pad0;
-		XMFLOAT3   direction;
-		float      pad1;
-		XMFLOAT3   color;
-		float      pad2;
-		XMFLOAT3   ambient;
-		float      intensity;
-	};
-
-	struct PBRLightingData
-	{
-		XMFLOAT4X4 gInvViewProj;
-		XMFLOAT3 gCameraPos;
-		float pad0;
-		XMFLOAT3 gLightDir;
-		float pad1;
-		XMFLOAT3 gLightColor;
-		float pad2;
+		XMFLOAT3 Direction;
+		float padding0;
+		XMFLOAT3 Color;
+		float Intensity;
+		XMFLOAT3 Ambient;
+		float padding1;
 	};
 
 	struct MaterialConstants
@@ -130,7 +151,7 @@ private:
 		float alphaCutoff;
 		float metallicFactor;
 		float roughnessFactor;
-		float _pad;
+		float padding0;
 	};
 
 	DebugMode debugMode;

@@ -41,7 +41,7 @@ private:
 		case RGResourceState::DepthWrite:		return D3D12_RESOURCE_STATE_DEPTH_WRITE;
 		case RGResourceState::DepthRead:		return D3D12_RESOURCE_STATE_DEPTH_READ;
 		case RGResourceState::UnorderedAccess:  return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-		case RGResourceState::ShaderResource:	return D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
+		case RGResourceState::ShaderResource:	return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 		case RGResourceState::Present:			return D3D12_RESOURCE_STATE_PRESENT;
 		case RGResourceState::CopyDest:			return D3D12_RESOURCE_STATE_COPY_DEST;
 		}
