@@ -47,7 +47,8 @@ UploadAllocation UploadHeapRingAllocator::Allocate(size_t size)
 		m_head = 0;
 	}
 
-	assert(m_head + aligned <= m_tail || m_head >= m_tail && "Ring Buffer Overflow");
+	assert((m_head + aligned <= kCapacity) && "Ring Buffer Allocation exceeds capacity");
+	assert((m_head >= m_tail || m_head + aligned <= m_tail) && "Ring Buffer Overflow");
 
 	UploadAllocation alloc{};
 	alloc.offset = m_head;

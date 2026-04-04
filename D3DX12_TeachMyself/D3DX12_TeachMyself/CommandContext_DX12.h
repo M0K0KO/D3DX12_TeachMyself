@@ -32,6 +32,8 @@ public:
 	void BeginTimestamp(uint32_t passIndex) override;
 	void EndTimestamp(uint32_t passIndex) override;
 
+	void ResetState();
+
 private:
 	inline D3D12_RESOURCE_STATES GetDXResourceState(RGResourceState state)
 	{

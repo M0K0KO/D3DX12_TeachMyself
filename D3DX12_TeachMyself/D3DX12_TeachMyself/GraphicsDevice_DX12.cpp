@@ -200,6 +200,7 @@ void GraphicsDevice_DX12::ExecuteImmediate(std::function<void(CommandContext&)> 
 {
 	HR_CHECK(m_immediateAllocator->Reset());
 	HR_CHECK(m_commandList->Reset(m_immediateAllocator.Get(), nullptr));
+	m_commandContext.ResetState();
 
 	ID3D12DescriptorHeap* heaps[] = { m_cbvSrvHeap.Get() };
 	m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
@@ -218,6 +219,7 @@ CommandContext& GraphicsDevice_DX12::BeginFrame()
 {
 	HR_CHECK(m_commandAllocators[m_frameIndex]->Reset());
 	HR_CHECK(m_commandList->Reset(m_commandAllocators[m_frameIndex].Get(), nullptr));
+	m_commandContext.ResetState();
 
 	m_commandList->RSSetViewports(1, &m_viewport);
 	m_commandList->RSSetScissorRects(1, &m_scissorRect);

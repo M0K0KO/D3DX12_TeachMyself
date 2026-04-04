@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "CommandContext_DX12.h"
 #include "GraphicsDevice_DX12.h"
+#include "MokoLog.h"
 
 void CommandContext_DX12::Init(GraphicsDevice_DX12* pDevice, ID3D12GraphicsCommandList* pCommandList)
 {
@@ -169,6 +170,11 @@ void CommandContext_DX12::BeginTimestamp(uint32_t passIndex)
 void CommandContext_DX12::EndTimestamp(uint32_t passIndex)
 {
 	m_pDevice->m_profiler.EndTimestamp(m_pDevice->m_commandList.Get(), passIndex);
+}
+
+void CommandContext_DX12::ResetState()
+{
+	m_currentRootSignature = nullptr;
 }
 
 void CommandContext_DX12::Dispatch(UINT x, UINT y, UINT z)

@@ -26,7 +26,7 @@ float4 main(PSInput input) : SV_Target
     float4 clip = float4(input.uv * 2.0 - 1.0, 1.0, 1.0);
     clip.y = -clip.y; // DX UV convention
 
-    float4 worldPos = mul(clip, inverseVP);
+    float4 worldPos = mul(inverseVP, clip);
     float3 dir = normalize(worldPos.xyz / worldPos.w);
 
     return SkyboxCubemap.Sample(LinearSampler, dir);
