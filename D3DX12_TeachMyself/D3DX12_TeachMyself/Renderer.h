@@ -19,23 +19,7 @@ enum class DebugMode
 	PreFilteredEnvrionmentMap
 };
 
-struct FrameContext
-{
-	RGResourceHandle backBuffer;
-	RGResourceHandle gbufferAlbedo;
-	RGResourceHandle gbufferNormal;
-	RGResourceHandle gbufferMR;
-	RGResourceHandle depthTexture;
-	RGResourceHandle skyboxTexture;
-	RGResourceHandle irradianceMap;
-	RGResourceHandle prefilteredEnvMap;
-	RGResourceHandle brdfLutTexture;
-	RGResourceHandle shadowMap;
-
-	CBHandle perFrameCB;
-	CBHandle lightCB;
-	CBHandle shadowCB;
-};
+class FrameContext;
 
 class Renderer
 {
@@ -47,6 +31,28 @@ public:
 	void ChangeDebugMode(DebugMode mode) { debugMode = mode; };
 
 	void OnResize(uint32_t width, uint32_t height);
+
+public:
+	static constexpr int CASCADE_COUNT = 4;
+
+	struct FrameContext
+	{
+		RGResourceHandle backBuffer;
+		RGResourceHandle gbufferAlbedo;
+		RGResourceHandle gbufferNormal;
+		RGResourceHandle gbufferMR;
+		RGResourceHandle depthTexture;
+		RGResourceHandle skyboxTexture;
+		RGResourceHandle irradianceMap;
+		RGResourceHandle prefilteredEnvMap;
+		RGResourceHandle brdfLutTexture;
+		RGResourceHandle shadowMap;
+
+		CBHandle perFrameCB;
+		CBHandle lightCB;
+		CBHandle shadowCB;
+		XMMATRIX LightViewProj[CASCADE_COUNT];
+	};
 
 private:
 	void ReloadPSO(GraphicsDevice* device);
@@ -142,9 +148,8 @@ private:
 
 	TextureHandle m_prefilteredMapTexture;
 	
+
 	TextureHandle m_shadowMap;
-
-
 
 	struct PerFrameCB
 	{
@@ -176,7 +181,8 @@ private:
 
 	struct ShadowCB
 	{
-		XMFLOAT4X4 LightViewProj;
+		XMFLOAT4X4 LightViewProj[CASCADE_COUNT];
+		float cascadeSplits[CASCADE_COUNT];
 	};
 	ShadowCB m_shadowCB;
 

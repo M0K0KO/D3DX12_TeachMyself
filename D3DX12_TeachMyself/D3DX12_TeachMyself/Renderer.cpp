@@ -44,8 +44,8 @@ void Renderer::Init(GraphicsDevice* device)
 
 	AssetLoader loader;
 	int w, h, ch;
-	//float* hdrData = loader.LoadHDR("../citrus_orchard_puresky_4k.hdr", w, h, ch, 4);
-	float* hdrData = loader.LoadHDR("../venice_sunset_4k.hdr", w, h, ch, 4);
+	float* hdrData = loader.LoadHDR("../citrus_orchard_puresky_4k.hdr", w, h, ch, 4);
+	//float* hdrData = loader.LoadHDR("../venice_sunset_4k.hdr", w, h, ch, 4);
 
 	TextureDesc equirectDesc = {};
 	equirectDesc.width = w;
@@ -233,10 +233,10 @@ void Renderer::Init(GraphicsDevice* device)
 
 	m_shadowMapPipeline = device->CreatePipeline(shadowMapPSODesc);
 
-	TextureDesc shadowMapDesc = { 2048, 2048, Format::D32_FLOAT, TextureUsage::DepthStencil };
+	TextureDesc shadowMapDesc = { 4096, 4096, Format::D32_FLOAT, TextureUsage::DepthStencil };
 	m_shadowMap = device->CreateTexture(shadowMapDesc, nullptr);
-
 	// Shadow Map
+
 
 	debugMode = DebugMode::PBR_Enabled;
 }
@@ -279,7 +279,7 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	RGResourceDesc brdfLUTDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
 	RGResourceHandle brdfLUT = graph.ImportTexture(m_brdfLUTTexture, brdfLUTDesc, RGResourceState::ShaderResource);
 
-	RGResourceDesc shadowMapDesc = { 2048, 2048, Format::R32_TYPELESS, TextureUsage::DepthStencil };
+	RGResourceDesc shadowMapDesc = { 4096, 4096, Format::R32_TYPELESS, TextureUsage::DepthStencil };
 	RGResourceHandle shadowMap = graph.ImportTexture(m_shadowMap, shadowMapDesc, RGResourceState::DepthWrite);
 
 	PerFrameCB perFrame;
@@ -290,16 +290,21 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	perFrame.CameraPos = scene.cam.GetPos();
 	XMStoreFloat2(&perFrame.ScreenSize, { static_cast<float>(m_width), static_cast<float>(m_height) });
 	
-	static float time = 0;
+	static float time = 0.0f;
 	time += MokoTime::GetDeltaTime();
 
-	float sunSpeed = 0.6f;
-	float angle = time * sunSpeed;
-	float elevation = sinf(angle * 0.5f) * 0.8f;
+	float sunSpeed = 0.2f;
+	float angle = sinf(time * sunSpeed) * 0.5f; 
+	XMVECTOR lightDir = DirectX::XMVector3Normalize(
+		DirectX::XMVectorSet(
+			0.0f,   
+			-1.0f,   
+			angle,
+			0.0f
+		)
+	);
 
-	XMVECTOR lightDir = XMVector3Normalize(XMVectorSet(
-		cosf(angle), -fabsf(elevation) - 0.2f, sinf(angle), 0.0f
-	));
+	//XMVECTOR lightDir = XMVector3Normalize(XMVectorSet(0.0f, -0.5f, 0.5f, 0.0f));
 
 	LightCB light;
 	XMStoreFloat3(&light.Direction, lightDir);
@@ -309,7 +314,7 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 
 
 	XMVECTOR targetPos = XMVectorSet(0, 0, 0, 0); 
-	XMVECTOR lightPos = XMVectorSubtract(targetPos, XMVectorScale(lightDir, 100.0f));
+	XMVECTOR lightPos = XMVectorSubtract(targetPos, XMVectorScale(lightDir, 50.0f));
 
 	XMMATRIX lightView = XMMatrixLookAtLH(lightPos, targetPos, XMVectorSet(0, 1, 0, 0));
 
@@ -318,18 +323,120 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	XMMATRIX lightVP = lightView * lightProj;
 
 	ShadowCB shadow;
-	XMStoreFloat4x4(&shadow.LightViewProj, XMMatrixTranspose(lightVP));
-
-	CBHandle perFrameCBHandle;
-	CBHandle lightCBHandle;
-	CBHandle shadowCBHandle;
 
 	FrameContext fc = {
 		backBuffer, gbufferAlbedo, gbufferNormal, gbufferMR,
 		depthTexture, skyboxTexture,
 		irradiacneMap, prefilteredEnvMap, brdfLUT, shadowMap,
-		{}, {}, {}
+		{}, {}, {}, {}
 	};
+
+	// Shadow Cascade Map
+	float cascadeSplits[CASCADE_COUNT + 1];
+	float nearClip = 0.1f;
+	float farClip = 100.0f;
+	float lambda = 0.5f;
+
+	for (int i = 0; i <= CASCADE_COUNT; i++)
+	{
+		float t = (float)i / CASCADE_COUNT;
+		float log = nearClip * powf(farClip / nearClip, t);
+		float linear = nearClip + (farClip - nearClip) * t;
+		cascadeSplits[i] = lambda * log + (1.0f - lambda) * linear;
+	}
+
+	XMVECTOR ndcCorners[8] = {
+		{-1, -1, 0, 1}, {-1,  1, 0, 1}, { 1,  1, 0, 1}, { 1, -1, 0, 1},
+		{-1, -1, 1, 1}, {-1,  1, 1, 1}, { 1,  1, 1, 1}, { 1, -1, 1, 1},
+	};
+
+	XMMATRIX invVP = XMLoadFloat4x4(&perFrame.InvViewProj);
+
+	for (int c = 0; c < CASCADE_COUNT; c++)
+	{
+		float cNear = cascadeSplits[c];
+		float cFar = cascadeSplits[c + 1];
+
+		XMVECTOR worldCorners[8];
+		for (int i = 0; i < 8; i++)
+			worldCorners[i] = XMVector4Transform(ndcCorners[i], invVP);
+		for (int i = 0; i < 8; i++)
+			worldCorners[i] = XMVectorDivide(worldCorners[i], XMVectorSplatW(worldCorners[i]));
+
+		float nearT = (cNear - nearClip) / (farClip - nearClip);
+		float farT = (cFar - nearClip) / (farClip - nearClip);
+
+		XMVECTOR cascadeCorners[8];
+		for (int i = 0; i < 4; i++)
+		{
+			XMVECTOR dir = XMVectorSubtract(worldCorners[i + 4], worldCorners[i]);
+			cascadeCorners[i] = XMVectorAdd(worldCorners[i], XMVectorScale(dir, nearT));
+			cascadeCorners[i + 4] = XMVectorAdd(worldCorners[i], XMVectorScale(dir, farT));
+		}
+
+		XMVECTOR center = XMVectorZero();
+		for (int i = 0; i < 8; i++)
+			center = XMVectorAdd(center, cascadeCorners[i]);
+		center = XMVectorScale(center, 1.0f / 8.0f);
+
+		XMMATRIX lightView = XMMatrixLookAtLH(
+			XMVectorSubtract(center, XMVectorScale(lightDir, 100.0f)),
+			center,
+			XMVectorSet(0, 1, 0, 0));
+
+		XMFLOAT3 mins = { FLT_MAX, FLT_MAX, FLT_MAX };
+		XMFLOAT3 maxs = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
+		for (int i = 0; i < 8; i++)
+		{
+			XMVECTOR v = XMVector4Transform(cascadeCorners[i], lightView);
+			XMFLOAT3 p; XMStoreFloat3(&p, v);
+			mins.x = min(mins.x, p.x); maxs.x = std::max(maxs.x, p.x);
+			mins.y = min(mins.y, p.y); maxs.y = std::max(maxs.y, p.y);
+			mins.z = min(mins.z, p.z); maxs.z = std::max(maxs.z, p.z);
+		}
+
+		float sceneZMin = FLT_MAX;
+		XMFLOAT3 sceneCorners[8] = {
+			{ scene.sceneAABBMin.x, scene.sceneAABBMin.y, scene.sceneAABBMin.z },
+			{ scene.sceneAABBMax.x, scene.sceneAABBMin.y, scene.sceneAABBMin.z },
+			{ scene.sceneAABBMin.x, scene.sceneAABBMax.y, scene.sceneAABBMin.z },
+			{ scene.sceneAABBMax.x, scene.sceneAABBMax.y, scene.sceneAABBMin.z },
+			{ scene.sceneAABBMin.x, scene.sceneAABBMin.y, scene.sceneAABBMax.z },
+			{ scene.sceneAABBMax.x, scene.sceneAABBMin.y, scene.sceneAABBMax.z },
+			{ scene.sceneAABBMin.x, scene.sceneAABBMax.y, scene.sceneAABBMax.z },
+			{ scene.sceneAABBMax.x, scene.sceneAABBMax.y, scene.sceneAABBMax.z },
+		};
+		for (int i = 0; i < 8; i++)
+		{
+			XMVECTOR v = XMVector4Transform(XMLoadFloat3(&sceneCorners[i]), lightView);
+			XMFLOAT3 p; XMStoreFloat3(&p, v);
+			sceneZMin = min(sceneZMin, p.z);
+		}
+		mins.z = sceneZMin;
+
+		float cascadeWidth = maxs.x - mins.x;
+		float cascadeHeight = maxs.y - mins.y;
+
+		float texelSizeX = cascadeWidth / (float)2048;
+		float texelSizeY = cascadeHeight / (float)2048;
+
+		mins.x = floor(mins.x / texelSizeX) * texelSizeX;
+		maxs.x = floor(maxs.x / texelSizeX) * texelSizeX;
+		mins.y = floor(mins.y / texelSizeY) * texelSizeY;
+		maxs.y = floor(maxs.y / texelSizeY) * texelSizeY;
+
+		XMMATRIX lightProj = XMMatrixOrthographicOffCenterLH(
+			mins.x, maxs.x, mins.y, maxs.y, mins.z, maxs.z);
+
+		fc.LightViewProj[c] = lightView * lightProj;
+	}
+	// Shadow Cascade Map
+
+
+	CBHandle perFrameCBHandle;
+	CBHandle lightCBHandle;
+	CBHandle shadowCBHandle;
+
 
 	graph.AddPass(
 		"CB UpdatePass",
@@ -337,6 +444,12 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 		[&](CommandContext& passCtx) {
 			fc.perFrameCB = passCtx.UpdateConstantBuffer(0, &perFrame, sizeof(PerFrameCB));
 			fc.lightCB = passCtx.UpdateConstantBuffer(1, &light, sizeof(LightCB));
+			ShadowCB shadow;
+			for (int c = 0; c < CASCADE_COUNT; c++)
+			{
+				XMStoreFloat4x4(&shadow.LightViewProj[c], XMMatrixTranspose(fc.LightViewProj[c]));
+				shadow.cascadeSplits[c] = cascadeSplits[c + 1];
+			}
 			fc.shadowCB = passCtx.UpdateConstantBuffer(2, &shadow, sizeof(ShadowCB));
 		}
 	);
@@ -354,20 +467,32 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 				passCtx.ClearDepthStencil(m_shadowMap, 1.0f);
 				passCtx.SetRenderTarget(0, {}, m_shadowMap);
 				passCtx.SetPipeline(m_shadowMapPipeline);
-				passCtx.SetViewport(0, 0, 2048, 2048);
-				passCtx.SetScissorRect(0, 0, 2048, 2048);
 
-				passCtx.BindConstantBuffer(0, fc.shadowCB);
+				constexpr int SHADOW_ATLAS_SIZE = 4096;
+				constexpr int CASCADE_TILE_SIZE = 2048;
+				int offsets[4][2] = { {0,0}, {2048,0}, {0,2048}, {2048,2048} };
 
-				for (const auto& obj : scene.renderObjects)
+
+				for (int c = 0; c < CASCADE_COUNT; c++)
 				{
-					if (obj.material.alphaMode == AlphaMode::Opaque)
+					passCtx.SetViewport(offsets[c][0], offsets[c][1], 2048, 2048, 0.0f, 1.0f);
+					passCtx.SetScissorRect(offsets[c][0], offsets[c][1], offsets[c][0] + 2048, offsets[c][1] + 2048);
+
+					XMFLOAT4X4 transposed;
+					XMStoreFloat4x4(&transposed, XMMatrixTranspose(fc.LightViewProj[c]));
+					auto cascadeCB = passCtx.UpdateConstantBuffer(0, &transposed, sizeof(XMFLOAT4X4));
+					passCtx.BindConstantBuffer(0, cascadeCB);
+
+					for (const auto& obj : scene.renderObjects)
 					{
-						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
-						passCtx.BindConstantBuffer(1, perObjectCBHandle);
-						passCtx.SetVertexBuffer(obj.vertexBuffer);
-						passCtx.SetIndexBuffer(obj.indexBuffer);
-						passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
+						if (obj.material.alphaMode == AlphaMode::Opaque)
+						{
+							auto perObjectCB = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
+							passCtx.BindConstantBuffer(1, perObjectCB);
+							passCtx.SetVertexBuffer(obj.vertexBuffer);
+							passCtx.SetIndexBuffer(obj.indexBuffer);
+							passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
+						}
 					}
 				}
 			}

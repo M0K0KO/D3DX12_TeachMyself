@@ -25,5 +25,8 @@ public:
 	std::vector<RenderObject> renderObjects;
 
 	Camera cam;
+
+	XMFLOAT3 sceneAABBMin = { FLT_MAX, FLT_MAX, FLT_MAX };
+	XMFLOAT3 sceneAABBMax = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
 };
 

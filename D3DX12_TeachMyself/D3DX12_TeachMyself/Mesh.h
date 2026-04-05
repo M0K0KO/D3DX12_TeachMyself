@@ -54,5 +54,8 @@ namespace Mesh
 		std::vector<SubMesh> subMeshes;
 		std::vector<Material> materials;
 		std::vector<Texture> textures;
+
+		XMFLOAT3 sceneAABBMin = { FLT_MAX, FLT_MAX, FLT_MAX };
+		XMFLOAT3 sceneAABBMax = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
 	};
 }

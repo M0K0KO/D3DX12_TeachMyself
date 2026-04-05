@@ -104,6 +104,8 @@ void Application::Init()
 
 		XMStoreFloat4x4(&obj.world, XMMatrixIdentity());
 		m_scene.renderObjects.push_back(obj);
+		m_scene.sceneAABBMax = sponzaScene.sceneAABBMax;
+		m_scene.sceneAABBMin = sponzaScene.sceneAABBMin;
 	}
 
 	m_renderer.Init(m_device.get());

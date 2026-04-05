@@ -141,7 +141,7 @@ namespace DX12Helpers
 		out.AddressV = mode(desc.addressMode);
 		out.AddressW = mode(desc.addressMode);
 		out.MaxAnisotropy = (desc.filter == SamplerFilter::Anisotropic) ? 16 : 1;
-		out.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+		out.ComparisonFunc = (desc.filter == SamplerFilter::Comparison) ? D3D12_COMPARISON_FUNC_LESS_EQUAL : D3D12_COMPARISON_FUNC_NEVER;
 		out.MaxLOD = D3D12_FLOAT32_MAX;
 		out.ShaderRegister = desc.shaderRegister;
 		out.ShaderVisibility = ToVisibility(desc.visibility);

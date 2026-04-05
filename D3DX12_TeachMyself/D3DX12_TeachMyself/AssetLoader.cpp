@@ -7,6 +7,11 @@
 #include "AssetLoader.h"
 #include "DirectXTex/DirectXTex.h"
 
+#undef min
+#undef max
+
+using std::min;
+
 Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
 {
     tinygltf::Model model;
@@ -182,9 +187,17 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
                     const float* p = reinterpret_cast<const float*>(posBase + i * posStride);
 
                     DirectX::XMVECTOR pos = DirectX::XMVectorSet(p[0], p[1], p[2], 1.0f);
-                    pos = DirectX::XMVector3Transform(pos, world);
+                    pos = DirectX::XMVector3TransformCoord(pos, world);
 
                     DirectX::XMStoreFloat3(&scene.vertices[vertexOffset + i].position, pos);
+
+                    scene.sceneAABBMin.x = std::min(scene.sceneAABBMin.x, scene.vertices[vertexOffset + i].position.x);
+                    scene.sceneAABBMin.y = std::min(scene.sceneAABBMin.y, scene.vertices[vertexOffset + i].position.y);
+                    scene.sceneAABBMin.z = std::min(scene.sceneAABBMin.z, scene.vertices[vertexOffset + i].position.z);
+
+                    scene.sceneAABBMax.x = std::max(scene.sceneAABBMax.x, scene.vertices[vertexOffset + i].position.x);
+                    scene.sceneAABBMax.y = std::max(scene.sceneAABBMax.y, scene.vertices[vertexOffset + i].position.y);
+                    scene.sceneAABBMax.z = std::max(scene.sceneAABBMax.z, scene.vertices[vertexOffset + i].position.z);
                 }
 
                 // ---------------- NORMAL ----------------

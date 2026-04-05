@@ -45,14 +45,15 @@ cbuffer LightData : register(b1)
     float pad4;
 };
 
-cbuffer ShadowMap : register(b2)
+cbuffer ShadowData : register(b2)
 {
-    float4x4 LightViewProj;
+    float4x4 LightViewProj[4];
+    float4 cascadeSplits;
 };
 
 // ----- Constants -----
 static const float PI = 3.14159265359;
-
+static const float blendRegion = 0.1f;
 // =============================================================
 // World Position Reconstruction: depth + invViewProj
 // =============================================================
@@ -122,6 +123,28 @@ float3 FresnelSchlickRoughness(float NdotV, float3 F0, float roughness)
     return F0 + (max(1.0 - roughness, F0) - F0) * pow(1.0 - NdotV, 5.0);
 }
 
+float SampleShadowPCF(int cascadeIndex, float3 worldPos)
+{
+    float4 lightSpacePos = mul(float4(worldPos, 1.0f), LightViewProj[cascadeIndex]);
+    float3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
+    float2 shadowUV = projCoords.xy * 0.5f + 0.5f;
+    shadowUV.y = 1.0f - shadowUV.y;
+    
+    float2 tileOffsets[4] = { float2(0, 0), float2(0.5, 0), float2(0, 0.5), float2(0.5, 0.5) };
+    shadowUV = shadowUV * 0.5f + tileOffsets[cascadeIndex];
+    
+    float texelSize = 1.0f / 4096.0f;
+    float shadow = 0.0f;
+    for (int x = -1; x <= 1; x++)
+    {
+        for (int y = -1; y <= 1; y++)
+        {
+            shadow += gShadowMap.SampleCmpLevelZero(gComparisonSampler, shadowUV + float2(x, y) * texelSize, projCoords.z - 0.005f);
+        }
+    }
+    return shadow / 9.0f;
+}
+
 // =============================================================
 // Fullscreen Triangle Vertex -> PS Input
 // =============================================================
@@ -154,12 +177,28 @@ float4 main(PSInput input) : SV_TARGET
 
     // --- Build Vectors ---
     float3 worldPos = ReconstructWorldPos(uv, depth);
-    float4 lightSpacePos = mul(float4(worldPos, 1.0f), LightViewProj);
-    float3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
-    float2 shadowUV = projCoords.xy * 0.5f + 0.5f;
-    shadowUV.y = 1.0f - shadowUV.y;
-
-    float shadow = gShadowMap.SampleCmpLevelZero(gComparisonSampler, shadowUV, projCoords.z - 0.005f);
+    
+    float viewDepth = length(worldPos - cameraPos);
+    
+    int cascadeIndex = 0;
+    if (viewDepth > cascadeSplits.x)
+        cascadeIndex = 1;
+    if (viewDepth > cascadeSplits.y)
+        cascadeIndex = 2;
+    if (viewDepth > cascadeSplits.z)
+        cascadeIndex = 3;
+    
+    float shadow = SampleShadowPCF(cascadeIndex, worldPos);
+    
+    float cascadeFar = cascadeSplits[cascadeIndex];
+    float fadeStart = cascadeFar * (1.0f - blendRegion);
+    float blendFactor = saturate((viewDepth - fadeStart) / (cascadeFar - fadeStart));
+    
+    if (blendFactor > 0.0f && cascadeIndex < 3)
+    {
+        float shadowNext = SampleShadowPCF(cascadeIndex + 1, worldPos);
+        shadow = lerp(shadow, shadowNext, blendFactor);
+    }
     
     float3 V = normalize(cameraPos - worldPos); // surface to eye
     float3 L = normalize(-lightDirection); // surface to light
@@ -188,6 +227,7 @@ float4 main(PSInput input) : SV_TARGET
 
     // --- Direct Lighting ---
     float3 Lo = shadow * (diffuse + specular) * lightColor * NdotL;
+    //float3 Lo = (diffuse + specular) * lightColor * NdotL;
 
     // --- IBL: Diffuse ---
     float3 F_ibl = FresnelSchlickRoughness(NdotV, F0, roughness);
@@ -207,9 +247,9 @@ float4 main(PSInput input) : SV_TARGET
     float3 color = ambient + Lo;
 
     color = color / (color + 1.0); // Reinhard tonemap
-    //return float4(color, 1.0);
     
-    return float4(shadow, shadow, shadow, 1.0);
     
-    //return float4(projCoords.z, projCoords.z, projCoords.z, 1.0);
+    return float4(color, 1.0);
+    
+    //return float4(1.0 - shadow, 1.0 - shadow, 1.0 - shadow, 1.0f);
 }
