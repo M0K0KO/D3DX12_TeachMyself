@@ -111,7 +111,8 @@ enum class SamplerFilter
 	Point,
 	Bilinear, 
 	Trilinear, 
-	Anisotropic 
+	Anisotropic,
+	Comparison
 };
 
 enum class SamplerAddressMode{ 

@@ -123,6 +123,8 @@ namespace DX12Helpers
 			out.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR; break;
 		case SamplerFilter::Anisotropic:
 			out.Filter = D3D12_FILTER_ANISOTROPIC; break;
+		case SamplerFilter::Comparison:
+			out.Filter = D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
 		}
 
 		auto mode = [](SamplerAddressMode m) {

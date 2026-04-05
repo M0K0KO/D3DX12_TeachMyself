@@ -6,6 +6,8 @@ class CommandContext
 public:
 	virtual ~CommandContext() = default;
 
+	virtual void SetViewport(float x, float y, float width, float height, float minDept = 0.0f, float maxDepth = 1.0f) = 0;
+	virtual void SetScissorRect(long left, long top, long right, long bottom) = 0;
 	virtual void SetComputePipeline(PipelineHandle handle) = 0;
 	virtual void Dispatch(UINT x, UINT y, UINT z) = 0;
 	virtual void SetPipeline(PipelineHandle handle) = 0;
@@ -27,4 +29,4 @@ public:
 
 	virtual void BeginTimestamp(uint32_t passIndex) = 0;
 	virtual void EndTimestamp(uint32_t passIndex) = 0;
-};
+}; 

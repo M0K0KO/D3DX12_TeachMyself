@@ -200,6 +200,44 @@ void Renderer::Init(GraphicsDevice* device)
 	);
 	// PreFiltered Environment Map
 
+	// Shadow Map
+	std::vector<VertexAttribute> vertexAttributes;
+	vertexAttributes.push_back({ Semantic::POSITION, Format::R32G32B32_FLOAT, 0 });
+	vertexAttributes.push_back({ Semantic::NORMAL,   Format::R32G32B32_FLOAT, 0 });
+	vertexAttributes.push_back({ Semantic::TANGENT, Format::R32G32B32A32_FLOAT, 0 });
+	vertexAttributes.push_back({ Semantic::TEXCOORD, Format::R32G32_FLOAT, 0 });
+
+	RootSignatureDesc shadowMapRSDesc = {};
+	shadowMapRSDesc.allowIA = true;
+	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Vertex });
+	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 1, ShaderVisibility::Vertex });
+
+	m_shadowMapVS = ShaderCompiler::CompileFromFile(
+		L"shaders_shadowMap_VS.hlsl",
+		"main",
+		"vs_5_0"
+	);
+
+
+	PipelineDesc shadowMapPSODesc = {};
+	shadowMapPSODesc.rootSignatureDesc = shadowMapRSDesc;
+	shadowMapPSODesc.vs = ShaderCompiler::GetBytecode(m_shadowMapVS);
+	shadowMapPSODesc.ps = {};
+	shadowMapPSODesc.vertexAttributes = vertexAttributes;
+	shadowMapPSODesc.rtvFormats = { Format::UNKNOWN };
+	shadowMapPSODesc.dsvFormat = Format::D32_FLOAT;
+	shadowMapPSODesc.depthEnable = true;
+	shadowMapPSODesc.depthWrite = true;
+	shadowMapPSODesc.depthFunc = ComparisonFunc::LessEqual;
+	shadowMapPSODesc.cullMode = CullMode::Back;
+
+	m_shadowMapPipeline = device->CreatePipeline(shadowMapPSODesc);
+
+	TextureDesc shadowMapDesc = { 2048, 2048, Format::D32_FLOAT, TextureUsage::DepthStencil };
+	m_shadowMap = device->CreateTexture(shadowMapDesc, nullptr);
+
+	// Shadow Map
+
 	debugMode = DebugMode::PBR_Enabled;
 }
 
@@ -241,6 +279,9 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	RGResourceDesc brdfLUTDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
 	RGResourceHandle brdfLUT = graph.ImportTexture(m_brdfLUTTexture, brdfLUTDesc, RGResourceState::ShaderResource);
 
+	RGResourceDesc shadowMapDesc = { 2048, 2048, Format::R32_TYPELESS, TextureUsage::DepthStencil };
+	RGResourceHandle shadowMap = graph.ImportTexture(m_shadowMap, shadowMapDesc, RGResourceState::DepthWrite);
+
 	PerFrameCB perFrame;
 	XMMATRIX vp = scene.cam.GetViewMatrix() * scene.cam.GetProjectionMatrix();
 	XMStoreFloat4x4(&perFrame.ViewProj, XMMatrixTranspose(vp));
@@ -256,25 +297,38 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	float angle = time * sunSpeed;
 	float elevation = sinf(angle * 0.5f) * 0.8f;
 
-	XMVECTOR dir = XMVector3Normalize(XMVectorSet(
+	XMVECTOR lightDir = XMVector3Normalize(XMVectorSet(
 		cosf(angle), -fabsf(elevation) - 0.2f, sinf(angle), 0.0f
 	));
 
 	LightCB light;
-	XMStoreFloat3(&light.Direction, dir);
+	XMStoreFloat3(&light.Direction, lightDir);
 	XMStoreFloat3(&light.Color, XMVectorSet(2.0f, 1.8f, 1.5f, 0.0f));
 	XMStoreFloat3(&light.Ambient, { 0.07f, 0.07f, 0.07f });
 	light.Intensity = 1.1f;
 
 
+	XMVECTOR targetPos = XMVectorSet(0, 0, 0, 0); 
+	XMVECTOR lightPos = XMVectorSubtract(targetPos, XMVectorScale(lightDir, 100.0f));
+
+	XMMATRIX lightView = XMMatrixLookAtLH(lightPos, targetPos, XMVectorSet(0, 1, 0, 0));
+
+	XMMATRIX lightProj = XMMatrixOrthographicLH(100.0f, 100.0f, 1.0f, 300.0f);
+
+	XMMATRIX lightVP = lightView * lightProj;
+
+	ShadowCB shadow;
+	XMStoreFloat4x4(&shadow.LightViewProj, XMMatrixTranspose(lightVP));
+
 	CBHandle perFrameCBHandle;
 	CBHandle lightCBHandle;
+	CBHandle shadowCBHandle;
 
 	FrameContext fc = {
 		backBuffer, gbufferAlbedo, gbufferNormal, gbufferMR,
 		depthTexture, skyboxTexture,
-		irradiacneMap, prefilteredEnvMap, brdfLUT,
-		{}, {} 
+		irradiacneMap, prefilteredEnvMap, brdfLUT, shadowMap,
+		{}, {}, {}
 	};
 
 	graph.AddPass(
@@ -283,11 +337,42 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 		[&](CommandContext& passCtx) {
 			fc.perFrameCB = passCtx.UpdateConstantBuffer(0, &perFrame, sizeof(PerFrameCB));
 			fc.lightCB = passCtx.UpdateConstantBuffer(1, &light, sizeof(LightCB));
+			fc.shadowCB = passCtx.UpdateConstantBuffer(2, &shadow, sizeof(ShadowCB));
 		}
 	);
 
 	AddDepthPrePass(device, graph, fc, scene);
 	AddGBufferPass(device, graph, fc, scene);
+
+	graph.AddPass(
+		"ShadowMapPass",
+		[&](RGBuilder& builder) {
+			builder.Write(fc.shadowMap, RGResourceState::DepthWrite);
+		},
+		[this, &fc, device, &scene](CommandContext& passCtx) {
+			{
+				passCtx.ClearDepthStencil(m_shadowMap, 1.0f);
+				passCtx.SetRenderTarget(0, {}, m_shadowMap);
+				passCtx.SetPipeline(m_shadowMapPipeline);
+				passCtx.SetViewport(0, 0, 2048, 2048);
+				passCtx.SetScissorRect(0, 0, 2048, 2048);
+
+				passCtx.BindConstantBuffer(0, fc.shadowCB);
+
+				for (const auto& obj : scene.renderObjects)
+				{
+					if (obj.material.alphaMode == AlphaMode::Opaque)
+					{
+						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
+						passCtx.BindConstantBuffer(1, perObjectCBHandle);
+						passCtx.SetVertexBuffer(obj.vertexBuffer);
+						passCtx.SetIndexBuffer(obj.indexBuffer);
+						passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
+					}
+				}
+			}
+		}
+	);
 
 	if (debugMode == DebugMode::PBR_Enabled)
 	{
@@ -611,6 +696,7 @@ void Renderer::InitPBRLightingPass(GraphicsDevice* device)
 	RootSignatureDesc PBRlightingPassRSDesc = {};
 	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 2, 1, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::Pixel });
@@ -618,8 +704,10 @@ void Renderer::InitPBRLightingPass(GraphicsDevice* device)
 	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 4, 1, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 5, 1, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 6, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 7, 1, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.staticSamplers.push_back({ SamplerFilter::Point, SamplerAddressMode::Clamp, 0, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.staticSamplers.push_back({ SamplerFilter::Comparison, SamplerAddressMode::Border, 2, ShaderVisibility::Pixel });
 
 	std::vector<VertexAttribute> vertexAttributes;
 	vertexAttributes.push_back({ Semantic::POSITION, Format::R32G32B32_FLOAT, 0 });
@@ -722,6 +810,8 @@ void Renderer::AddDepthPrePass(GraphicsDevice* device, RenderGraph& graph, Frame
 				passCtx.ClearDepthStencil(m_depthTexture, 1.0f);
 				passCtx.SetRenderTarget(0, {}, m_depthTexture);
 				passCtx.SetPipeline(m_depthPrePassPipeline);
+				passCtx.SetViewport(0, 0, (float)m_width, (float)m_height);
+				passCtx.SetScissorRect(0, 0, (LONG)m_width, (LONG)m_height);
 
 				passCtx.BindConstantBuffer(0, fc.perFrameCB);
 
@@ -759,6 +849,9 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 				passCtx.SetRenderTarget(3, renderTargets, m_depthTexture);
 
 				passCtx.SetPipeline(m_gBufferOpaquePassPipeline);
+				passCtx.SetViewport(0, 0, (float)m_width, (float)m_height);
+				passCtx.SetScissorRect(0, 0, (LONG)m_width, (LONG)m_height);
+
 				passCtx.BindConstantBuffer(0, fc.perFrameCB);
 				for (const auto& obj : scene.renderObjects)
 				{
@@ -846,6 +939,8 @@ void Renderer::AddLightingPass(GraphicsDevice* device, RenderGraph& graph, Frame
 				passCtx.ClearRenderTarget(device->GetCurrentBackBuffer(), clearColor);
 				passCtx.SetRenderTarget(1, device->GetCurrentBackBufferPtr(), {});
 				passCtx.SetPipeline(m_lightingPassPipeline);
+				passCtx.SetViewport(0, 0, (float)m_width, (float)m_height);
+				passCtx.SetScissorRect(0, 0, (LONG)m_width, (LONG)m_height);
 
 				passCtx.BindConstantBuffer(0, fc.perFrameCB);
 				passCtx.BindConstantBuffer(1, fc.lightCB);
@@ -871,6 +966,7 @@ void Renderer::AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, Fr
 			builder.Read(fc.irradianceMap, RGResourceState::ShaderResource);
 			builder.Read(fc.prefilteredEnvMap, RGResourceState::ShaderResource);
 			builder.Read(fc.brdfLutTexture, RGResourceState::ShaderResource);
+			builder.Read(fc.shadowMap, RGResourceState::ShaderResource);
 
 			builder.Write(fc.backBuffer, RGResourceState::RenderTarget);
 		},
@@ -880,16 +976,21 @@ void Renderer::AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, Fr
 				passCtx.ClearRenderTarget(device->GetCurrentBackBuffer(), clearColor);
 				passCtx.SetRenderTarget(1, device->GetCurrentBackBufferPtr(), {});
 				passCtx.SetPipeline(m_PBRlightingPassPipeline);
+				passCtx.SetViewport(0, 0, (float)m_width, (float)m_height);
+				passCtx.SetScissorRect(0, 0, (LONG)m_width, (LONG)m_height);
 
 				passCtx.BindConstantBuffer(0, fc.perFrameCB);
 				passCtx.BindConstantBuffer(1, fc.lightCB);
-				passCtx.BindTexture(m_depthTexture, 2);
-				passCtx.BindTexture(m_gbufferAlbedo, 3);
-				passCtx.BindTexture(m_gbufferNormal, 4);
-				passCtx.BindTexture(m_gbufferMR, 5);
-				passCtx.BindTexture(m_irradianceMapTexture, 6);
-				passCtx.BindTexture(m_prefilteredMapTexture, 7);
-				passCtx.BindTexture(m_brdfLUTTexture, 8);
+				passCtx.BindConstantBuffer(2, fc.shadowCB);
+
+				passCtx.BindTexture(m_depthTexture, 3);
+				passCtx.BindTexture(m_gbufferAlbedo, 4);
+				passCtx.BindTexture(m_gbufferNormal, 5);
+				passCtx.BindTexture(m_gbufferMR, 6);
+				passCtx.BindTexture(m_irradianceMapTexture, 7);
+				passCtx.BindTexture(m_prefilteredMapTexture, 8);
+				passCtx.BindTexture(m_brdfLUTTexture, 9);
+				passCtx.BindTexture(m_shadowMap, 10);
 
 				passCtx.Draw(3, 0);
 			}
@@ -911,6 +1012,8 @@ void Renderer::AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameCo
 
 			passCtx.SetRenderTarget(1, device->GetCurrentBackBufferPtr(), m_depthTexture);
 			passCtx.SetPipeline(m_skyboxPipeline);
+			passCtx.SetViewport(0, 0, (float)m_width, (float)m_height);
+			passCtx.SetScissorRect(0, 0, (LONG)m_width, (LONG)m_height);
 
 			passCtx.BindConstantBuffer(0, fc.perFrameCB);
 
@@ -974,6 +1077,8 @@ void Renderer::AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameCon
 				passCtx.SetPipeline(m_debugPipeline);
 				passCtx.BindTexture(m_prefilteredMapTexture, 0);
 			}
+			passCtx.SetViewport(0, 0, (float)m_width, (float)m_height);
+			passCtx.SetScissorRect(0, 0, (LONG)m_width, (LONG)m_height);
 
 			passCtx.Draw(3, 0);
 		}

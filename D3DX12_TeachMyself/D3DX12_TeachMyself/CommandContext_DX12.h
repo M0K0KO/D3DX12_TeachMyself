@@ -10,6 +10,8 @@ public:
 
 	void Init(GraphicsDevice_DX12* pDevice, ID3D12GraphicsCommandList* pCommandList);
 
+	void SetViewport(float x, float y, float width, float height, float minDepth = 0.0f, float maxDepth = 1.0f) override;
+	void SetScissorRect(long left, long top, long right, long bottom) override;
 	void SetComputePipeline(PipelineHandle handle) override;
 	void Dispatch(UINT x, UINT y, UINT z) override;
 	void SetPipeline(PipelineHandle handle) override;

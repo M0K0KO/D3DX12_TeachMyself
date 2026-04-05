@@ -14,10 +14,12 @@ TextureCube<float4> gIrradianceMap : register(t4);
 TextureCube<float4> gPrefilteredEnvMap : register(t5);
 Texture2D<float2> gBRDF_LUT : register(t6);
 
-SamplerState gSamplerPoint : register(s0); // Point Clamp for lighting
-SamplerState gSamplerLinear : register(s1);
+Texture2D<float> gShadowMap : register(t7);
 
-// ----- Per-Frame CB (Root CBV) -----
+SamplerState gSamplerPoint : register(s0); 
+SamplerState gSamplerLinear : register(s1);
+SamplerComparisonState gComparisonSampler : register(s2);
+
 cbuffer PerFrameData : register(b0)
 {
     float4x4 VP;
@@ -41,6 +43,11 @@ cbuffer LightData : register(b1)
     
     float3 ambient;
     float pad4;
+};
+
+cbuffer ShadowMap : register(b2)
+{
+    float4x4 LightViewProj;
 };
 
 // ----- Constants -----
@@ -147,6 +154,13 @@ float4 main(PSInput input) : SV_TARGET
 
     // --- Build Vectors ---
     float3 worldPos = ReconstructWorldPos(uv, depth);
+    float4 lightSpacePos = mul(float4(worldPos, 1.0f), LightViewProj);
+    float3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
+    float2 shadowUV = projCoords.xy * 0.5f + 0.5f;
+    shadowUV.y = 1.0f - shadowUV.y;
+
+    float shadow = gShadowMap.SampleCmpLevelZero(gComparisonSampler, shadowUV, projCoords.z - 0.005f);
+    
     float3 V = normalize(cameraPos - worldPos); // surface to eye
     float3 L = normalize(-lightDirection); // surface to light
     float3 H = normalize(V + L); // half vector
@@ -173,7 +187,7 @@ float4 main(PSInput input) : SV_TARGET
     float3 diffuse = kD * albedo / PI;
 
     // --- Direct Lighting ---
-    float3 Lo = (diffuse + specular) * lightColor * NdotL;
+    float3 Lo = shadow * (diffuse + specular) * lightColor * NdotL;
 
     // --- IBL: Diffuse ---
     float3 F_ibl = FresnelSchlickRoughness(NdotV, F0, roughness);
@@ -193,5 +207,9 @@ float4 main(PSInput input) : SV_TARGET
     float3 color = ambient + Lo;
 
     color = color / (color + 1.0); // Reinhard tonemap
-    return float4(color, 1.0);
+    //return float4(color, 1.0);
+    
+    return float4(shadow, shadow, shadow, 1.0);
+    
+    //return float4(projCoords.z, projCoords.z, projCoords.z, 1.0);
 }

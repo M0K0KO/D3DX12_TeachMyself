@@ -1,7 +1,12 @@
 cbuffer PerFrame : register(b0)
 {
     float4x4 ViewProj;
+    float4x4 InvViewProj;
     float3 CameraPos;
+    float pad0;
+    
+    float2 ScreenSize;
+    float2 pad1;
 };
 
 cbuffer PerObject : register(b1)

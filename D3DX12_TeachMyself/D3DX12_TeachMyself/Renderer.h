@@ -30,10 +30,11 @@ struct FrameContext
 	RGResourceHandle irradianceMap;
 	RGResourceHandle prefilteredEnvMap;
 	RGResourceHandle brdfLutTexture;
-
+	RGResourceHandle shadowMap;
 
 	CBHandle perFrameCB;
 	CBHandle lightCB;
+	CBHandle shadowCB;
 };
 
 class Renderer
@@ -119,6 +120,9 @@ private:
 	ShaderHandle m_prefilteredEnvironmentMapCS;
 	PipelineHandle m_prefilteredEnvironmentMapCSPipeline;
 
+	ShaderHandle m_shadowMapVS;
+	PipelineHandle m_shadowMapPipeline;
+
 	BufferHandle m_perFrameCB;
 	BufferHandle m_perObjectCB;
 	BufferHandle m_lightingDataCB;
@@ -137,6 +141,8 @@ private:
 	TextureHandle m_irradianceMapTexture;
 
 	TextureHandle m_prefilteredMapTexture;
+	
+	TextureHandle m_shadowMap;
 
 
 
@@ -167,6 +173,12 @@ private:
 		XMFLOAT3 Ambient;
 		float padding1;
 	};
+
+	struct ShadowCB
+	{
+		XMFLOAT4X4 LightViewProj;
+	};
+	ShadowCB m_shadowCB;
 
 	struct MaterialConstants
 	{

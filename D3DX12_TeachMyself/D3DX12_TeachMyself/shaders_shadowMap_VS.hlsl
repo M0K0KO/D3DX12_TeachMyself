@@ -1,12 +1,6 @@
-cbuffer PerFrame : register(b0)
+cbuffer ShadowMap : register(b0)
 {
-    float4x4 ViewProj;
-    float4x4 InvViewProj;
-    float3 CameraPos;
-    float pad0;
-    
-    float2 ScreenSize;
-    float2 pad1;
+    float4x4 LightViewProj;
 };
 
 cbuffer PerObject : register(b1)
@@ -33,8 +27,8 @@ VSOutput main(VSInput input)
     VSOutput output;
     
     float4 worldPos = mul(float4(input.position, 1.0f), World);
-    output.position = mul(worldPos, ViewProj);
+    output.position = mul(worldPos, LightViewProj);
     output.uv = input.uv;
     
     return output;
-}
+};

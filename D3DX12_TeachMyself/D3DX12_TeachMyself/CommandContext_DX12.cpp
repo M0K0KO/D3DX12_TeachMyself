@@ -16,6 +16,24 @@ CBHandle CommandContext_DX12::UpdateConstantBuffer(UINT slot, const void* data, 
 	return { alloc.gpuAddress };
 }
 
+void CommandContext_DX12::SetViewport(float x, float y, float width, float height, float minDepth, float maxDepth)
+{
+	D3D12_VIEWPORT viewport = {};
+	viewport.TopLeftX = x;
+	viewport.TopLeftY = y;
+	viewport.Width = width;
+	viewport.Height = height;
+	viewport.MinDepth = minDepth;
+	viewport.MaxDepth = maxDepth;
+	m_commandList->RSSetViewports(1, &viewport);
+}
+
+void CommandContext_DX12::SetScissorRect(long left, long top, long right, long bottom)
+{
+	D3D12_RECT rect = { left, top, right, bottom };
+	m_commandList->RSSetScissorRects(1, &rect);
+}
+
 void CommandContext_DX12::SetPipeline(PipelineHandle handle)
 {
 	auto& internalPSO = m_pDevice->m_pipelines[handle.id];

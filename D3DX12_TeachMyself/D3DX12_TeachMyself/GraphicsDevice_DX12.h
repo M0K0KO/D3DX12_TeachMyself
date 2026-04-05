@@ -122,6 +122,7 @@ private:
 
 	uint32_t m_rtvHeapNextSlot = 0;
 	uint32_t m_cbvSrvHeapNextSlot = 0;
+	uint32_t m_dsvHeapNextSlot = 0;
 
 	std::unique_ptr<TextureLoader> m_pTextureLoader;
 
