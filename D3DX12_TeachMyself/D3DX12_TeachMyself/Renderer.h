@@ -52,6 +52,7 @@ public:
 		CBHandle perFrameCB;
 		CBHandle lightCB;
 		CBHandle shadowCB;
+		CBHandle pointShadowCB;
 		XMMATRIX LightViewProj[CASCADE_COUNT];
 	};
 
@@ -61,13 +62,21 @@ private:
 	
 	void InitDepthPrePass(GraphicsDevice* device);
 	void InitGBufferPass(GraphicsDevice* device);
+	void InitDirectionalShadowPass(GraphicsDevice* device);
+	void InitPointShadowPass(GraphicsDevice* device);
 	void InitLightingPass(GraphicsDevice* device);
 	void InitPBRLightingPass(GraphicsDevice* device);
 	void InitSkyboxPass(GraphicsDevice* device);
 	void InitDebugPass(GraphicsDevice* device);
 
+	void UpdateCBs(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
+
+	void CalculateDirectionalCascacde(FrameContext& fc);
+
 	void AddDepthPrePass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
 	void AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
+	void AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
+	void AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
 	void AddLightingPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
 	void AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
 	void AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
@@ -190,6 +199,13 @@ private:
 		int PointLightCount;
 
 		PointLight PointLights[MAX_POINT_LIGHTS];
+	};
+
+	struct PointShadowCB
+	{
+		XMFLOAT4X4 FaceVP[6];
+		XMFLOAT3 LightPos;
+		float LightRadius;
 	};
 
 	struct ShadowCB
