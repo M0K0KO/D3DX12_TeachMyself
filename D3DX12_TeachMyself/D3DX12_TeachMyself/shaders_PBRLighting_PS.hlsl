@@ -4,6 +4,8 @@
 // Phase 5 - Directional Light Only (IBL added later)
 // =============================================================
 
+#define MAX_POINT_LIGHTS 8
+
 // ----- GBuffer SRVs (DescriptorTable) -----
 Texture2D gDepth : register(t0); // Depth buffer (SRV)
 Texture2D gAlbedoAO : register(t1); // RGB=Albedo, A=AO
@@ -33,6 +35,14 @@ cbuffer PerFrameData : register(b0)
     float2 pad1;
 };
 
+struct PointLight
+{
+    float3 Position;
+    float Radius;
+    float3 Color;
+    float intensity;
+};
+
 cbuffer LightData : register(b1)
 {
     float3 lightDirection;
@@ -42,7 +52,9 @@ cbuffer LightData : register(b1)
     float lightIntensity;
     
     float3 ambient;
-    float pad4;
+    int PointLightCount;
+    
+    PointLight PointLights[MAX_POINT_LIGHTS];
 };
 
 cbuffer ShadowData : register(b2)
@@ -54,6 +66,7 @@ cbuffer ShadowData : register(b2)
 // ----- Constants -----
 static const float PI = 3.14159265359;
 static const float blendRegion = 0.1f;
+
 // =============================================================
 // World Position Reconstruction: depth + invViewProj
 // =============================================================
@@ -123,6 +136,36 @@ float3 FresnelSchlickRoughness(float NdotV, float3 F0, float roughness)
     return F0 + (max(1.0 - roughness, F0) - F0) * pow(1.0 - NdotV, 5.0);
 }
 
+float3 CookTorranceBRDF(
+    float3 N,
+    float3 V,
+    float3 L,
+    float3 albedo,
+    float metallic,
+    float roughness)
+{
+    float3 H = normalize(V + L);
+
+    float NdotL = saturate(dot(N, L));
+    float NdotV = saturate(dot(N, V));
+    float NdotH = saturate(dot(N, H));
+    float VdotH = saturate(dot(V, H));
+
+    float3 F0 = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
+
+    float D = DistributionGGX(NdotH, roughness);
+    float G = GeometrySmith(NdotL, NdotV, roughness);
+    float3 F = FresnelSchlick(VdotH, F0);
+
+    float3 specular = (D * G * F) / max(4.0 * NdotL * NdotV, 0.0001);
+
+    float3 kS = F;
+    float3 kD = (1.0 - kS) * (1.0 - metallic);
+    float3 diffuse = kD * albedo / PI;
+
+    return diffuse + specular;
+}
+
 float SampleShadowPCF(int cascadeIndex, float3 worldPos)
 {
     float4 lightSpacePos = mul(float4(worldPos, 1.0f), LightViewProj[cascadeIndex]);
@@ -175,9 +218,12 @@ float4 main(PSInput input) : SV_TARGET
 
     float depth = gDepth.Sample(gSamplerPoint, uv).r;
 
-    // --- Build Vectors ---
     float3 worldPos = ReconstructWorldPos(uv, depth);
     
+    
+    
+    
+    // Directional Shadow
     float viewDepth = length(worldPos - cameraPos);
     
     int cascadeIndex = 0;
@@ -199,35 +245,46 @@ float4 main(PSInput input) : SV_TARGET
         float shadowNext = SampleShadowPCF(cascadeIndex + 1, worldPos);
         shadow = lerp(shadow, shadowNext, blendFactor);
     }
+    // Directional Shadow
+    
+    
+    float3 totalLighting = 0.0f;
     
     float3 V = normalize(cameraPos - worldPos); // surface to eye
-    float3 L = normalize(-lightDirection); // surface to light
-    float3 H = normalize(V + L); // half vector
-
-    float NdotL = max(dot(N, L), 0.0);
-    float NdotV = max(dot(N, V), 0.0);
-    float NdotH = max(dot(N, H), 0.0);
-    float VdotH = max(dot(V, H), 0.0);
-
-    // --- F0: Metal / Dielectric split ---
+    float NdotV = saturate(dot(N, V));
     float3 F0 = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
+    
+    {
+        float3 L = normalize(-lightDirection);
+        float NdotL = saturate(dot(N, L));
 
-    // --- Cook-Torrance Specular BRDF ---
-    float D = DistributionGGX(NdotH, roughness);
-    float G = GeometrySmith(NdotL, NdotV, roughness);
-    float3 F = FresnelSchlick(VdotH, F0);
+        float3 brdf = CookTorranceBRDF(N, V, L, albedo, metallic, roughness);
+        float3 radiance = lightColor * lightIntensity;
 
-    // Denominator: 4 * NdotL * NdotV + epsilon
-    float3 specular = (D * G * F) / (4.0 * NdotL * NdotV + 0.0001);
+        totalLighting += shadow * brdf * radiance * NdotL;
+    }
+    
 
-    // --- Diffuse (Lambertian) ---
-    float3 kS = F;
-    float3 kD = (1.0 - kS) * (1.0 - metallic);
-    float3 diffuse = kD * albedo / PI;
+    for (int i = 0; i < PointLightCount; i++)
+    {
+        float3 L = PointLights[i].Position - worldPos;
+        float dist = length(L);
 
-    // --- Direct Lighting ---
-    float3 Lo = shadow * (diffuse + specular) * lightColor * NdotL;
-    //float3 Lo = (diffuse + specular) * lightColor * NdotL;
+        if (dist > PointLights[i].Radius)
+            continue;
+
+        L /= dist;
+
+        float atten = saturate(1.0 - (dist * dist) / (PointLights[i].Radius * PointLights[i].Radius));
+        atten *= atten;
+
+        float3 radiance = PointLights[i].Color * PointLights[i].intensity * atten;
+
+        float NdotL = saturate(dot(N, L));
+        float3 brdf = CookTorranceBRDF(N, V, L, albedo, metallic, roughness);
+
+        totalLighting += brdf * radiance * NdotL;
+    }
 
     // --- IBL: Diffuse ---
     float3 F_ibl = FresnelSchlickRoughness(NdotV, F0, roughness);
@@ -244,7 +301,7 @@ float4 main(PSInput input) : SV_TARGET
 
     // --- Final ---
     float3 ambient = (diffuseIBL + specularIBL) * ao;
-    float3 color = ambient + Lo;
+    float3 color = ambient + totalLighting;
 
     color = color / (color + 1.0); // Reinhard tonemap
     

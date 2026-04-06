@@ -34,6 +34,7 @@ public:
 
 public:
 	static constexpr int CASCADE_COUNT = 4;
+	static constexpr int MAX_POINT_LIGHTS = 8;
 
 	struct FrameContext
 	{
@@ -169,6 +170,16 @@ private:
 	};
 	PerObjectCB m_perObjectCBData;
 
+
+
+	struct PointLight
+	{
+		XMFLOAT3 Position;
+		float Radius;
+		XMFLOAT3 Color;
+		float Intensity;
+	};
+
 	struct LightCB
 	{
 		XMFLOAT3 Direction;
@@ -176,7 +187,9 @@ private:
 		XMFLOAT3 Color;
 		float Intensity;
 		XMFLOAT3 Ambient;
-		float padding1;
+		int PointLightCount;
+
+		PointLight PointLights[MAX_POINT_LIGHTS];
 	};
 
 	struct ShadowCB

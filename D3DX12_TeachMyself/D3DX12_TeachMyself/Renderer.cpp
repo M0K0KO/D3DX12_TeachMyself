@@ -312,6 +312,9 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	XMStoreFloat3(&light.Ambient, { 0.07f, 0.07f, 0.07f });
 	light.Intensity = 1.1f;
 
+	light.PointLights[0] = { { 0.0f, 1.0f, 0.0f }, 5.0f, { 1.0f, 0.1f, 0.1f }, 5.0f };
+	light.PointLightCount = 1;
+
 
 	XMVECTOR targetPos = XMVectorSet(0, 0, 0, 0); 
 	XMVECTOR lightPos = XMVectorSubtract(targetPos, XMVectorScale(lightDir, 50.0f));
