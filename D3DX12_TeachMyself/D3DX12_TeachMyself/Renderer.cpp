@@ -7,6 +7,18 @@
 #include "MokoLog.h"
 #include "MokoTime.h"
 
+static inline float PointAABBDistanceSq(const XMFLOAT3& p, const XMFLOAT3& aabbMin, const XMFLOAT3& aabbMax)
+{
+	float dx = (p.x < aabbMin.x) ? (aabbMin.x - p.x) : ((p.x > aabbMax.x) ? (p.x - aabbMax.x) : 0.0f);
+	float dy = (p.y < aabbMin.y) ? (aabbMin.y - p.y) : ((p.y > aabbMax.y) ? (p.y - aabbMax.y) : 0.0f);
+	float dz = (p.z < aabbMin.z) ? (aabbMin.z - p.z) : ((p.z > aabbMax.z) ? (p.z - aabbMax.z) : 0.0f);
+	return dx * dx + dy * dy + dz * dz;
+}
+static inline bool AABBIntersectsSphere(const XMFLOAT3& aabbMin, const XMFLOAT3& aabbMax, const XMFLOAT3& center, float radius)
+{
+	return PointAABBDistanceSq(center, aabbMin, aabbMax) <= radius * radius;
+}
+
 void Renderer::Init(GraphicsDevice* device)
 {
 	m_width = device->GetWidth();
@@ -83,8 +95,9 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene, const FrameDat
 	RGResourceHandle shadowMap = graph.ImportTexture(m_shadowMapTexture, shadowMapDesc, RGResourceState::DepthWrite);
 
 	std::vector<RGResourceHandle> pointShadowMaps;
-	RGResourceDesc pointShadowMapDesc = { 4096, 4096, Format::R32_TYPELESS, TextureUsage::DepthStencil };
-	for (int i = 0; i < m_pointShadowMapTextures.size(); i++)
+	RGResourceDesc pointShadowMapDesc = { 512, 512, Format::R32_TYPELESS, TextureUsage::DepthStencil };
+	const int importedPointLightCount = min(MAX_POINT_LIGHTS, frameData.PointLightCount);
+	for (int i = 0; i < importedPointLightCount; i++)
 	{
 		pointShadowMaps.push_back(graph.ImportTexture(m_pointShadowMapTextures[i], pointShadowMapDesc, RGResourceState::DepthWrite));
 	}
@@ -138,10 +151,19 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene, const FrameDat
 		}
 	}
 
+	std::vector<PointLightData> fcPointLights;
+	fcPointLights.reserve(importedPointLightCount);
+	for (int i = 0; i < importedPointLightCount; i++)
+	{
+		fcPointLights.push_back(frameData.PointLights[i]);
+	}
+
 	FrameContext fc = {
 		backBuffer, gbufferAlbedo, gbufferNormal, gbufferMR,
 		depthTexture, cubeMap,
 		irradiacneMap, prefilteredEnvMap, brdfLUT, shadowMap, pointShadowMaps,
+		importedPointLightCount,
+		std::move(fcPointLights),
 		{}, {}, {}, {}
 	};
 
@@ -1178,10 +1200,13 @@ void Renderer::AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& gra
 }
 void Renderer::AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
 {
+	if (fc.pointLightCount <= 0)
+		return;
+
 	graph.AddPass(
 		"PointShadowPass",
 		[&](RGBuilder& builder) {
-			for (int lightIdx = 0; lightIdx < fc.pointShadowMaps.size(); lightIdx++)
+			for (int lightIdx = 0; lightIdx < fc.pointLightCount; lightIdx++)
 			{
 				builder.Write(fc.pointShadowMaps[lightIdx], RGResourceState::DepthWrite);
 			}
@@ -1194,30 +1219,57 @@ void Renderer::AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, Fr
 
 					passCtx.BindConstantBuffer(0, fc.pointShadowCB);
 
-					for (int lightIdx = 0; lightIdx < fc.pointShadowMaps.size(); lightIdx++)
+					for (int lightIdx = 0; lightIdx < fc.pointLightCount; lightIdx++)
 					{
+						const auto& pointLight = fc.pointLights[lightIdx];
+
+						std::vector<const Scene::RenderObject*> visibleObjects;
+						visibleObjects.reserve(scene.renderObjects.size());
+
+						for (const auto& obj : scene.renderObjects)
+						{
+							if (obj.material.alphaMode != AlphaMode::Opaque)
+								continue;
+							if (!AABBIntersectsSphere(obj.aabbMin, obj.aabbMax, pointLight.Position, pointLight.Radius))
+								continue;
+							visibleObjects.push_back(&obj);
+						}
+
+						if (visibleObjects.empty())
+							continue;
+
+						uint32_t lastVB = UINT32_MAX;
+						uint32_t lastIB = UINT32_MAX;
+
 						for (int face = 0; face < 6; face++)
 						{
 							passCtx.ClearDepthStencil(m_pointShadowMapTextures[lightIdx], 1.0f, face);
 							passCtx.SetRenderTarget(0, {}, m_pointShadowMapTextures[lightIdx], face);
-							passCtx.SetViewport(0, 0, 1024, 1024);
-							passCtx.SetScissorRect(0, 0, 1024, 1024);
+							passCtx.SetViewport(0, 0, 512, 512);
+							passCtx.SetScissorRect(0, 0, 512, 512);
 
 							PointShadowConstants shadowConstants;
 							shadowConstants.lightIdx = lightIdx;
 							shadowConstants.faceIdx = face;
 							passCtx.SetRootConstants(2, &shadowConstants, 2);
 
-							for (const auto& obj : scene.renderObjects)
+							for (const Scene::RenderObject* objPtr : visibleObjects)
 							{
-								if (obj.material.alphaMode == AlphaMode::Opaque)
+								const auto& obj = *objPtr;
+
+								auto perObjectCB = passCtx.UpdateConstantBuffer(2, &obj.world, sizeof(obj.world));
+
+								if (obj.vertexBuffer.id != lastVB)
 								{
-									auto perObjectCB = passCtx.UpdateConstantBuffer(2, &obj.world, sizeof(obj.world));
-									passCtx.BindConstantBuffer(1, perObjectCB);
 									passCtx.SetVertexBuffer(obj.vertexBuffer);
-									passCtx.SetIndexBuffer(obj.indexBuffer);
-									passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
+									lastVB = obj.vertexBuffer.id;
 								}
+								if (obj.indexBuffer.id != lastIB)
+								{
+									passCtx.SetIndexBuffer(obj.indexBuffer);
+									lastIB = obj.indexBuffer.id;
+								}
+								passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
 							}
 						}
 					}
@@ -1394,3 +1446,4 @@ void Renderer::AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameCon
 		}
 	);
 }
+

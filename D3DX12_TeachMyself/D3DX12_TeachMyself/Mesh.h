@@ -33,6 +33,8 @@ namespace Mesh
 		uint32_t indexOffset;
 		uint32_t indexCount;
 		int materialIndex;
+		XMFLOAT3 aabbMin = { FLT_MAX, FLT_MAX, FLT_MAX };
+		XMFLOAT3 aabbMax = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
 	};
 
 	struct Texture

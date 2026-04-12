@@ -102,6 +102,9 @@ void Application::Init()
 		obj.material.metallicFactor = mat.metallicFactor;
 		obj.material.roughnessFactor = mat.roughnessFactor;
 
+		obj.aabbMin = subMesh.aabbMin;
+		obj.aabbMax = subMesh.aabbMax;
+
 		XMStoreFloat4x4(&obj.world, XMMatrixIdentity());
 		m_scene.renderObjects.push_back(obj);
 		m_scene.sceneAABBMax = sponzaScene.sceneAABBMax;

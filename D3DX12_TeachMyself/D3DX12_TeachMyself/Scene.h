@@ -20,6 +20,8 @@ public:
 		uint32_t indexCount;
 		GPUMaterial material;
 		XMFLOAT4X4 world;
+		XMFLOAT3 aabbMin = { FLT_MAX, FLT_MAX, FLT_MAX };
+		XMFLOAT3 aabbMax = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
 	};
 
 	std::vector<RenderObject> renderObjects;

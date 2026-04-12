@@ -182,6 +182,9 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
                 size_t vertexCount = posAcc.count;
                 scene.vertices.resize(vertexOffset + vertexCount);
 
+                DirectX::XMFLOAT3 primAABBMin = { FLT_MAX, FLT_MAX, FLT_MAX };
+                DirectX::XMFLOAT3 primAABBMax = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
+
                 for (size_t i = 0; i < vertexCount; ++i)
                 {
                     const float* p = reinterpret_cast<const float*>(posBase + i * posStride);
@@ -190,15 +193,22 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
                     pos = DirectX::XMVector3TransformCoord(pos, world);
 
                     DirectX::XMStoreFloat3(&scene.vertices[vertexOffset + i].position, pos);
+                    const auto& v = scene.vertices[vertexOffset + i].position;
 
-                    scene.sceneAABBMin.x = std::min(scene.sceneAABBMin.x, scene.vertices[vertexOffset + i].position.x);
-                    scene.sceneAABBMin.y = std::min(scene.sceneAABBMin.y, scene.vertices[vertexOffset + i].position.y);
-                    scene.sceneAABBMin.z = std::min(scene.sceneAABBMin.z, scene.vertices[vertexOffset + i].position.z);
-
-                    scene.sceneAABBMax.x = std::max(scene.sceneAABBMax.x, scene.vertices[vertexOffset + i].position.x);
-                    scene.sceneAABBMax.y = std::max(scene.sceneAABBMax.y, scene.vertices[vertexOffset + i].position.y);
-                    scene.sceneAABBMax.z = std::max(scene.sceneAABBMax.z, scene.vertices[vertexOffset + i].position.z);
+                    primAABBMin.x = std::min(primAABBMin.x, v.x);
+                    primAABBMin.y = std::min(primAABBMin.y, v.y);
+                    primAABBMin.z = std::min(primAABBMin.z, v.z);
+                    primAABBMax.x = std::max(primAABBMax.x, v.x);
+                    primAABBMax.y = std::max(primAABBMax.y, v.y);
+                    primAABBMax.z = std::max(primAABBMax.z, v.z);
                 }
+
+                scene.sceneAABBMin.x = std::min(scene.sceneAABBMin.x, primAABBMin.x);
+                scene.sceneAABBMin.y = std::min(scene.sceneAABBMin.y, primAABBMin.y);
+                scene.sceneAABBMin.z = std::min(scene.sceneAABBMin.z, primAABBMin.z);
+                scene.sceneAABBMax.x = std::max(scene.sceneAABBMax.x, primAABBMax.x);
+                scene.sceneAABBMax.y = std::max(scene.sceneAABBMax.y, primAABBMax.y);
+                scene.sceneAABBMax.z = std::max(scene.sceneAABBMax.z, primAABBMax.z);
 
                 // ---------------- NORMAL ----------------
                 auto normIt = prim.attributes.find("NORMAL");
@@ -315,6 +325,8 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
                 subMesh.indexOffset = indexOffset;
                 subMesh.indexCount = (uint32_t)scene.indices.size() - indexOffset;
                 subMesh.materialIndex = prim.material >= 0 ? prim.material : 0;
+                subMesh.aabbMin = primAABBMin;
+                subMesh.aabbMax = primAABBMax;
 
                 scene.subMeshes.push_back(subMesh);
             }

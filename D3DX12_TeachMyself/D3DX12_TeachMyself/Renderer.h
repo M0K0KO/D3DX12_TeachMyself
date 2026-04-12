@@ -47,6 +47,8 @@ public:
 		RGResourceHandle brdfLutTexture;
 		RGResourceHandle shadowMap;
 		std::vector<RGResourceHandle> pointShadowMaps;
+		int pointLightCount = 0;
+		std::vector<PointLightData> pointLights;
 
 		CBHandle perFrameCB;
 		CBHandle lightCB;
