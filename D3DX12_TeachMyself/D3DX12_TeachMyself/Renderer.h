@@ -4,6 +4,7 @@
 #include "ShaderCompiler.h"
 #include "Scene.h"
 #include "RenderGraph.h"
+#include "FrameData.h"
 
 enum class DebugMode
 {
@@ -25,7 +26,7 @@ class Renderer
 {
 public:
 	void Init(GraphicsDevice* device);
-	void Render(GraphicsDevice* device, const Scene& scene);
+	void Render(GraphicsDevice* device, const Scene& scene, const FrameData& frameData);
 	void Shutdown();
 
 	void ChangeDebugMode(DebugMode mode) { debugMode = mode; };
@@ -33,9 +34,6 @@ public:
 	void OnResize(uint32_t width, uint32_t height);
 
 public:
-	static constexpr int CASCADE_COUNT = 4;
-	static constexpr int MAX_POINT_LIGHTS = 8;
-
 	struct FrameContext
 	{
 		RGResourceHandle backBuffer;
@@ -48,6 +46,7 @@ public:
 		RGResourceHandle prefilteredEnvMap;
 		RGResourceHandle brdfLutTexture;
 		RGResourceHandle shadowMap;
+		std::vector<RGResourceHandle> pointShadowMaps;
 
 		CBHandle perFrameCB;
 		CBHandle lightCB;
@@ -59,7 +58,22 @@ public:
 private:
 	void ReloadPSO(GraphicsDevice* device);
 	void Resize(GraphicsDevice* device);
-	
+
+	void CreateCubeMap(GraphicsDevice* device);
+	void CreateIrradianceMap(GraphicsDevice* device);
+	void CreatePrefilteredEnvironmentMap(GraphicsDevice* device);
+	void CreateBRDFLUT(GraphicsDevice* device);
+
+	void BuildCascadeShadowMatrices(
+		const XMMATRIX& invViewProj,
+		FXMVECTOR lightDir,
+		const XMFLOAT3& sceneAABBMin,
+		const XMFLOAT3& sceneAABBMax,
+		float nearClip,
+		float farClip,
+		float cascadeSplits[CASCADE_COUNT + 1],
+		XMMATRIX outLightViewProj[CASCADE_COUNT]);
+
 	void InitDepthPrePass(GraphicsDevice* device);
 	void InitGBufferPass(GraphicsDevice* device);
 	void InitDirectionalShadowPass(GraphicsDevice* device);
@@ -68,10 +82,6 @@ private:
 	void InitPBRLightingPass(GraphicsDevice* device);
 	void InitSkyboxPass(GraphicsDevice* device);
 	void InitDebugPass(GraphicsDevice* device);
-
-	void UpdateCBs(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
-
-	void CalculateDirectionalCascacde(FrameContext& fc);
 
 	void AddDepthPrePass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
 	void AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
@@ -87,8 +97,8 @@ private:
 private:
 	static constexpr float clearColor[4] = { 0.0f, 0.0f,  0.0f,  0.0f };
 
-	UINT m_width;
-	UINT m_height;
+	uint32_t m_width;
+	uint32_t m_height;
 
 	ShaderHandle m_fullscreenVS;
 
@@ -139,6 +149,9 @@ private:
 	ShaderHandle m_shadowMapVS;
 	PipelineHandle m_shadowMapPipeline;
 
+	ShaderHandle m_pointShadowMapVS;
+	PipelineHandle m_pointShadowMapPipeline;
+
 	BufferHandle m_perFrameCB;
 	BufferHandle m_perObjectCB;
 	BufferHandle m_lightingDataCB;
@@ -156,10 +169,13 @@ private:
 
 	TextureHandle m_irradianceMapTexture;
 
-	TextureHandle m_prefilteredMapTexture;
-	
+	TextureHandle m_prefilteredEnvMapTexture;
 
-	TextureHandle m_shadowMap;
+	TextureHandle m_shadowMapTexture;
+
+	TextureHandle m_defaultCubemapTexture;
+
+	std::vector<TextureHandle> m_pointShadowMapTextures;
 
 	struct PerFrameCB
 	{
@@ -178,7 +194,6 @@ private:
 		XMFLOAT4X4 World;
 	};
 	PerObjectCB m_perObjectCBData;
-
 
 
 	struct PointLight
@@ -201,19 +216,31 @@ private:
 		PointLight PointLights[MAX_POINT_LIGHTS];
 	};
 
-	struct PointShadowCB
-	{
-		XMFLOAT4X4 FaceVP[6];
-		XMFLOAT3 LightPos;
-		float LightRadius;
-	};
-
 	struct ShadowCB
 	{
 		XMFLOAT4X4 LightViewProj[CASCADE_COUNT];
 		float cascadeSplits[CASCADE_COUNT];
 	};
 	ShadowCB m_shadowCB;
+
+
+	struct PointShadowData
+	{
+		XMFLOAT4X4 FaceVP[6];
+		XMFLOAT3 LightPos;
+		float LightRadius;
+	};
+	struct PointShadowCB
+	{
+		PointShadowData pointShadowData[MAX_POINT_LIGHTS];
+	};
+
+	struct PointShadowConstants
+	{
+		int lightIdx;
+		int faceIdx;
+	};
+
 
 	struct MaterialConstants
 	{

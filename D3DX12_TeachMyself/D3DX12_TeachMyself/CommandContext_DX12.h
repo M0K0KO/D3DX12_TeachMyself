@@ -25,9 +25,9 @@ public:
 	void BindTexture(TextureHandle handle, uint32_t slot) override;
 	void TransitionBarrier(TextureHandle handle, RGResourceState before, RGResourceState after) override;
 	void ClearRenderTarget(TextureHandle handle, const float clearValue[4]) override;
-	void ClearDepthStencil(TextureHandle handle, float depth) override;
+	void ClearDepthStencil(TextureHandle handle, float depth, int faceIdx = -1) override;
 	void ClearRenderTargets(UINT numRT, TextureHandle* renderTargets, const float clearValue[4]) override;
-	void SetRenderTarget(UINT numRT, TextureHandle* renderTargets, TextureHandle depth) override;
+	void SetRenderTarget(UINT numRT, TextureHandle* renderTargets, TextureHandle depth, int faceIdx = -1) override;
 	void DrawIndexed(uint32_t indexCount, uint32_t startIndex, uint32_t baseVertex) override;
 	void Draw(uint32_t vertexCount, uint32_t startVertex) override;
 

@@ -21,6 +21,8 @@ namespace DX12Helpers
 			return "COLOR";
 		case Semantic::TEXCOORD:
 			return "TEXCOORD";
+		default:
+			return "ERROR";
 		}
 	}
 
@@ -90,7 +92,6 @@ namespace DX12Helpers
 		}
 	}
 
-
 	D3D12_DESCRIPTOR_RANGE_TYPE ToRangeType(RangeType type)
 	{
 		switch (type)
@@ -98,7 +99,8 @@ namespace DX12Helpers
 		case RangeType::SRV:		return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 		case RangeType::UAV:		return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
 		case RangeType::CBV:		return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-		case RangeType::Sampler:  return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;;
+		case RangeType::Sampler:	return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+		default:					return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 		}
 	}
 
@@ -109,6 +111,7 @@ namespace DX12Helpers
 		case ShaderVisibility::All: return D3D12_SHADER_VISIBILITY_ALL;
 		case ShaderVisibility::Vertex: return D3D12_SHADER_VISIBILITY_VERTEX;
 		case ShaderVisibility::Pixel: return D3D12_SHADER_VISIBILITY_PIXEL;
+		default:  return D3D12_SHADER_VISIBILITY_ALL;
 		}
 	}
 
@@ -159,4 +162,27 @@ namespace DX12Helpers
 		}
 	}
 
+	D3D12_RESOURCE_FLAGS ToResourceFlags(TextureUsage usage)
+	{
+		switch (usage)
+		{
+		case TextureUsage::ShaderResource:		return D3D12_RESOURCE_FLAG_NONE;
+		case TextureUsage::DepthStencil:		return D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+		case TextureUsage::RenderTarget:		return D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+		case TextureUsage::UnorderedAccess:		return D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+		default:								return D3D12_RESOURCE_FLAG_NONE;
+		}
+	}
+
+	D3D12_RESOURCE_STATES ToResourceInitialStates(TextureUsage usage)
+	{
+		switch (usage)
+		{
+		case TextureUsage::ShaderResource:		return D3D12_RESOURCE_STATE_COMMON;
+		case TextureUsage::DepthStencil:		return D3D12_RESOURCE_STATE_DEPTH_WRITE;
+		case TextureUsage::RenderTarget:		return D3D12_RESOURCE_STATE_RENDER_TARGET;
+		case TextureUsage::UnorderedAccess:		return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+		default:								return D3D12_RESOURCE_STATE_COMMON;
+		}
+	}
 }

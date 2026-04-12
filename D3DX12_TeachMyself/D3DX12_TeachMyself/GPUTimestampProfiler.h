@@ -8,8 +8,10 @@ enum PassID
     DepthPrePass = 0,
     GBufferPass = 1,
     GBufferAlphaPass = 2,
-    PBRLightingPass = 3,
-    SkyboxPass = 4
+    DirectionalShadowPass = 3,
+    PointShadowPass = 4,
+    PBRLightingPass = 5,
+    SkyboxPass = 6
 };
 
 

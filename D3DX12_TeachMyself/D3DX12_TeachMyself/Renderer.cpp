@@ -6,9 +6,6 @@
 #include "AssetLoader.h"
 #include "MokoLog.h"
 #include "MokoTime.h"
-#include <DirectXMath.h>
-
-using namespace DirectX;
 
 void Renderer::Init(GraphicsDevice* device)
 {
@@ -19,233 +16,32 @@ void Renderer::Init(GraphicsDevice* device)
 
 	InitDepthPrePass(device);
 	InitGBufferPass(device);
+	InitDirectionalShadowPass(device);
+	InitPointShadowPass(device);
 	InitLightingPass(device);
 	InitPBRLightingPass(device);
 	InitSkyboxPass(device);
-
 	InitDebugPass(device);
 
 
-	// Equirect -> CubeMap
-	RootSignatureDesc equirectConvertRSDesc = {};
-	equirectConvertRSDesc.allowIA = false;
-	equirectConvertRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::All });
-	equirectConvertRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
-	equirectConvertRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 0, 1, ShaderVisibility::All });
-	equirectConvertRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 0, ShaderVisibility::All });
-
-	m_equirectConvertCS = ShaderCompiler::CompileFromFile(
-		L"shaders_Skybox_CS.hlsl",
-		"CSMain",
-		"cs_5_1"
-	);
-
-	ComputePipelineDesc equirectConvertPSODesc = {};
-	equirectConvertPSODesc.rootSignatureDesc = equirectConvertRSDesc;
-	equirectConvertPSODesc.cs = ShaderCompiler::GetBytecode(m_equirectConvertCS);
-	m_equirectCSPipeline = device->CreateComputePipeline(equirectConvertPSODesc);
-
-	AssetLoader loader;
-	int w, h, ch;
-	float* hdrData = loader.LoadHDR("../citrus_orchard_puresky_4k.hdr", w, h, ch, 4);
-	//float* hdrData = loader.LoadHDR("../venice_sunset_4k.hdr", w, h, ch, 4);
-
-	TextureDesc equirectDesc = {};
-	equirectDesc.width = w;
-	equirectDesc.height = h;
-	equirectDesc.format = Format::R32G32B32A32_FLOAT;
-	equirectDesc.usage = TextureUsage::ShaderResource;
-	m_equirectTexture = device->CreateTexture(equirectDesc, hdrData);
-
-	loader.FreeImage(hdrData);
-
-	const uint32_t kCubemapSize = 4096;
+	CreateCubeMap(device);
+	CreateIrradianceMap(device);
+	CreateBRDFLUT(device);
+	CreatePrefilteredEnvironmentMap(device);
 
 	CubemapTextureDesc cubemapDesc = {};
-	cubemapDesc.width = kCubemapSize;
-	cubemapDesc.height = kCubemapSize;
-	cubemapDesc.format = Format::R16G16B16A16_FLOAT;
-	m_cubemapTexture = device->CreateCubemapTexture(cubemapDesc);
+	cubemapDesc.format = Format::R32_TYPELESS;
+	cubemapDesc.usage = TextureUsage::DepthStencil;
+	cubemapDesc.height = 1;
+	cubemapDesc.width = 1;
 
-
-	device->ExecuteImmediate(
-		[&](CommandContext& ctx) {
-			ctx.SetComputePipeline(m_equirectCSPipeline);
-			ctx.SetComputeDescriptorTable(0, device->GetSRVHeapSlot(m_equirectTexture));
-			ctx.SetComputeDescriptorTable(1, device->GetUAVHeapSlot(m_cubemapTexture));
-			ctx.SetComputeRootConstants(2, &kCubemapSize, 1);
-			ctx.Dispatch(kCubemapSize / 8, kCubemapSize / 8, 6);
-
-			ctx.TransitionBarrier(m_cubemapTexture, RGResourceState::UnorderedAccess, RGResourceState::ShaderResource);
-		}
-	);
-	// Equirect -> CubeMap
-
-	// BRDF LUT 
-	TextureDesc brdfLUTDesc = { 512, 512, Format::R16G16_FLOAT, TextureUsage::UnorderedAccess };
-	m_brdfLUTTexture = device->CreateTexture(brdfLUTDesc);
-
-	
-	m_brdfLUTCS = ShaderCompiler::CompileFromFile(
-		L"shaders_brdfLUT_CS.hlsl",
-		"CSMain",
-		"cs_5_1"
-	);
-
-	RootSignatureDesc brdfLUTRSDesc = {};
-	brdfLUTRSDesc.allowIA = false;
-	brdfLUTRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
-
-	ComputePipelineDesc brdfLUTPipelineDesc = {};
-	brdfLUTPipelineDesc.cs = ShaderCompiler::GetBytecode(m_brdfLUTCS);
-	brdfLUTPipelineDesc.rootSignatureDesc = brdfLUTRSDesc;
-
-	m_brdfLUTCSPipeline = device->CreateComputePipeline(brdfLUTPipelineDesc);
-
-	device->ExecuteImmediate(
-		[&](CommandContext& ctx) {
-			ctx.SetComputePipeline(m_brdfLUTCSPipeline);
-			ctx.SetComputeDescriptorTable(0, device->GetUAVHeapSlot(m_brdfLUTTexture));
-			ctx.Dispatch(512 / 16, 512 / 16, 1);
-
-			ctx.TransitionBarrier(m_brdfLUTTexture, RGResourceState::UnorderedAccess, RGResourceState::ShaderResource);
-		}
-	);
-	// BRDF LUT
-
-	// Irradiance Map
-	RootSignatureDesc irradianceMapRSDesc = {};
-	irradianceMapRSDesc.allowIA = false;
-	irradianceMapRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::All });
-	irradianceMapRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
-	irradianceMapRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 0, ShaderVisibility::All });
-
-	m_irradianceMapCS = ShaderCompiler::CompileFromFile(
-		L"shaders_IrradianceMap_CS.hlsl",
-		"CSMain",
-		"cs_5_1"
-	);
-
-	ComputePipelineDesc irradianceMapPSODesc = {};
-	irradianceMapPSODesc.rootSignatureDesc = irradianceMapRSDesc;
-	irradianceMapPSODesc.cs = ShaderCompiler::GetBytecode(m_irradianceMapCS);
-	m_irradianceMapCSPipeline = device->CreateComputePipeline(irradianceMapPSODesc);
-
-	CubemapTextureDesc irradianceCubeMapDesc = {};
-	irradianceCubeMapDesc.width = 32;
-	irradianceCubeMapDesc.height = 32;
-	irradianceCubeMapDesc.format = Format::R16G16B16A16_FLOAT;
-	m_irradianceMapTexture = device->CreateCubemapTexture(irradianceCubeMapDesc);
-
-	device->ExecuteImmediate(
-		[&](CommandContext& ctx) {
-			ctx.SetComputePipeline(m_irradianceMapCSPipeline);
-			ctx.SetComputeDescriptorTable(0, device->GetSRVHeapSlot(m_cubemapTexture));
-			ctx.SetComputeDescriptorTable(1, device->GetUAVHeapSlot(m_irradianceMapTexture));
-			ctx.Dispatch(32 / 8, 32 / 8, 6);
-
-			ctx.TransitionBarrier(m_irradianceMapTexture, RGResourceState::UnorderedAccess, RGResourceState::ShaderResource);
-		}
-	);
-	// Irradiance Map
-
-	// PreFiltered Environment Map
-	RootSignatureDesc perfilteredEnvironmentMapDesc = {};
-	perfilteredEnvironmentMapDesc.allowIA = false;
-	perfilteredEnvironmentMapDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::All });
-	perfilteredEnvironmentMapDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
-	perfilteredEnvironmentMapDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 0, 1, ShaderVisibility::All });
-	perfilteredEnvironmentMapDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 0, ShaderVisibility::All });
-
-	m_prefilteredEnvironmentMapCS = ShaderCompiler::CompileFromFile(
-		L"shaders_PrefilteredEnvironmentMap_CS.hlsl",
-		"CSMain",
-		"cs_5_1"
-	);
-
-	ComputePipelineDesc prefilteredEnvironmentMapPSODesc = {};
-	prefilteredEnvironmentMapPSODesc.rootSignatureDesc = perfilteredEnvironmentMapDesc;
-	prefilteredEnvironmentMapPSODesc.cs = ShaderCompiler::GetBytecode(m_prefilteredEnvironmentMapCS);
-	m_prefilteredEnvironmentMapCSPipeline = device->CreateComputePipeline(prefilteredEnvironmentMapPSODesc);
-
-	const uint32_t mipLevels = 5;
-
-	const uint32_t kPrefilteredMapSize = 512;
-
-	CubemapTextureDesc prefiltredEnvironmentCubeMapDesc = {};
-	prefiltredEnvironmentCubeMapDesc.width = kPrefilteredMapSize;
-	prefiltredEnvironmentCubeMapDesc.height = kPrefilteredMapSize;
-	prefiltredEnvironmentCubeMapDesc.format = Format::R16G16B16A16_FLOAT;
-	prefiltredEnvironmentCubeMapDesc.mipLevels = mipLevels;
-	m_prefilteredMapTexture = device->CreateCubemapTexture(prefiltredEnvironmentCubeMapDesc);
-
-	device->ExecuteImmediate(
-		[&](CommandContext& ctx) {
-			ctx.SetComputePipeline(m_prefilteredEnvironmentMapCSPipeline);
-			ctx.SetComputeDescriptorTable(0, device->GetSRVHeapSlot(m_cubemapTexture));
-
-			for (uint32_t mip = 0; mip < mipLevels; mip++)
-			{
-				float roughness = (float)mip / (float(mipLevels - 1));
-				uint32_t mipSize = 512 >> mip;
-
-				ctx.SetComputeDescriptorTable(1, device->GetUAVHeapSlot(m_prefilteredMapTexture, mip));
-				ctx.SetComputeRootConstants(2, &roughness, 1);
-				ctx.Dispatch(
-					std::max(mipSize / 8u, 1u),
-					std::max(mipSize / 8u, 1u),
-					6
-				);
-			}
-
-			ctx.TransitionBarrier(m_prefilteredMapTexture, RGResourceState::UnorderedAccess, RGResourceState::ShaderResource);
-		}
-	);
-	// PreFiltered Environment Map
-
-	// Shadow Map
-	std::vector<VertexAttribute> vertexAttributes;
-	vertexAttributes.push_back({ Semantic::POSITION, Format::R32G32B32_FLOAT, 0 });
-	vertexAttributes.push_back({ Semantic::NORMAL,   Format::R32G32B32_FLOAT, 0 });
-	vertexAttributes.push_back({ Semantic::TANGENT, Format::R32G32B32A32_FLOAT, 0 });
-	vertexAttributes.push_back({ Semantic::TEXCOORD, Format::R32G32_FLOAT, 0 });
-
-	RootSignatureDesc shadowMapRSDesc = {};
-	shadowMapRSDesc.allowIA = true;
-	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Vertex });
-	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 1, ShaderVisibility::Vertex });
-	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 2, 1, ShaderVisibility::Vertex });
-
-	m_shadowMapVS = ShaderCompiler::CompileFromFile(
-		L"shaders_shadowMap_VS.hlsl",
-		"main",
-		"vs_5_0"
-	);
-
-
-	PipelineDesc shadowMapPSODesc = {};
-	shadowMapPSODesc.rootSignatureDesc = shadowMapRSDesc;
-	shadowMapPSODesc.vs = ShaderCompiler::GetBytecode(m_shadowMapVS);
-	shadowMapPSODesc.ps = {};
-	shadowMapPSODesc.vertexAttributes = vertexAttributes;
-	shadowMapPSODesc.rtvFormats = { Format::UNKNOWN };
-	shadowMapPSODesc.dsvFormat = Format::D32_FLOAT;
-	shadowMapPSODesc.depthEnable = true;
-	shadowMapPSODesc.depthWrite = true;
-	shadowMapPSODesc.depthFunc = ComparisonFunc::LessEqual;
-	shadowMapPSODesc.cullMode = CullMode::Back;
-
-	m_shadowMapPipeline = device->CreatePipeline(shadowMapPSODesc);
-
-	TextureDesc shadowMapDesc = { 4096, 4096, Format::D32_FLOAT, TextureUsage::DepthStencil };
-	m_shadowMap = device->CreateTexture(shadowMapDesc, nullptr);
-	// Shadow Map
-
+	float defaultDepth = 1.0f;
+	m_defaultCubemapTexture = device->CreateCubemapTexture(cubemapDesc, &defaultDepth);
 
 	debugMode = DebugMode::PBR_Enabled;
 }
 
-void Renderer::Render(GraphicsDevice* device, const Scene& scene)
+void Renderer::Render(GraphicsDevice* device, const Scene& scene, const FrameData& frameData)
 {
 	ReloadPSO(device);
 
@@ -271,35 +67,116 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene)
 	RGResourceDesc depthTextrueDesc = { m_width, m_height, Format::R32_TYPELESS, TextureUsage::DepthStencil };
 	RGResourceHandle depthTexture = graph.ImportTexture(m_depthTexture, depthTextrueDesc, RGResourceState::DepthWrite);
 
-	RGResourceDesc skyboxTextureDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
-	RGResourceHandle skyboxTexture = graph.ImportTexture(m_cubemapTexture, skyboxTextureDesc, RGResourceState::ShaderResource);
+	RGResourceDesc cubeMapDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
+	RGResourceHandle cubeMap = graph.ImportTexture(m_cubemapTexture, cubeMapDesc, RGResourceState::ShaderResource);
 
 	RGResourceDesc irradiacneMapDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
 	RGResourceHandle irradiacneMap = graph.ImportTexture(m_irradianceMapTexture, irradiacneMapDesc, RGResourceState::ShaderResource);
 
 	RGResourceDesc prefilteredEnvMapDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
-	RGResourceHandle prefilteredEnvMap = graph.ImportTexture(m_prefilteredMapTexture, prefilteredEnvMapDesc, RGResourceState::ShaderResource);
+	RGResourceHandle prefilteredEnvMap= graph.ImportTexture(m_prefilteredEnvMapTexture, prefilteredEnvMapDesc, RGResourceState::ShaderResource);
 
 	RGResourceDesc brdfLUTDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
 	RGResourceHandle brdfLUT = graph.ImportTexture(m_brdfLUTTexture, brdfLUTDesc, RGResourceState::ShaderResource);
 
 	RGResourceDesc shadowMapDesc = { 4096, 4096, Format::R32_TYPELESS, TextureUsage::DepthStencil };
-	RGResourceHandle shadowMap = graph.ImportTexture(m_shadowMap, shadowMapDesc, RGResourceState::DepthWrite);
+	RGResourceHandle shadowMap = graph.ImportTexture(m_shadowMapTexture, shadowMapDesc, RGResourceState::DepthWrite);
+
+	std::vector<RGResourceHandle> pointShadowMaps;
+	RGResourceDesc pointShadowMapDesc = { 4096, 4096, Format::R32_TYPELESS, TextureUsage::DepthStencil };
+	for (int i = 0; i < m_pointShadowMapTextures.size(); i++)
+	{
+		pointShadowMaps.push_back(graph.ImportTexture(m_pointShadowMapTextures[i], pointShadowMapDesc, RGResourceState::DepthWrite));
+	}
+
+	PerFrameCB perFrame;
+	XMMATRIX vp = XMLoadFloat4x4(&frameData.ViewMatrix) * XMLoadFloat4x4(&frameData.ProjMatrix);
+	XMStoreFloat4x4(&perFrame.ViewProj, XMMatrixTranspose(vp));
+	XMMATRIX inverseVP = XMMatrixInverse(nullptr, vp);
+	XMStoreFloat4x4(&perFrame.InvViewProj, inverseVP);
+	perFrame.CameraPos = frameData.CameraPos;
+	XMStoreFloat2(&perFrame.ScreenSize, { static_cast<float>(m_width), static_cast<float>(m_height) });
+	
+
+	//XMVECTOR lightDir = XMVector3Normalize(XMVectorSet(0.0f, -0.5f, 0.5f, 0.0f));
+
+	LightCB light;
+	light.Direction = frameData.DirectionalLightDir;
+	light.Color = frameData.DirectionalLightColor;
+	light.Intensity = frameData.DirectionalLightIntensity;
+	light.Ambient = { 0.03f, 0.03f, 0.03f };
+
+	light.PointLightCount = frameData.PointLightCount;
+	for (int i = 0; i < min(MAX_POINT_LIGHTS, frameData.PointLightCount); i++)
+	{
+		auto pointLight = frameData.PointLights[i];
+		light.PointLights[i] = { pointLight.Position, pointLight.Radius, pointLight.Color, pointLight.Intensity };
+	}
+
+	XMVECTOR targetPos = XMVectorSet(0, 0, 0, 0); 
+	XMVECTOR lightPos = XMVectorSubtract(targetPos, XMVectorScale(XMLoadFloat3(&frameData.DirectionalLightDir), 50.0f));
+	XMMATRIX lightView = XMMatrixLookAtLH(lightPos, targetPos, XMVectorSet(0, 1, 0, 0));
+	XMMATRIX lightProj = XMMatrixOrthographicLH(100.0f, 100.0f, 1.0f, 300.0f);
+	XMMATRIX lightVP = lightView * lightProj;
+
+
+	PointShadowCB pointShadow;
+	const XMFLOAT3 targets[6] = { {1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1} };
+	const XMFLOAT3 ups[6] = { {0,1,0},{0,1,0},{0,0,-1},{0,0,1},{0,1,0},{0,1,0} };
+	for (int lightIdx = 0; lightIdx < frameData.PointLightCount; lightIdx++)
+	{
+		pointShadow.pointShadowData[lightIdx].LightPos = frameData.PointLights[lightIdx].Position;
+		pointShadow.pointShadowData[lightIdx].LightRadius = frameData.PointLights[lightIdx].Radius;
+
+		XMMATRIX proj = XMMatrixPerspectiveFovLH(XM_PIDIV2, 1.0f, 0.1f, frameData.PointLights[lightIdx].Radius);
+		for (int f = 0; f < 6; f++)
+		{
+			XMVECTOR eye = XMLoadFloat3(&frameData.PointLights[lightIdx].Position);
+			XMVECTOR target = eye + XMLoadFloat3(&targets[f]);
+			XMMATRIX view = XMMatrixLookAtLH(eye, target, XMLoadFloat3(&ups[f]));
+			XMStoreFloat4x4(&pointShadow.pointShadowData[lightIdx].FaceVP[f], XMMatrixTranspose(view * proj));
+		}
+	}
 
 	FrameContext fc = {
 		backBuffer, gbufferAlbedo, gbufferNormal, gbufferMR,
-		depthTexture, skyboxTexture,
-		irradiacneMap, prefilteredEnvMap, brdfLUT, shadowMap,
+		depthTexture, cubeMap,
+		irradiacneMap, prefilteredEnvMap, brdfLUT, shadowMap, pointShadowMaps,
 		{}, {}, {}, {}
 	};
 
-	UpdateCBs(device, graph, fc, scene);
+	float cascadeSplits[CASCADE_COUNT + 1];
+
+	BuildCascadeShadowMatrices(
+		inverseVP,
+		XMLoadFloat3(&frameData.DirectionalLightDir),
+		scene.sceneAABBMin, scene.sceneAABBMax,
+		0.1f, 100.0f,
+		cascadeSplits,
+		fc.LightViewProj);
+
+	graph.AddPass(
+		"CB UpdatePass",
+		[&](RGBuilder& builder) {},
+		[&](CommandContext& passCtx) {
+			fc.perFrameCB = passCtx.UpdateConstantBuffer(0, &perFrame, sizeof(PerFrameCB));
+			fc.lightCB = passCtx.UpdateConstantBuffer(1, &light, sizeof(LightCB));
+			ShadowCB shadow;
+			for (int c = 0; c < CASCADE_COUNT; c++)
+			{
+				XMStoreFloat4x4(&shadow.LightViewProj[c], XMMatrixTranspose(fc.LightViewProj[c]));
+				shadow.cascadeSplits[c] = cascadeSplits[c + 1];
+			}
+			fc.shadowCB = passCtx.UpdateConstantBuffer(2, &shadow, sizeof(ShadowCB));
+			fc.pointShadowCB = passCtx.UpdateConstantBuffer(3, &pointShadow, sizeof(PointShadowCB));
+		}
+	);
 
 	AddDepthPrePass(device, graph, fc, scene);
 	AddGBufferPass(device, graph, fc, scene);
 	AddDirectionalShadowPass(device, graph, fc, scene);
+	AddPointShadowPass(device, graph, fc, scene);
 	
-
 	if (debugMode == DebugMode::PBR_Enabled)
 	{
 		AddPBRLightingPass(device, graph, fc, scene);
@@ -458,18 +335,339 @@ void Renderer::PrintGPUTimes(GraphicsDevice* device)
 	float depthPrePassTime = device->GetTimestampMs(PassID::DepthPrePass);
 	float gBufferPassTime = device->GetTimestampMs(PassID::GBufferPass);
 	float gBufferAlphaPassTime = device->GetTimestampMs(PassID::GBufferAlphaPass);
+	float directionalShadowPassTime = device->GetTimestampMs(PassID::DirectionalShadowPass);
+	float pointShadowPassTime = device->GetTimestampMs(PassID::PointShadowPass);
 	float PBRlightingPassTime = device->GetTimestampMs(PassID::PBRLightingPass);
 	float skyboxPassTime = device->GetTimestampMs(PassID::SkyboxPass);
 
 	LOG_INFO(
-		"[GPU Time] | DepthPre: %6.3f ms | GBuffer: %6.3f ms | GBufferAlpha: %6.3f ms | PBRLighting: %6.3f ms | Skybox: %6.3f ms\n",
+		"[GPU Time] | DepthPre: %6.3f ms | GBuffer: %6.3f ms | GBufferAlpha: %6.3f ms | DirectionalShadow: %6.3f ms | PointShadow : %6.3fms | PBRLighting: %6.3f ms | Skybox: %6.3f ms\n",
 		depthPrePassTime,
 		gBufferPassTime,
 		gBufferAlphaPassTime,
+		directionalShadowPassTime,
+		pointShadowPassTime,
 		PBRlightingPassTime,
 		skyboxPassTime);
 }
 
+
+void Renderer::CreateCubeMap(GraphicsDevice* device)
+{
+	RootSignatureDesc equirectConvertRSDesc = {};
+	equirectConvertRSDesc.allowIA = false;
+	equirectConvertRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::All });
+	equirectConvertRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
+	equirectConvertRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 0, 1, ShaderVisibility::All });
+	equirectConvertRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 0, ShaderVisibility::All });
+
+	m_equirectConvertCS = ShaderCompiler::CompileFromFile(
+		L"shaders_Skybox_CS.hlsl",
+		"CSMain",
+		"cs_5_1"
+	);
+
+	ComputePipelineDesc equirectConvertPSODesc = {};
+	equirectConvertPSODesc.rootSignatureDesc = equirectConvertRSDesc;
+	equirectConvertPSODesc.cs = ShaderCompiler::GetBytecode(m_equirectConvertCS);
+	m_equirectCSPipeline = device->CreateComputePipeline(equirectConvertPSODesc);
+
+	AssetLoader loader;
+	int w, h, ch;
+	//float* hdrData = loader.LoadHDR("../citrus_orchard_puresky_4k.hdr", w, h, ch, 4);
+	float* hdrData = loader.LoadHDR("../venice_sunset_4k.hdr", w, h, ch, 4);
+	//float* hdrData = loader.LoadHDR("../qwantani_dusk_2_puresky_4k.hdr", w, h, ch, 4);
+
+	TextureDesc equirectDesc = {};
+	equirectDesc.width = w;
+	equirectDesc.height = h;
+	equirectDesc.format = Format::R32G32B32A32_FLOAT;
+	equirectDesc.usage = TextureUsage::ShaderResource;
+	m_equirectTexture = device->CreateTexture(equirectDesc, hdrData);
+
+	loader.FreeImage(hdrData);
+
+	const uint32_t kCubemapSize = 4096;
+
+	CubemapTextureDesc cubemapDesc = {};
+	cubemapDesc.width = kCubemapSize;
+	cubemapDesc.height = kCubemapSize;
+	cubemapDesc.usage = TextureUsage::UnorderedAccess;
+	cubemapDesc.format = Format::R16G16B16A16_FLOAT;
+	m_cubemapTexture = device->CreateCubemapTexture(cubemapDesc);
+
+
+	device->ExecuteImmediate(
+		[&](CommandContext& ctx) {
+			ctx.SetComputePipeline(m_equirectCSPipeline);
+			ctx.SetComputeDescriptorTable(0, device->GetSRVHeapSlot(m_equirectTexture));
+			ctx.SetComputeDescriptorTable(1, device->GetUAVHeapSlot(m_cubemapTexture));
+			ctx.SetComputeRootConstants(2, &kCubemapSize, 1);
+			ctx.Dispatch(kCubemapSize / 8, kCubemapSize / 8, 6);
+
+			ctx.TransitionBarrier(m_cubemapTexture, RGResourceState::UnorderedAccess, RGResourceState::ShaderResource);
+		}
+	);
+}
+void Renderer::CreateIrradianceMap(GraphicsDevice* device)
+{
+	// Irradiance Map
+	RootSignatureDesc irradianceMapRSDesc = {};
+	irradianceMapRSDesc.allowIA = false;
+	irradianceMapRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::All });
+	irradianceMapRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
+	irradianceMapRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 0, ShaderVisibility::All });
+
+	m_irradianceMapCS = ShaderCompiler::CompileFromFile(
+		L"shaders_IrradianceMap_CS.hlsl",
+		"CSMain",
+		"cs_5_1"
+	);
+
+	ComputePipelineDesc irradianceMapPSODesc = {};
+	irradianceMapPSODesc.rootSignatureDesc = irradianceMapRSDesc;
+	irradianceMapPSODesc.cs = ShaderCompiler::GetBytecode(m_irradianceMapCS);
+	m_irradianceMapCSPipeline = device->CreateComputePipeline(irradianceMapPSODesc);
+
+	CubemapTextureDesc irradianceCubeMapDesc = {};
+	irradianceCubeMapDesc.width = 32;
+	irradianceCubeMapDesc.usage = TextureUsage::UnorderedAccess;
+	irradianceCubeMapDesc.height = 32;
+	irradianceCubeMapDesc.format = Format::R16G16B16A16_FLOAT;
+	m_irradianceMapTexture = device->CreateCubemapTexture(irradianceCubeMapDesc);
+
+	device->ExecuteImmediate(
+		[&](CommandContext& ctx) {
+			ctx.SetComputePipeline(m_irradianceMapCSPipeline);
+			ctx.SetComputeDescriptorTable(0, device->GetSRVHeapSlot(m_cubemapTexture));
+			ctx.SetComputeDescriptorTable(1, device->GetUAVHeapSlot(m_irradianceMapTexture));
+			ctx.Dispatch(32 / 8, 32 / 8, 6);
+
+			ctx.TransitionBarrier(m_irradianceMapTexture, RGResourceState::UnorderedAccess, RGResourceState::ShaderResource);
+		}
+	);
+	// Irradiance Map
+}
+void Renderer::CreatePrefilteredEnvironmentMap(GraphicsDevice* device)
+{
+	// PreFiltered Environment Map
+	RootSignatureDesc perfilteredEnvironmentMapDesc = {};
+	perfilteredEnvironmentMapDesc.allowIA = false;
+	perfilteredEnvironmentMapDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::All });
+	perfilteredEnvironmentMapDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
+	perfilteredEnvironmentMapDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 0, 1, ShaderVisibility::All });
+	perfilteredEnvironmentMapDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 0, ShaderVisibility::All });
+
+	m_prefilteredEnvironmentMapCS = ShaderCompiler::CompileFromFile(
+		L"shaders_PrefilteredEnvironmentMap_CS.hlsl",
+		"CSMain",
+		"cs_5_1"
+	);
+
+	ComputePipelineDesc prefilteredEnvironmentMapPSODesc = {};
+	prefilteredEnvironmentMapPSODesc.rootSignatureDesc = perfilteredEnvironmentMapDesc;
+	prefilteredEnvironmentMapPSODesc.cs = ShaderCompiler::GetBytecode(m_prefilteredEnvironmentMapCS);
+	m_prefilteredEnvironmentMapCSPipeline = device->CreateComputePipeline(prefilteredEnvironmentMapPSODesc);
+
+	const uint32_t mipLevels = 5;
+
+	const uint32_t kPrefilteredMapSize = 512;
+
+	CubemapTextureDesc prefiltredEnvironmentCubeMapDesc = {};
+	prefiltredEnvironmentCubeMapDesc.width = kPrefilteredMapSize;
+	prefiltredEnvironmentCubeMapDesc.height = kPrefilteredMapSize;
+	prefiltredEnvironmentCubeMapDesc.usage = TextureUsage::UnorderedAccess;
+	prefiltredEnvironmentCubeMapDesc.format = Format::R16G16B16A16_FLOAT;
+	prefiltredEnvironmentCubeMapDesc.mipLevels = mipLevels;
+	m_prefilteredEnvMapTexture = device->CreateCubemapTexture(prefiltredEnvironmentCubeMapDesc);
+
+	device->ExecuteImmediate(
+		[&](CommandContext& ctx) {
+			ctx.SetComputePipeline(m_prefilteredEnvironmentMapCSPipeline);
+			ctx.SetComputeDescriptorTable(0, device->GetSRVHeapSlot(m_cubemapTexture));
+
+			for (uint32_t mip = 0; mip < mipLevels; mip++)
+			{
+				float roughness = (float)mip / (float(mipLevels - 1));
+				uint32_t mipSize = 512 >> mip;
+
+				ctx.SetComputeDescriptorTable(1, device->GetUAVHeapSlot(m_prefilteredEnvMapTexture, mip));
+				ctx.SetComputeRootConstants(2, &roughness, 1);
+				ctx.Dispatch(
+					std::max(mipSize / 8u, 1u),
+					std::max(mipSize / 8u, 1u),
+					6
+				);
+			}
+
+			ctx.TransitionBarrier(m_prefilteredEnvMapTexture, RGResourceState::UnorderedAccess, RGResourceState::ShaderResource);
+		}
+	);
+	// PreFiltered Environment Map
+}
+void Renderer::CreateBRDFLUT(GraphicsDevice* device)
+{
+	// BRDF LUT 
+	TextureDesc brdfLUTDesc = { 512, 512, Format::R16G16_FLOAT, TextureUsage::UnorderedAccess };
+	m_brdfLUTTexture = device->CreateTexture(brdfLUTDesc);
+
+
+	m_brdfLUTCS = ShaderCompiler::CompileFromFile(
+		L"shaders_brdfLUT_CS.hlsl",
+		"CSMain",
+		"cs_5_1"
+	);
+
+	RootSignatureDesc brdfLUTRSDesc = {};
+	brdfLUTRSDesc.allowIA = false;
+	brdfLUTRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
+
+	ComputePipelineDesc brdfLUTPipelineDesc = {};
+	brdfLUTPipelineDesc.cs = ShaderCompiler::GetBytecode(m_brdfLUTCS);
+	brdfLUTPipelineDesc.rootSignatureDesc = brdfLUTRSDesc;
+
+	m_brdfLUTCSPipeline = device->CreateComputePipeline(brdfLUTPipelineDesc);
+
+	device->ExecuteImmediate(
+		[&](CommandContext& ctx) {
+			ctx.SetComputePipeline(m_brdfLUTCSPipeline);
+			ctx.SetComputeDescriptorTable(0, device->GetUAVHeapSlot(m_brdfLUTTexture));
+			ctx.Dispatch(512 / 16, 512 / 16, 1);
+
+			ctx.TransitionBarrier(m_brdfLUTTexture, RGResourceState::UnorderedAccess, RGResourceState::ShaderResource);
+		}
+	);
+	// BRDF LUT
+}
+
+
+void Renderer::BuildCascadeShadowMatrices(
+	const XMMATRIX& invViewProj,
+	FXMVECTOR lightDir,
+	const XMFLOAT3& sceneAABBMin,
+	const XMFLOAT3& sceneAABBMax,
+	float nearClip,
+	float farClip,
+	float cascadeSplits[CASCADE_COUNT + 1],
+	XMMATRIX outLightViewProj[CASCADE_COUNT])
+{
+	float lambda = 0.5f;
+
+	for (int i = 0; i <= CASCADE_COUNT; i++)
+	{
+		float t = (float)i / CASCADE_COUNT;
+		float logSplit = nearClip * powf(farClip / nearClip, t);
+		float linearSplit = nearClip + (farClip - nearClip) * t;
+		cascadeSplits[i] = lambda * logSplit + (1.0f - lambda) * linearSplit;
+	}
+
+	XMVECTOR ndcCorners[8] =
+	{
+		{ -1, -1, 0, 1 }, { -1,  1, 0, 1 }, {  1,  1, 0, 1 }, {  1, -1, 0, 1 },
+		{ -1, -1, 1, 1 }, { -1,  1, 1, 1 }, {  1,  1, 1, 1 }, {  1, -1, 1, 1 }
+	};
+
+	XMVECTOR worldCorners[8];
+	for (int i = 0; i < 8; i++)
+	{
+		worldCorners[i] = XMVector4Transform(ndcCorners[i], invViewProj);
+		worldCorners[i] = XMVectorDivide(worldCorners[i], XMVectorSplatW(worldCorners[i]));
+	}
+
+	XMFLOAT3 sceneCorners[8] =
+	{
+		{ sceneAABBMin.x, sceneAABBMin.y, sceneAABBMin.z },
+		{ sceneAABBMax.x, sceneAABBMin.y, sceneAABBMin.z },
+		{ sceneAABBMin.x, sceneAABBMax.y, sceneAABBMin.z },
+		{ sceneAABBMax.x, sceneAABBMax.y, sceneAABBMin.z },
+		{ sceneAABBMin.x, sceneAABBMin.y, sceneAABBMax.z },
+		{ sceneAABBMax.x, sceneAABBMin.y, sceneAABBMax.z },
+		{ sceneAABBMin.x, sceneAABBMax.y, sceneAABBMax.z },
+		{ sceneAABBMax.x, sceneAABBMax.y, sceneAABBMax.z }
+	};
+
+	for (int c = 0; c < CASCADE_COUNT; c++)
+	{
+		float cNear = cascadeSplits[c];
+		float cFar = cascadeSplits[c + 1];
+
+		float nearT = (cNear - nearClip) / (farClip - nearClip);
+		float farT = (cFar - nearClip) / (farClip - nearClip);
+
+		XMVECTOR cascadeCorners[8];
+		for (int i = 0; i < 4; i++)
+		{
+			XMVECTOR dir = XMVectorSubtract(worldCorners[i + 4], worldCorners[i]);
+
+			cascadeCorners[i] =
+				XMVectorAdd(worldCorners[i], XMVectorScale(dir, nearT));
+
+			cascadeCorners[i + 4] =
+				XMVectorAdd(worldCorners[i], XMVectorScale(dir, farT));
+		}
+
+		XMVECTOR center = XMVectorZero();
+		for (int i = 0; i < 8; i++)
+			center = XMVectorAdd(center, cascadeCorners[i]);
+
+		center = XMVectorScale(center, 1.0f / 8.0f);
+
+		XMMATRIX lightView = XMMatrixLookAtLH(
+			XMVectorSubtract(center, XMVectorScale(lightDir, 100.0f)),
+			center,
+			XMVectorSet(0, 1, 0, 0));
+
+		XMFLOAT3 mins = { FLT_MAX, FLT_MAX, FLT_MAX };
+		XMFLOAT3 maxs = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
+
+		for (int i = 0; i < 8; i++)
+		{
+			XMVECTOR v = XMVector4Transform(cascadeCorners[i], lightView);
+
+			XMFLOAT3 p;
+			XMStoreFloat3(&p, v);
+
+			mins.x = min(mins.x, p.x);
+			mins.y = min(mins.y, p.y);
+			mins.z = min(mins.z, p.z);
+
+			maxs.x = std::max(maxs.x, p.x);
+			maxs.y = std::max(maxs.y, p.y);
+			maxs.z = std::max(maxs.z, p.z);
+		}
+
+		float sceneZMin = FLT_MAX;
+		for (int i = 0; i < 8; i++)
+		{
+			XMVECTOR v = XMVector4Transform(XMLoadFloat3(&sceneCorners[i]), lightView);
+
+			XMFLOAT3 p;
+			XMStoreFloat3(&p, v);
+
+			sceneZMin = min(sceneZMin, p.z);
+		}
+
+		mins.z = sceneZMin;
+
+		float cascadeWidth = maxs.x - mins.x;
+		float cascadeHeight = maxs.y - mins.y;
+
+		float texelSizeX = cascadeWidth / 2048.0f;
+		float texelSizeY = cascadeHeight / 2048.0f;
+
+		mins.x = floorf(mins.x / texelSizeX) * texelSizeX;
+		maxs.x = floorf(maxs.x / texelSizeX) * texelSizeX;
+		mins.y = floorf(mins.y / texelSizeY) * texelSizeY;
+		maxs.y = floorf(maxs.y / texelSizeY) * texelSizeY;
+
+		XMMATRIX lightProj = XMMatrixOrthographicOffCenterLH(
+			mins.x, maxs.x,
+			mins.y, maxs.y,
+			mins.z, maxs.z);
+
+		outLightViewProj[c] = lightView * lightProj;
+	}
+}
 
 void Renderer::InitDepthPrePass(GraphicsDevice* device)
 {
@@ -579,6 +777,86 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 	};
 	m_gBufferAlphaPassPipeline = device->CreatePipeline(m_gBufferAlphaPassPipelineDesc);
 }
+void Renderer::InitDirectionalShadowPass(GraphicsDevice* device)
+{
+	std::vector<VertexAttribute> vertexAttributes;
+	vertexAttributes.push_back({ Semantic::POSITION, Format::R32G32B32_FLOAT, 0 });
+	vertexAttributes.push_back({ Semantic::NORMAL,   Format::R32G32B32_FLOAT, 0 });
+	vertexAttributes.push_back({ Semantic::TANGENT, Format::R32G32B32A32_FLOAT, 0 });
+	vertexAttributes.push_back({ Semantic::TEXCOORD, Format::R32G32_FLOAT, 0 });
+
+	RootSignatureDesc shadowMapRSDesc = {};
+	shadowMapRSDesc.allowIA = true;
+	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Vertex });
+	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 1, ShaderVisibility::Vertex });
+	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 2, 1, ShaderVisibility::Vertex });
+
+	m_shadowMapVS = ShaderCompiler::CompileFromFile(
+		L"shaders_shadowMap_VS.hlsl",
+		"main",
+		"vs_5_0"
+	);
+
+
+	PipelineDesc shadowMapPSODesc = {};
+	shadowMapPSODesc.rootSignatureDesc = shadowMapRSDesc;
+	shadowMapPSODesc.vs = ShaderCompiler::GetBytecode(m_shadowMapVS);
+	shadowMapPSODesc.ps = {};
+	shadowMapPSODesc.vertexAttributes = vertexAttributes;
+	shadowMapPSODesc.rtvFormats = { Format::UNKNOWN };
+	shadowMapPSODesc.dsvFormat = Format::D32_FLOAT;
+	shadowMapPSODesc.depthEnable = true;
+	shadowMapPSODesc.depthWrite = true;
+	shadowMapPSODesc.depthFunc = ComparisonFunc::LessEqual;
+	shadowMapPSODesc.cullMode = CullMode::Back;
+
+	m_shadowMapPipeline = device->CreatePipeline(shadowMapPSODesc);
+
+	TextureDesc shadowMapDesc = { 4096, 4096, Format::D32_FLOAT, TextureUsage::DepthStencil };
+	m_shadowMapTexture = device->CreateTexture(shadowMapDesc, nullptr);
+}
+void Renderer::InitPointShadowPass(GraphicsDevice* device)
+{
+	std::vector<VertexAttribute> vertexAttributes;
+	vertexAttributes.push_back({ Semantic::POSITION, Format::R32G32B32_FLOAT, 0 });
+	vertexAttributes.push_back({ Semantic::NORMAL,   Format::R32G32B32_FLOAT, 0 });
+	vertexAttributes.push_back({ Semantic::TANGENT, Format::R32G32B32A32_FLOAT, 0 });
+	vertexAttributes.push_back({ Semantic::TEXCOORD, Format::R32G32_FLOAT, 0 });
+
+	RootSignatureDesc pointShadowMapRSDesc = {};
+	pointShadowMapRSDesc.allowIA = true;
+	pointShadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Vertex });
+	pointShadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 1, ShaderVisibility::Vertex });
+	pointShadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 2, 2, ShaderVisibility::Vertex });
+
+	m_pointShadowMapVS = ShaderCompiler::CompileFromFile(
+		L"shaders_pointShadowMap_VS.hlsl",
+		"main",
+		"vs_5_0"
+	);
+
+
+	PipelineDesc pointShadowMapPSODesc = {};
+	pointShadowMapPSODesc.rootSignatureDesc = pointShadowMapRSDesc;
+	pointShadowMapPSODesc.vs = ShaderCompiler::GetBytecode(m_pointShadowMapVS);
+	pointShadowMapPSODesc.ps = {};
+	pointShadowMapPSODesc.vertexAttributes = vertexAttributes;
+	pointShadowMapPSODesc.rtvFormats = { Format::UNKNOWN };
+	pointShadowMapPSODesc.dsvFormat = Format::D32_FLOAT;
+	pointShadowMapPSODesc.depthEnable = true;
+	pointShadowMapPSODesc.depthWrite = true;
+	pointShadowMapPSODesc.depthFunc = ComparisonFunc::LessEqual;
+	pointShadowMapPSODesc.cullMode = CullMode::Back;
+
+	m_pointShadowMapPipeline = device->CreatePipeline(pointShadowMapPSODesc);
+
+	CubemapTextureDesc pointShadowMapDesc = { 512, 512, Format::D32_FLOAT, TextureUsage::DepthStencil };
+
+	for (int i = 0; i < MAX_POINT_LIGHTS; i++)
+	{
+		m_pointShadowMapTextures.push_back(device->CreateCubemapTexture(pointShadowMapDesc, nullptr));
+	}
+}
 void Renderer::InitLightingPass(GraphicsDevice* device)
 {
 	RootSignatureDesc lightingPassRSDesc = {};
@@ -631,6 +909,7 @@ void Renderer::InitPBRLightingPass(GraphicsDevice* device)
 	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 5, 1, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 6, 1, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 7, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 8, MAX_POINT_LIGHTS, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.staticSamplers.push_back({ SamplerFilter::Point, SamplerAddressMode::Clamp, 0, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 1, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.staticSamplers.push_back({ SamplerFilter::Comparison, SamplerAddressMode::Border, 2, ShaderVisibility::Pixel });
@@ -644,7 +923,7 @@ void Renderer::InitPBRLightingPass(GraphicsDevice* device)
 	m_PBRlightingPS = ShaderCompiler::CompileFromFile(
 		L"shaders_PBRLighting_PS.hlsl",
 		"main",
-		"ps_5_0"
+		"ps_5_1"
 	);
 
 	m_PBRlightingPassPipelineDesc = {
@@ -722,195 +1001,6 @@ void Renderer::InitDebugPass(GraphicsDevice* device)
 	m_depthDebugPipeline = device->CreatePipeline(m_depthDebugPipelineDesc);
 }
 
-
-void Renderer::UpdateCBs(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
-{
-	// PerFrame
-	PerFrameCB perFrame;
-	XMMATRIX vp = scene.cam.GetViewMatrix() * scene.cam.GetProjectionMatrix();
-	XMStoreFloat4x4(&perFrame.ViewProj, XMMatrixTranspose(vp));
-	XMMATRIX inverseVP = XMMatrixInverse(nullptr, vp);
-	XMStoreFloat4x4(&perFrame.InvViewProj, inverseVP);
-	perFrame.CameraPos = scene.cam.GetPos();
-	XMStoreFloat2(&perFrame.ScreenSize, { static_cast<float>(m_width), static_cast<float>(m_height) });
-	// PerFrame
-
-
-	// Lights
-	static float time = 0.0f;
-	time += MokoTime::GetDeltaTime();
-
-	float sunSpeed = 0.2f;
-	float angle = sinf(time * sunSpeed) * 0.5f;
-	XMVECTOR lightDir = DirectX::XMVector3Normalize(
-		DirectX::XMVectorSet(
-			0.0f,
-			-1.0f,
-			angle,
-			0.0f
-		)
-	);
-	//XMVECTOR lightDir = XMVector3Normalize(XMVectorSet(0.0f, -0.5f, 0.5f, 0.0f));
-
-	LightCB light;
-	XMStoreFloat3(&light.Direction, lightDir);
-	XMStoreFloat3(&light.Color, XMVectorSet(2.0f, 1.8f, 1.5f, 0.0f));
-	XMStoreFloat3(&light.Ambient, { 0.07f, 0.07f, 0.07f });
-	light.Intensity = 1.1f;
-
-	light.PointLights[0] = { { -0.3f, 1.0f, 0.7f }, 6.0f, { 1.0f, 0.1f, 0.1f }, 7.0f };
-	light.PointLightCount = 1;
-
-
-	XMVECTOR targetPos = XMVectorSet(0, 0, 0, 0);
-	XMVECTOR lightPos = XMVectorSubtract(targetPos, XMVectorScale(lightDir, 50.0f));
-
-	XMMATRIX lightView = XMMatrixLookAtLH(lightPos, targetPos, XMVectorSet(0, 1, 0, 0));
-
-	XMMATRIX lightProj = XMMatrixOrthographicLH(100.0f, 100.0f, 1.0f, 300.0f);
-
-	XMMATRIX lightVP = lightView * lightProj;
-	// Lights
-	
-	
-	ShadowCB shadow;
-
-	PointShadowCB pointShadow;
-
-
-
-	// Shadow Cascade Map
-	float cascadeSplits[CASCADE_COUNT + 1];
-	float nearClip = 0.1f;
-	float farClip = 100.0f;
-	float lambda = 0.5f;
-
-	for (int i = 0; i <= CASCADE_COUNT; i++)
-	{
-		float t = (float)i / CASCADE_COUNT;
-		float log = nearClip * powf(farClip / nearClip, t);
-		float linear = nearClip + (farClip - nearClip) * t;
-		cascadeSplits[i] = lambda * log + (1.0f - lambda) * linear;
-	}
-
-	XMVECTOR ndcCorners[8] = {
-		{-1, -1, 0, 1}, {-1,  1, 0, 1}, { 1,  1, 0, 1}, { 1, -1, 0, 1},
-		{-1, -1, 1, 1}, {-1,  1, 1, 1}, { 1,  1, 1, 1}, { 1, -1, 1, 1},
-	};
-
-	XMMATRIX invVP = XMLoadFloat4x4(&perFrame.InvViewProj);
-
-	for (int c = 0; c < CASCADE_COUNT; c++)
-	{
-		float cNear = cascadeSplits[c];
-		float cFar = cascadeSplits[c + 1];
-
-		XMVECTOR worldCorners[8];
-		for (int i = 0; i < 8; i++)
-			worldCorners[i] = XMVector4Transform(ndcCorners[i], invVP);
-		for (int i = 0; i < 8; i++)
-			worldCorners[i] = XMVectorDivide(worldCorners[i], XMVectorSplatW(worldCorners[i]));
-
-		float nearT = (cNear - nearClip) / (farClip - nearClip);
-		float farT = (cFar - nearClip) / (farClip - nearClip);
-
-		XMVECTOR cascadeCorners[8];
-		for (int i = 0; i < 4; i++)
-		{
-			XMVECTOR dir = XMVectorSubtract(worldCorners[i + 4], worldCorners[i]);
-			cascadeCorners[i] = XMVectorAdd(worldCorners[i], XMVectorScale(dir, nearT));
-			cascadeCorners[i + 4] = XMVectorAdd(worldCorners[i], XMVectorScale(dir, farT));
-		}
-
-		XMVECTOR center = XMVectorZero();
-		for (int i = 0; i < 8; i++)
-			center = XMVectorAdd(center, cascadeCorners[i]);
-		center = XMVectorScale(center, 1.0f / 8.0f);
-
-		XMMATRIX lightView = XMMatrixLookAtLH(
-			XMVectorSubtract(center, XMVectorScale(lightDir, 100.0f)),
-			center,
-			XMVectorSet(0, 1, 0, 0));
-
-		XMFLOAT3 mins = { FLT_MAX, FLT_MAX, FLT_MAX };
-		XMFLOAT3 maxs = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
-		for (int i = 0; i < 8; i++)
-		{
-			XMVECTOR v = XMVector4Transform(cascadeCorners[i], lightView);
-			XMFLOAT3 p; XMStoreFloat3(&p, v);
-			mins.x = min(mins.x, p.x); maxs.x = std::max(maxs.x, p.x);
-			mins.y = min(mins.y, p.y); maxs.y = std::max(maxs.y, p.y);
-			mins.z = min(mins.z, p.z); maxs.z = std::max(maxs.z, p.z);
-		}
-
-		float sceneZMin = FLT_MAX;
-		XMFLOAT3 sceneCorners[8] = {
-			{ scene.sceneAABBMin.x, scene.sceneAABBMin.y, scene.sceneAABBMin.z },
-			{ scene.sceneAABBMax.x, scene.sceneAABBMin.y, scene.sceneAABBMin.z },
-			{ scene.sceneAABBMin.x, scene.sceneAABBMax.y, scene.sceneAABBMin.z },
-			{ scene.sceneAABBMax.x, scene.sceneAABBMax.y, scene.sceneAABBMin.z },
-			{ scene.sceneAABBMin.x, scene.sceneAABBMin.y, scene.sceneAABBMax.z },
-			{ scene.sceneAABBMax.x, scene.sceneAABBMin.y, scene.sceneAABBMax.z },
-			{ scene.sceneAABBMin.x, scene.sceneAABBMax.y, scene.sceneAABBMax.z },
-			{ scene.sceneAABBMax.x, scene.sceneAABBMax.y, scene.sceneAABBMax.z },
-		};
-		for (int i = 0; i < 8; i++)
-		{
-			XMVECTOR v = XMVector4Transform(XMLoadFloat3(&sceneCorners[i]), lightView);
-			XMFLOAT3 p; XMStoreFloat3(&p, v);
-			sceneZMin = min(sceneZMin, p.z);
-		}
-		mins.z = sceneZMin;
-
-		float cascadeWidth = maxs.x - mins.x;
-		float cascadeHeight = maxs.y - mins.y;
-
-		float texelSizeX = cascadeWidth / (float)2048;
-		float texelSizeY = cascadeHeight / (float)2048;
-
-		mins.x = floor(mins.x / texelSizeX) * texelSizeX;
-		maxs.x = floor(maxs.x / texelSizeX) * texelSizeX;
-		mins.y = floor(mins.y / texelSizeY) * texelSizeY;
-		maxs.y = floor(maxs.y / texelSizeY) * texelSizeY;
-
-		XMMATRIX lightProj = XMMatrixOrthographicOffCenterLH(
-			mins.x, maxs.x, mins.y, maxs.y, mins.z, maxs.z);
-
-		fc.LightViewProj[c] = lightView * lightProj;
-	}
-	// Shadow Cascade Map
-
-
-	graph.AddPass(
-		"CB UpdatePass",
-		[&](RGBuilder& builder) {},
-		[&](CommandContext& passCtx) {
-			fc.perFrameCB = passCtx.UpdateConstantBuffer(0, &perFrame, sizeof(PerFrameCB));
-			fc.lightCB = passCtx.UpdateConstantBuffer(1, &light, sizeof(LightCB));
-			ShadowCB shadow;
-			for (int c = 0; c < CASCADE_COUNT; c++)
-			{
-				XMStoreFloat4x4(&shadow.LightViewProj[c], XMMatrixTranspose(fc.LightViewProj[c]));
-				shadow.cascadeSplits[c] = cascadeSplits[c + 1];
-			}
-			fc.shadowCB = passCtx.UpdateConstantBuffer(2, &shadow, sizeof(ShadowCB));
-
-			XMFLOAT3 targets[6] = { {1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1} };
-			XMFLOAT3 ups[6] = { {0,1,0},{0,1,0},{0,0,-1},{0,0,1},{0,1,0},{0,1,0} };
-
-			XMMATRIX proj = XMMatrixPerspectiveFovLH(XM_PIDIV2, 1.0f, 0.1f, light.PointLights[0].Radius);
-
-			for (int f = 0; f < 6; f++)
-			{
-				XMVECTOR eye = XMLoadFloat3(&light.PointLights[0].Position);
-				XMVECTOR target = eye + XMLoadFloat3(&targets[f]);
-				XMMATRIX view = XMMatrixLookAtLH(eye, target, XMLoadFloat3(&ups[f]));
-				XMStoreFloat4x4(&pointShadow.FaceVP[f], view * proj);
-			}
-			fc.pointShadowCB = passCtx.UpdateConstantBuffer(3, &pointShadow, sizeof(PointShadowCB));
-		}
-	);
-}
 
 void Renderer::AddDepthPrePass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
 {
@@ -1047,37 +1137,92 @@ void Renderer::AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& gra
 		},
 		[this, &fc, device, &scene](CommandContext& passCtx) {
 			{
-				passCtx.ClearDepthStencil(m_shadowMap, 1.0f);
-				passCtx.SetRenderTarget(0, {}, m_shadowMap);
-				passCtx.SetPipeline(m_shadowMapPipeline);
-
-				constexpr int SHADOW_ATLAS_SIZE = 4096;
-				constexpr int CASCADE_TILE_SIZE = 2048;
-				int offsets[4][2] = { {0,0}, {2048,0}, {0,2048}, {2048,2048} };
-
-
-				for (int c = 0; c < CASCADE_COUNT; c++)
+				passCtx.BeginTimestamp(PassID::DirectionalShadowPass);
 				{
-					passCtx.SetViewport(offsets[c][0], offsets[c][1], 2048, 2048, 0.0f, 1.0f);
-					passCtx.SetScissorRect(offsets[c][0], offsets[c][1], offsets[c][0] + 2048, offsets[c][1] + 2048);
+					passCtx.ClearDepthStencil(m_shadowMapTexture, 1.0f);
+					passCtx.SetRenderTarget(0, {}, m_shadowMapTexture);
+					passCtx.SetPipeline(m_shadowMapPipeline);
 
-					XMFLOAT4X4 transposed;
-					XMStoreFloat4x4(&transposed, XMMatrixTranspose(fc.LightViewProj[c]));
-					auto cascadeCB = passCtx.UpdateConstantBuffer(0, &transposed, sizeof(XMFLOAT4X4));
-					passCtx.BindConstantBuffer(0, cascadeCB);
+					constexpr int SHADOW_ATLAS_SIZE = 4096;
+					constexpr int CASCADE_TILE_SIZE = 2048;
+					int offsets[4][2] = { {0,0}, {2048,0}, {0,2048}, {2048,2048} };
 
-					for (const auto& obj : scene.renderObjects)
+
+					for (int c = 0; c < CASCADE_COUNT; c++)
 					{
-						if (obj.material.alphaMode == AlphaMode::Opaque)
+						passCtx.SetViewport(offsets[c][0], offsets[c][1], 2048, 2048, 0.0f, 1.0f);
+						passCtx.SetScissorRect(offsets[c][0], offsets[c][1], offsets[c][0] + 2048, offsets[c][1] + 2048);
+
+						XMFLOAT4X4 transposed;
+						XMStoreFloat4x4(&transposed, XMMatrixTranspose(fc.LightViewProj[c]));
+						auto cascadeCB = passCtx.UpdateConstantBuffer(0, &transposed, sizeof(XMFLOAT4X4));
+						passCtx.BindConstantBuffer(0, cascadeCB);
+
+						for (const auto& obj : scene.renderObjects)
 						{
-							auto perObjectCB = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
-							passCtx.BindConstantBuffer(2, perObjectCB);
-							passCtx.SetVertexBuffer(obj.vertexBuffer);
-							passCtx.SetIndexBuffer(obj.indexBuffer);
-							passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
+							if (obj.material.alphaMode == AlphaMode::Opaque)
+							{
+								auto perObjectCB = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
+								passCtx.BindConstantBuffer(1, perObjectCB);
+								passCtx.SetVertexBuffer(obj.vertexBuffer);
+								passCtx.SetIndexBuffer(obj.indexBuffer);
+								passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
+							}
 						}
 					}
 				}
+				passCtx.EndTimestamp(PassID::DirectionalShadowPass);
+			}
+		}
+	);
+}
+void Renderer::AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
+{
+	graph.AddPass(
+		"PointShadowPass",
+		[&](RGBuilder& builder) {
+			for (int lightIdx = 0; lightIdx < fc.pointShadowMaps.size(); lightIdx++)
+			{
+				builder.Write(fc.pointShadowMaps[lightIdx], RGResourceState::DepthWrite);
+			}
+		},
+		[this, &fc, device, &scene](CommandContext& passCtx) {
+			{
+				passCtx.BeginTimestamp(PassID::PointShadowPass);
+				{
+					passCtx.SetPipeline(m_pointShadowMapPipeline);
+
+					passCtx.BindConstantBuffer(0, fc.pointShadowCB);
+
+					for (int lightIdx = 0; lightIdx < fc.pointShadowMaps.size(); lightIdx++)
+					{
+						for (int face = 0; face < 6; face++)
+						{
+							passCtx.ClearDepthStencil(m_pointShadowMapTextures[lightIdx], 1.0f, face);
+							passCtx.SetRenderTarget(0, {}, m_pointShadowMapTextures[lightIdx], face);
+							passCtx.SetViewport(0, 0, 1024, 1024);
+							passCtx.SetScissorRect(0, 0, 1024, 1024);
+
+							PointShadowConstants shadowConstants;
+							shadowConstants.lightIdx = lightIdx;
+							shadowConstants.faceIdx = face;
+							passCtx.SetRootConstants(2, &shadowConstants, 2);
+
+							for (const auto& obj : scene.renderObjects)
+							{
+								if (obj.material.alphaMode == AlphaMode::Opaque)
+								{
+									auto perObjectCB = passCtx.UpdateConstantBuffer(2, &obj.world, sizeof(obj.world));
+									passCtx.BindConstantBuffer(1, perObjectCB);
+									passCtx.SetVertexBuffer(obj.vertexBuffer);
+									passCtx.SetIndexBuffer(obj.indexBuffer);
+									passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
+								}
+							}
+						}
+					}
+				}
+				passCtx.EndTimestamp(PassID::PointShadowPass);
 			}
 		}
 	);
@@ -1127,6 +1272,11 @@ void Renderer::AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, Fr
 			builder.Read(fc.brdfLutTexture, RGResourceState::ShaderResource);
 			builder.Read(fc.shadowMap, RGResourceState::ShaderResource);
 
+			for (auto& resource : fc.pointShadowMaps)
+			{
+				builder.Read(resource, RGResourceState::ShaderResource);
+			}
+
 			builder.Write(fc.backBuffer, RGResourceState::RenderTarget);
 		},
 		[this, &fc, device](CommandContext& passCtx) {
@@ -1147,9 +1297,10 @@ void Renderer::AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, Fr
 				passCtx.BindTexture(m_gbufferNormal, 5);
 				passCtx.BindTexture(m_gbufferMR, 6);
 				passCtx.BindTexture(m_irradianceMapTexture, 7);
-				passCtx.BindTexture(m_prefilteredMapTexture, 8);
+				passCtx.BindTexture(m_prefilteredEnvMapTexture, 8);
 				passCtx.BindTexture(m_brdfLUTTexture, 9);
-				passCtx.BindTexture(m_shadowMap, 10);
+				passCtx.BindTexture(m_shadowMapTexture, 10);
+				passCtx.BindTexture(m_pointShadowMapTextures[0], 11);
 
 				passCtx.Draw(3, 0);
 			}
@@ -1234,7 +1385,7 @@ void Renderer::AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameCon
 			else if (debugMode == DebugMode::PreFilteredEnvrionmentMap)
 			{
 				passCtx.SetPipeline(m_debugPipeline);
-				passCtx.BindTexture(m_prefilteredMapTexture, 0);
+				passCtx.BindTexture(m_prefilteredEnvMapTexture, 0);
 			}
 			passCtx.SetViewport(0, 0, (float)m_width, (float)m_height);
 			passCtx.SetScissorRect(0, 0, (LONG)m_width, (LONG)m_height);

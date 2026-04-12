@@ -124,6 +124,9 @@ void Application::Init()
 
 void Application::Update()
 {
+
+	UpdateFrameData();
+
 	HandleKeyboardEvents();
 	HandleDebugModeInput();
 	HandleCameraMovement(MokoTime::GetDeltaTime());
@@ -139,7 +142,38 @@ void Application::Render()
 		m_needsResize = false;
 		return;
 	}
-	m_renderer.Render(m_device.get(), m_scene);
+	m_renderer.Render(m_device.get(), m_scene, frameData);
+}
+
+void Application::UpdateFrameData()
+{
+	frameData.PointLights.clear();
+
+
+	XMStoreFloat4x4(&frameData.ViewMatrix, m_scene.cam.GetViewMatrix());
+	XMStoreFloat4x4(&frameData.ProjMatrix, m_scene.cam.GetProjectionMatrix());
+	frameData.CameraPos = m_scene.cam.GetPos();
+	frameData.ScreenSize = { static_cast<float>(wnd.GetWidth()), static_cast<float>(wnd.GetHeight()) };
+
+	static float time = 0.0f;
+	time += MokoTime::GetDeltaTime();
+
+	float sunSpeed = 0.2f;
+	float angle = sinf(time * sunSpeed) * 0.5f;
+	XMVECTOR lightDir = DirectX::XMVector3Normalize(
+		DirectX::XMVectorSet(
+			0.0f,
+			-1.0f,
+			angle,
+			0.0f
+		)
+	);
+	XMStoreFloat3(&frameData.DirectionalLightDir, lightDir);
+	XMStoreFloat3(&frameData.DirectionalLightColor, XMVectorSet(2.0f, 1.8f, 1.5f, 1.0f));
+	frameData.DirectionalLightIntensity = 1.0f;
+
+	frameData.PointLights.push_back({ { -0.3f, 1.0f, 0.7f }, 3.0f, { 1.0f, 0.1f, 0.1f }, 7.0f });
+	frameData.PointLightCount = frameData.PointLights.size();
 }
 
 void  Application::HandleKeyboardEvents()
@@ -255,3 +289,4 @@ void  Application::HandleCameraMovement(float deltaTime)
 		}
 	}
 }
+

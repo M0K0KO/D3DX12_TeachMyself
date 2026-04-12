@@ -14,4 +14,6 @@ namespace DX12Helpers
     D3D12_STATIC_SAMPLER_DESC   ToStaticSampler(const StaticSamplerDesc& desc);
     UINT                        GetBytesPerPixel(Format format);
     const char*                 ToSemanticString(Semantic semantic);
+    D3D12_RESOURCE_FLAGS        ToResourceFlags(TextureUsage usage);
+    D3D12_RESOURCE_STATES       ToResourceInitialStates(TextureUsage usage);
 }

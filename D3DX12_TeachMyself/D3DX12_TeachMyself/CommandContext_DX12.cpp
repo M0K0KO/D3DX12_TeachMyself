@@ -143,13 +143,17 @@ void CommandContext_DX12::ClearRenderTargets(UINT numRT, TextureHandle* renderTa
 	}
 }
 
-void CommandContext_DX12::ClearDepthStencil(TextureHandle handle, float depth)
+void CommandContext_DX12::ClearDepthStencil(TextureHandle handle, float depth, int faceIdx)
 {
-	auto dsvHandle = m_pDevice->m_textures[handle.id].dsvHandle;
+	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle{};
+	if (handle.IsValid())
+		dsvHandle = faceIdx == -1 ?
+		m_pDevice->m_textures[handle.id].dsvHandle :
+		m_pDevice->m_textures[handle.id].faceDsvHandles[faceIdx];
 	m_commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, depth, 0, 0, nullptr);
 }
 
-void CommandContext_DX12::SetRenderTarget(UINT numRT, TextureHandle* renderTargets, TextureHandle depth)
+void CommandContext_DX12::SetRenderTarget(UINT numRT, TextureHandle* renderTargets, TextureHandle depth, int faceIdx)
 {
 	std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvHandles(numRT);
 
@@ -163,7 +167,10 @@ void CommandContext_DX12::SetRenderTarget(UINT numRT, TextureHandle* renderTarge
 
 	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle{};
 	if (depth.IsValid())
-		dsvHandle = m_pDevice->m_textures[depth.id].dsvHandle;
+		dsvHandle = faceIdx == -1 ?
+			m_pDevice->m_textures[depth.id].dsvHandle :
+			m_pDevice->m_textures[depth.id].faceDsvHandles[faceIdx];
+
 	
 	m_commandList->OMSetRenderTargets(
 		numRT,

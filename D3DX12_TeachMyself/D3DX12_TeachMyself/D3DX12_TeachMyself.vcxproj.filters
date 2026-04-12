@@ -203,6 +203,9 @@
     <ClInclude Include="DX12Helpers.h">
       <Filter>Header Files\RHI\DX12</Filter>
     </ClInclude>
+    <ClInclude Include="FrameData.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shaders_Depth_VS.hlsl">
@@ -248,6 +251,9 @@
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="shaders_shadowMap_VS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="shaders_pointShadowMap_VS.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

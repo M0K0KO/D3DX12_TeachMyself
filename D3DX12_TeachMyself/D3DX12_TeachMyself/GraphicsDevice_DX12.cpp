@@ -113,7 +113,7 @@ void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uin
 		HR_CHECK(m_device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&m_cbvSrvHeap)));
 
 		D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
-		dsvHeapDesc.NumDescriptors = 8;
+		dsvHeapDesc.NumDescriptors = 128;
 		dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 		dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
 		HR_CHECK(m_device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_dsvHeap)));
@@ -569,6 +569,17 @@ TextureHandle GraphicsDevice_DX12::CreateTexture(const TextureDesc desc, const v
 
 TextureHandle GraphicsDevice_DX12::CreateCubemapTexture(const CubemapTextureDesc desc, const void* initialData)
 {
+	switch (desc.usage)
+	{
+	case(TextureUsage::ShaderResource):  return CreateSRCubemapTexture(desc, initialData);
+	case(TextureUsage::DepthStencil):	 return CreateDSCubemapTexture(desc);
+	case(TextureUsage::UnorderedAccess): return CreateUAVCubemapTexture(desc);
+	default:							 return TextureHandle{};
+	}
+}
+
+TextureHandle GraphicsDevice_DX12::CreateSRCubemapTexture(const CubemapTextureDesc& desc, const void* initialData)
+{
 	InternalTexture internalTexture;
 	internalTexture.cubeDesc = desc;
 
@@ -577,7 +588,157 @@ TextureHandle GraphicsDevice_DX12::CreateCubemapTexture(const CubemapTextureDesc
 	textureDesc.Format = DX12Helpers::ToDXGIFormat(desc.format);
 	textureDesc.Width = desc.width;
 	textureDesc.Height = desc.height;
-	textureDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+	textureDesc.Flags = DX12Helpers::ToResourceFlags(desc.usage);
+	textureDesc.DepthOrArraySize = 6;
+	textureDesc.SampleDesc.Count = 1;
+	textureDesc.SampleDesc.Quality = 0;
+	textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+
+	ComPtr<ID3D12Resource> texture;
+
+	auto defaultHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+	HR_CHECK(m_device->CreateCommittedResource(
+		&defaultHeapProps, D3D12_HEAP_FLAG_NONE, &textureDesc,
+		D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&texture)));
+
+	if (initialData)
+	{
+		const UINT64 uploadBufferSize = GetRequiredIntermediateSize(texture.Get(), 0, 1);
+		ComPtr<ID3D12Resource> textureUploadHeap;
+		auto uploadHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+		auto resDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
+		HR_CHECK(m_device->CreateCommittedResource(
+			&uploadHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&textureUploadHeap)));
+
+		D3D12_SUBRESOURCE_DATA textureData = {};
+		textureData.pData = initialData;
+		textureData.RowPitch = desc.width * DX12Helpers::GetBytesPerPixel(desc.format);
+		textureData.SlicePitch = textureData.RowPitch * desc.height;
+
+		ExecuteImmediate([&](CommandContext& ctx) {
+			UpdateSubresources(m_commandList.Get(), texture.Get(),
+				textureUploadHeap.Get(), 0, 0, 1, &textureData);
+			auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+				texture.Get(),
+				D3D12_RESOURCE_STATE_COPY_DEST,
+				D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			m_commandList->ResourceBarrier(1, &barrier);
+			});
+	}
+	else
+	{
+		ExecuteImmediate([&](CommandContext& ctx) {
+			auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+				texture.Get(),
+				D3D12_RESOURCE_STATE_COPY_DEST,
+				D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			m_commandList->ResourceBarrier(1, &barrier);
+		});
+	}
+
+	UINT descriptorSize = m_device->GetDescriptorHandleIncrementSize(
+		D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	UINT srvSlot = m_cbvSrvHeapNextSlot++;
+	CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(
+		m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart(), srvSlot, descriptorSize);
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = textureDesc.Format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+	srvDesc.TextureCube.MipLevels = desc.mipLevels;
+	m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle);
+
+	internalTexture.resource = texture;
+	internalTexture.srvHeapSlot = srvSlot;
+
+	uint32_t id = static_cast<uint32_t>(m_textures.size());
+	m_textures.push_back(internalTexture);
+	return TextureHandle{ id };
+}
+
+TextureHandle GraphicsDevice_DX12::CreateDSCubemapTexture(const CubemapTextureDesc& desc)
+{
+	InternalTexture internalTexture;
+	internalTexture.cubeDesc = desc;
+
+	D3D12_RESOURCE_DESC textureDesc = {};
+	textureDesc.MipLevels = desc.mipLevels;
+	textureDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+	textureDesc.Width = desc.width;
+	textureDesc.Height = desc.height;
+	textureDesc.Flags = DX12Helpers::ToResourceFlags(desc.usage);
+	textureDesc.DepthOrArraySize = 6;
+	textureDesc.SampleDesc.Count = 1;
+	textureDesc.SampleDesc.Quality = 0;
+	textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+
+	D3D12_CLEAR_VALUE clearValue = {};
+	clearValue.Format = DXGI_FORMAT_D32_FLOAT;
+	clearValue.DepthStencil.Depth = 1.0f;
+	clearValue.DepthStencil.Stencil = 0;
+
+	auto defaultHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+	ComPtr<ID3D12Resource> texture;
+	HR_CHECK(m_device->CreateCommittedResource(
+		&defaultHeapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&textureDesc,
+		DX12Helpers::ToResourceInitialStates(desc.usage),
+		&clearValue,
+		IID_PPV_ARGS(&texture)));
+
+	for (int i = 0; i < 6; i++)
+	{
+		D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+		dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
+		dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
+		dsvDesc.Texture2DArray.ArraySize = 1;
+		dsvDesc.Texture2DArray.MipSlice = 0;
+		dsvDesc.Texture2DArray.FirstArraySlice = i;
+
+		UINT dsvHeapSlot = m_dsvHeapNextSlot++;
+		CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(
+			m_dsvHeap->GetCPUDescriptorHandleForHeapStart(),
+			dsvHeapSlot, m_dsvDescriptorSize);
+		m_device->CreateDepthStencilView(texture.Get(), &dsvDesc, dsvHandle);
+
+		internalTexture.faceDsvHandles[i] = dsvHandle;
+	}
+
+	UINT descriptorSize = m_device->GetDescriptorHandleIncrementSize(
+		D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	UINT srvSlot = m_cbvSrvHeapNextSlot++;
+	CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(
+		m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart(), srvSlot, descriptorSize);
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+	srvDesc.TextureCube.MipLevels = desc.mipLevels;
+	m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle);
+
+	internalTexture.resource = texture;
+	internalTexture.srvHeapSlot = srvSlot;
+
+	uint32_t id = static_cast<uint32_t>(m_textures.size());
+	m_textures.push_back(internalTexture);
+	return TextureHandle{ id };
+}
+
+TextureHandle GraphicsDevice_DX12::CreateUAVCubemapTexture(const CubemapTextureDesc& desc)
+{
+	InternalTexture internalTexture;
+	internalTexture.cubeDesc = desc;
+
+	D3D12_RESOURCE_DESC textureDesc = {};
+	textureDesc.MipLevels = desc.mipLevels;
+	textureDesc.Format = DX12Helpers::ToDXGIFormat(desc.format);
+	textureDesc.Width = desc.width;
+	textureDesc.Height = desc.height;
+	textureDesc.Flags = DX12Helpers::ToResourceFlags(desc.usage);
 	textureDesc.DepthOrArraySize = 6;
 	textureDesc.SampleDesc.Count = 1;
 	textureDesc.SampleDesc.Quality = 0;
@@ -589,7 +750,7 @@ TextureHandle GraphicsDevice_DX12::CreateCubemapTexture(const CubemapTextureDesc
 		&defaultHeapProps,
 		D3D12_HEAP_FLAG_NONE,
 		&textureDesc,
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		DX12Helpers::ToResourceInitialStates(desc.usage),
 		nullptr,
 		IID_PPV_ARGS(&texture)));
 

@@ -50,10 +50,15 @@ public:
 	const ComPtr<ID3D12Resource> GetTextureResource(TextureHandle handle);
 private:
 	ComPtr<ID3D12RootSignature> BuildRootSignature(const RootSignatureDesc& desc);
+
 	TextureHandle CreateRTTexture(const TextureDesc& desc);
 	TextureHandle CreateSRTexture(const TextureDesc& desc, const void* initialData);
 	TextureHandle CreateDSTexture(const TextureDesc& desc);
 	TextureHandle CreateUAVTexture(const TextureDesc& desc);
+
+	TextureHandle CreateSRCubemapTexture(const CubemapTextureDesc& desc, const void* initialData);
+	TextureHandle CreateDSCubemapTexture(const CubemapTextureDesc& desc);
+	TextureHandle CreateUAVCubemapTexture(const CubemapTextureDesc& desc);
 	
 	void WaitForGpu();
 	void MoveToNextFrame();
@@ -101,11 +106,13 @@ private:
 	{
 		ComPtr<ID3D12Resource> resource;
 		TextureDesc desc;
-		CubemapTextureDesc cubeDesc;
 		uint32_t srvHeapSlot = UINT32_MAX;
 		std::vector<UINT> uavHeapSlots;
 		D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle;
 		D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle;
+
+		CubemapTextureDesc cubeDesc;
+		D3D12_CPU_DESCRIPTOR_HANDLE faceDsvHandles[6];
 	};
 
 	struct InternalPipeline

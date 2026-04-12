@@ -4,6 +4,7 @@
 #include "GraphicsDevice_DX12.h"
 #include "Scene.h"
 #include "Renderer.h"
+#include "FrameData.h"
 
 class Application
 {
@@ -16,6 +17,8 @@ private:
 	void Init();
 	void Update();
 	void Render();
+
+	void UpdateFrameData();
 
 	void HandleKeyboardEvents();
 	void HandleDebugModeInput();
@@ -33,4 +36,6 @@ private:
 	bool m_needsResize = false;
 
 	bool m_initialized = false;
+
+	FrameData frameData;
 };

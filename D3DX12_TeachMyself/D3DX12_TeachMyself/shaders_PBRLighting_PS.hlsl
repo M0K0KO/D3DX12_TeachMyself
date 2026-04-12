@@ -18,6 +18,8 @@ Texture2D<float2> gBRDF_LUT : register(t6);
 
 Texture2D<float> gShadowMap : register(t7);
 
+TextureCube<float> pointShadowMaps[MAX_POINT_LIGHTS] : register(t8);
+
 SamplerState gSamplerPoint : register(s0); 
 SamplerState gSamplerLinear : register(s1);
 SamplerComparisonState gComparisonSampler : register(s2);
@@ -265,25 +267,36 @@ float4 main(PSInput input) : SV_TARGET
     }
     
 
-    for (int i = 0; i < PointLightCount; i++)
+    for (int i = 0; i < MAX_POINT_LIGHTS; i++)
     {
-        float3 L = PointLights[i].Position - worldPos;
-        float dist = length(L);
+        if (i < PointLightCount)
+        {
+            float3 L = PointLights[i].Position - worldPos;
+            float dist = length(L);
 
-        if (dist > PointLights[i].Radius)
-            continue;
+            if (dist <= PointLights[i].Radius)
+            {
+                L /= dist;
+        
+                float3 lightToSurface = worldPos - PointLights[i].Position;
+                float shadowSample = pointShadowMaps[i].SampleLevel(gSamplerPoint, lightToSurface, 0).r;
+                float dominant = max(abs(lightToSurface.x), max(abs(lightToSurface.y), abs(lightToSurface.z)));
+                float nearZ = 0.1f;
+                float farZ = PointLights[i].Radius;
+                float projDepth = (farZ * dominant - farZ * nearZ) / (dominant * (farZ - nearZ));
+                float pointShadow = (projDepth > shadowSample + 0.005f) ? 0.0f : 1.0f;
 
-        L /= dist;
+                float atten = saturate(1.0 - (dist * dist) / (PointLights[i].Radius * PointLights[i].Radius));
+                atten *= atten;
 
-        float atten = saturate(1.0 - (dist * dist) / (PointLights[i].Radius * PointLights[i].Radius));
-        atten *= atten;
+                float3 radiance = PointLights[i].Color * PointLights[i].intensity * atten;
 
-        float3 radiance = PointLights[i].Color * PointLights[i].intensity * atten;
+                float NdotL = saturate(dot(N, L));
+                float3 brdf = CookTorranceBRDF(N, V, L, albedo, metallic, roughness);
 
-        float NdotL = saturate(dot(N, L));
-        float3 brdf = CookTorranceBRDF(N, V, L, albedo, metallic, roughness);
-
-        totalLighting += brdf * radiance * NdotL;
+                totalLighting += pointShadow * brdf * radiance * NdotL;
+            }
+        }
     }
 
     // --- IBL: Diffuse ---
