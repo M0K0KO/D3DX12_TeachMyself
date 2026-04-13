@@ -59,6 +59,8 @@ private:
 	TextureHandle CreateSRCubemapTexture(const CubemapTextureDesc& desc, const void* initialData);
 	TextureHandle CreateDSCubemapTexture(const CubemapTextureDesc& desc);
 	TextureHandle CreateUAVCubemapTexture(const CubemapTextureDesc& desc);
+
+	void ReserveResources();
 	
 	void WaitForGpu();
 	void MoveToNextFrame();
@@ -90,6 +92,7 @@ private:
 	ComPtr<ID3D12DescriptorHeap> m_cbvSrvHeap;
 	ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
 	ComPtr<ID3D12GraphicsCommandList> m_commandList;
+	ComPtr<ID3D12GraphicsCommandList> m_immediateCommandList;
 	UINT m_rtvDescriptorSize;
 	UINT m_dsvDescriptorSize;
 

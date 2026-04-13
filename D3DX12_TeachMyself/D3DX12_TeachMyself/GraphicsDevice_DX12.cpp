@@ -3,12 +3,21 @@
 #include "Renderer.h"
 #include "DX12Helpers.h"
 
+void GraphicsDevice_DX12::ReserveResources()
+{
+	m_textures.reserve(2048);
+	m_buffers.reserve(1024);
+	m_pipelines.reserve(256);
+}
+
 void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uint32_t height)
 {
 	m_width = width;
 	m_height = height;
 	m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
 	m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(width), static_cast<LONG>(height));
+
+	ReserveResources();
 
 	UINT dxgiFactoryFlags = 0;
 
@@ -147,6 +156,9 @@ void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uin
 
 	HR_CHECK(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocators[m_frameIndex].Get(), nullptr, IID_PPV_ARGS(&m_commandList)));
 	HR_CHECK(m_commandList->Close());
+
+	HR_CHECK(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_immediateAllocator.Get(), nullptr, IID_PPV_ARGS(&m_immediateCommandList)));
+	HR_CHECK(m_immediateCommandList->Close());
 	
 	m_commandContext.Init(this, m_commandList.Get());
 
@@ -200,20 +212,27 @@ void GraphicsDevice_DX12::MoveToNextFrame()
 void GraphicsDevice_DX12::ExecuteImmediate(std::function<void(CommandContext&)> fn)
 {
 	HR_CHECK(m_immediateAllocator->Reset());
-	HR_CHECK(m_commandList->Reset(m_immediateAllocator.Get(), nullptr));
+	HR_CHECK(m_immediateCommandList->Reset(m_immediateAllocator.Get(), nullptr));
+
+	auto originalMainList = m_commandList;
+	m_commandList = m_immediateCommandList;
+
+	m_commandContext.SetInternalCommandList(m_immediateCommandList.Get());
 	m_commandContext.ResetState();
 
 	ID3D12DescriptorHeap* heaps[] = { m_cbvSrvHeap.Get() };
-	m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
+	m_immediateCommandList->SetDescriptorHeaps(_countof(heaps), heaps);
 
 	fn(m_commandContext);
 
-	HR_CHECK(m_commandList->Close());
-
-	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
-	m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+	HR_CHECK(m_immediateCommandList->Close());
+	ID3D12CommandList* ppCommandLists[] = { m_immediateCommandList.Get() };
+	m_commandQueue->ExecuteCommandLists(1, ppCommandLists);
 
 	WaitForGpu();
+
+	m_commandList = originalMainList;
+	m_commandContext.SetInternalCommandList(m_commandList.Get());
 }
 
 CommandContext& GraphicsDevice_DX12::BeginFrame()

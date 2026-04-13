@@ -252,6 +252,7 @@ TextureHandle RenderGraph::RealizeResource(const RGResourceDesc& desc)
 
 void RenderGraph::Clear()
 {
+	/*
 	for (auto& resource : m_resources)
 	{
 		if (!resource.imported && resource.realizedHandle.IsValid())
@@ -259,6 +260,7 @@ void RenderGraph::Clear()
 			m_resourcePool[resource.desc].push_back(resource.realizedHandle);
 		}
 	}
+	*/
 
 	m_resources.clear();
 	m_passes.clear();

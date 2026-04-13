@@ -210,3 +210,8 @@ void CommandContext_DX12::Dispatch(UINT x, UINT y, UINT z)
 {
 	m_commandList->Dispatch(x, y, z);
 }
+
+void CommandContext_DX12::SetInternalCommandList(ID3D12GraphicsCommandList* pCmdList)
+{
+	m_commandList = pCmdList;
+}

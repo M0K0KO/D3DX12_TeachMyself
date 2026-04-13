@@ -36,6 +36,7 @@ public:
 
 	void ResetState();
 
+	void SetInternalCommandList(ID3D12GraphicsCommandList* pCmdList);
 private:
 	inline D3D12_RESOURCE_STATES GetDXResourceState(RGResourceState state)
 	{
