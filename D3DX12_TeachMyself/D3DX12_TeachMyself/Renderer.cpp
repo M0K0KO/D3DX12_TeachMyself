@@ -1257,7 +1257,8 @@ void Renderer::AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, Fr
 							{
 								const auto& obj = *objPtr;
 
-								auto perObjectCB = passCtx.UpdateConstantBuffer(2, &obj.world, sizeof(obj.world));
+								auto perObjectCB = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
+								passCtx.BindConstantBuffer(1, perObjectCB);
 
 								if (obj.vertexBuffer.id != lastVB)
 								{
@@ -1288,6 +1289,12 @@ void Renderer::AddLightingPass(GraphicsDevice* device, RenderGraph& graph, Frame
 			builder.Read(fc.gbufferAlbedo, RGResourceState::ShaderResource);
 			builder.Read(fc.gbufferNormal, RGResourceState::ShaderResource);
 			builder.Read(fc.gbufferMR, RGResourceState::ShaderResource);
+			
+			for (int lightIdx = 0; lightIdx < fc.pointLightCount; lightIdx++)
+			{
+				builder.Read(fc.pointShadowMaps[lightIdx], RGResourceState::DepthWrite);
+			}
+
 			builder.Write(fc.backBuffer, RGResourceState::RenderTarget);
 		},
 		[this, &fc, device](CommandContext& passCtx) {

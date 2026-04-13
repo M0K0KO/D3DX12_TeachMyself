@@ -175,7 +175,7 @@ void Application::UpdateFrameData()
 	XMStoreFloat3(&frameData.DirectionalLightColor, XMVectorSet(2.0f, 1.8f, 1.5f, 1.0f));
 	frameData.DirectionalLightIntensity = 1.0f;
 
-	frameData.PointLights.push_back({ { -0.3f, 1.0f, 0.7f }, 3.0f, { 1.0f, 0.1f, 0.1f }, 7.0f });
+	frameData.PointLights.push_back({ { 0.0f, 1.0f, 0.7f }, 20.0f, { 1.0f, 0.1f, 0.1f }, 7.0f });
 	frameData.PointLightCount = frameData.PointLights.size();
 }
 
