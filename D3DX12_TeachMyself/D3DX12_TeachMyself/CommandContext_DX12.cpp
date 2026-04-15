@@ -182,7 +182,6 @@ void CommandContext_DX12::SetRenderTarget(UINT numRT, TextureHandle* renderTarge
 
 void CommandContext_DX12::DrawIndexed(uint32_t indexCount, uint32_t startIndex, uint32_t baseVertex)
 {
-	assert(m_commandList && "DrawIndexed: m_commandList is null! Was Init() called?");
 	m_commandList->DrawIndexedInstanced(indexCount, 1, startIndex, baseVertex, 0);
 }
 

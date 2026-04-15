@@ -1,5 +1,6 @@
 #include "UploadHeapRingAllocator.h"
 #include "HRException.h"
+#include "MokoLog.h"
 
 UploadHeapRingAllocator::UploadHeapRingAllocator(ID3D12Device* device, ID3D12Fence* fence)
 	:
@@ -41,14 +42,31 @@ void UploadHeapRingAllocator::ReleaseCompleted()
 UploadAllocation UploadHeapRingAllocator::Allocate(size_t size)
 {
 	UINT aligned = AlignUp(static_cast<UINT>(size), kAlignment);
+	assert(aligned <= kCapacity && "Ring Buffer Allocation exceeds total capacity");
 
 	if (m_head + aligned > kCapacity)
 	{
+		LOG_WARN("[RingBuffer] WRAP-AROUND! Current Head: %u, AlignedSize: %u, Resetting to 0\n", m_head, aligned);
+
+		while (!m_frameQueue.empty() && m_frameQueue.front().head >= m_head)
+		{
+			WaitForFront();
+		}
+
 		m_head = 0;
 	}
 
-	assert((m_head + aligned <= kCapacity) && "Ring Buffer Allocation exceeds capacity");
-	assert((m_head >= m_tail || m_head + aligned <= m_tail) && "Ring Buffer Overflow");
+	while (m_head < m_tail && m_head + aligned > m_tail)
+	{
+		LOG_WARN("[RingBuffer] STALL! Head(%u) is catching up to Tail(%u). Waiting for GPU...\n", m_head, m_tail);
+
+		if (m_frameQueue.empty())
+		{
+			m_tail = m_head;
+			break;
+		}
+		WaitForFront();
+	}
 
 	UploadAllocation alloc{};
 	alloc.offset = m_head;
@@ -76,4 +94,25 @@ size_t UploadHeapRingAllocator::GetEmptySpaceSize()
 		return (kCapacity - m_head) + m_tail - 1;
 	else
 		return (m_tail - m_head) - 1;
+}
+
+void UploadHeapRingAllocator::WaitForFront()
+{
+	if (m_frameQueue.empty())
+		return;
+
+	const FrameRecord front = m_frameQueue.front();
+	const UINT64 completed = m_fence->GetCompletedValue();
+	if (completed < front.fenceValue)
+	{
+		HANDLE event = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
+		if (event)
+		{
+			m_fence->SetEventOnCompletion(front.fenceValue, event);
+			WaitForSingleObject(event, INFINITE);
+			CloseHandle(event);
+		}
+	}
+	m_tail = front.head;
+	m_frameQueue.pop();
 }

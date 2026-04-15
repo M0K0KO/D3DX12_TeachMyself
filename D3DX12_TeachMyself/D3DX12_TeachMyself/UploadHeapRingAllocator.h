@@ -17,7 +17,7 @@ public:
 	UploadHeapRingAllocator(ID3D12Device* device, ID3D12Fence* fence);
 	~UploadHeapRingAllocator();
 
-
+	void WaitForFront();
 	void ReleaseCompleted();
 	UploadAllocation Allocate(size_t size);
 	void FinishFrame(UINT64 fenceValue);
@@ -25,7 +25,7 @@ public:
 	size_t GetEmptySpaceSize();
 
 private:
-	static constexpr UINT kCapacity = 64 * 1024 * 1024; // 64MB
+	static constexpr UINT kCapacity = 128 * 1024 * 1024; // 32MB
 	static constexpr UINT kAlignment = 256;
 
 	UINT AlignUp(UINT value, UINT alignment);

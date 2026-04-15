@@ -20,7 +20,7 @@ class GPUTimestampProfiler
 public:
     static constexpr uint32_t MaxPasses = 32;
     static constexpr uint32_t QueryCount = MaxPasses * 2;
-    static constexpr uint32_t BufferedFrames = 2;
+    static constexpr uint32_t BufferedFrames = 3;
 
     void Initialize(ID3D12Device* device, ID3D12CommandQueue* queue)
     {

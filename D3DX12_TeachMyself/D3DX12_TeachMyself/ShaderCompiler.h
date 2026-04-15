@@ -77,11 +77,13 @@ public:
 
     static ShaderBytecode GetBytecode(ShaderHandle handle)
     {
-        auto& blob = m_shaders[handle.id].bytecode;
-        std::shared_ptr<ID3DBlob> owned(blob.Get(), [](ID3DBlob*) {});
+        ComPtr<ID3DBlob> blob = m_shaders[handle.id].bytecode;
+        ID3DBlob* raw = blob.Get();
+        raw->AddRef();
+        std::shared_ptr<ID3DBlob> owned(raw, [](ID3DBlob* p) { if (p) p->Release(); });
         return ShaderBytecode{
-            blob->GetBufferPointer(),
-            blob->GetBufferSize(),
+            raw->GetBufferPointer(),
+            raw->GetBufferSize(),
             owned
         };
     }

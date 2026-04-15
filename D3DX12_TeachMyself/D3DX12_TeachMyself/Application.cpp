@@ -152,7 +152,6 @@ void Application::UpdateFrameData()
 {
 	frameData.PointLights.clear();
 
-
 	XMStoreFloat4x4(&frameData.ViewMatrix, m_scene.cam.GetViewMatrix());
 	XMStoreFloat4x4(&frameData.ProjMatrix, m_scene.cam.GetProjectionMatrix());
 	frameData.CameraPos = m_scene.cam.GetPos();
@@ -163,6 +162,7 @@ void Application::UpdateFrameData()
 
 	float sunSpeed = 0.2f;
 	float angle = sinf(time * sunSpeed) * 0.5f;
+	/*
 	XMVECTOR lightDir = DirectX::XMVector3Normalize(
 		DirectX::XMVectorSet(
 			0.0f,
@@ -171,11 +171,27 @@ void Application::UpdateFrameData()
 			0.0f
 		)
 	);
+	*/
+
+	XMVECTOR lightDir = XMVector3Normalize(XMVectorSet(0.0f, -0.5f, 0.5f, 0.0f));
+
 	XMStoreFloat3(&frameData.DirectionalLightDir, lightDir);
 	XMStoreFloat3(&frameData.DirectionalLightColor, XMVectorSet(2.0f, 1.8f, 1.5f, 1.0f));
 	frameData.DirectionalLightIntensity = 1.0f;
 
-	frameData.PointLights.push_back({ { 0.0f, 5.0f, 0.0f }, 30.0f, { 1.0f, 0.1f, 0.1f }, 5.0f });
+
+	float posX = sinf(time * 0.5f) * 1.0f;
+	float posY = sinf(time * 1.0f) * 0.5f;
+	//frameData.PointLights.push_back({ { posX, posY + 3.0f, 0.0f }, 10.0f, { 0.2509f, 0.8784f, 0.8156f }, 6.0f });
+	frameData.PointLights.push_back({ { 6.0f, 2.5f, 0.0f }, 10.0f, { 0.2509f, 0.8784f, 0.8156f }, 10.0f });
+	
+	//frameData.PointLights.push_back({ { 3.2f, 4.1f, -2.7f }, 12.3f, { 0.82f, 0.21f, 0.15f }, 3.8f });
+	//frameData.PointLights.push_back({ { -5.6f, 1.8f, 6.9f }, 9.7f, { 0.12f, 0.76f, 0.33f }, 2.4f });
+	//frameData.PointLights.push_back({ { 7.4f, 3.3f, 1.2f }, 14.5f, { 0.91f, 0.84f, 0.22f }, 5.1f });
+	//frameData.PointLights.push_back({ { -8.1f, 6.0f, -4.5f }, 11.2f, { 0.45f, 0.18f, 0.89f }, 4.3f });
+	//frameData.PointLights.push_back({ { 0.5f, 2.2f, -9.3f }, 8.6f, { 0.67f, 0.92f, 0.11f }, 1.9f });
+	//frameData.PointLights.push_back({ { 9.8f, 5.5f, 3.7f }, 13.1f, { 0.23f, 0.55f, 0.97f }, 3.2f });
+	//frameData.PointLights.push_back({ { -2.9f, 7.4f, 8.0f }, 10.4f, { 0.99f, 0.44f, 0.36f }, 4.7f });
 	frameData.PointLightCount = frameData.PointLights.size();
 }
 
@@ -240,18 +256,13 @@ void  Application::HandleDebugModeInput()
 	}
 	else if (wnd.kbd.KeyIsPressed('7'))
 	{
-		m_renderer.ChangeDebugMode(DebugMode::BRDF_LUT);
-		wnd.SetTitle(L"DebugMode :: BRDF LUT");
+		m_renderer.ChangeDebugMode(DebugMode::SSAO_ENABLED);
+		wnd.SetTitle(L"DebugMode :: SSAO ENABLED");
 	}
 	else if (wnd.kbd.KeyIsPressed('8'))
 	{
-		m_renderer.ChangeDebugMode(DebugMode::IrradianceMap);
-		wnd.SetTitle(L"DebugMode :: IRRADIANCE MAP");
-	}
-	else if (wnd.kbd.KeyIsPressed('9'))
-	{
-		m_renderer.ChangeDebugMode(DebugMode::PreFilteredEnvrionmentMap);
-		wnd.SetTitle(L"DebugMode :: PREFILTERED ENVIRONMENT MAP");
+		m_renderer.ChangeDebugMode(DebugMode::SSAO_DISABLED);
+		wnd.SetTitle(L"DebugMode :: SSAO DISABLED");
 	}
 }
 void  Application::HandleCameraMovement(float deltaTime)

@@ -17,7 +17,9 @@ enum class DebugMode
 	MR,
 	BRDF_LUT,
 	IrradianceMap,
-	PreFilteredEnvrionmentMap
+	PreFilteredEnvrionmentMap,
+	SSAO_ENABLED,
+	SSAO_DISABLED
 };
 
 class FrameContext;
@@ -49,12 +51,18 @@ public:
 		std::vector<RGResourceHandle> pointShadowMaps;
 		int pointLightCount = 0;
 		std::vector<PointLightData> pointLights;
+		RGResourceHandle ssaoTexture;
+		RGResourceHandle ssaoNoiseTexture;
+		RGResourceHandle ssaoTempTexture;
 
 		CBHandle perFrameCB;
 		CBHandle lightCB;
 		CBHandle shadowCB;
 		CBHandle pointShadowCB;
 		XMMATRIX LightViewProj[CASCADE_COUNT];
+
+		CBHandle ssaoCB;
+		CBHandle bilateralBlurCB;
 	};
 
 private:
@@ -80,7 +88,8 @@ private:
 	void InitGBufferPass(GraphicsDevice* device);
 	void InitDirectionalShadowPass(GraphicsDevice* device);
 	void InitPointShadowPass(GraphicsDevice* device);
-	void InitLightingPass(GraphicsDevice* device);
+	void InitSSAOPass(GraphicsDevice* device);
+	void InitBilateralBlurPass(GraphicsDevice* device);
 	void InitPBRLightingPass(GraphicsDevice* device);
 	void InitSkyboxPass(GraphicsDevice* device);
 	void InitDebugPass(GraphicsDevice* device);
@@ -89,7 +98,8 @@ private:
 	void AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
 	void AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
 	void AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
-	void AddLightingPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
+	void AddSSAOPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
+	void AddBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
 	void AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
 	void AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
 	void AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
@@ -98,6 +108,7 @@ private:
 
 private:
 	static constexpr float clearColor[4] = { 0.0f, 0.0f,  0.0f,  0.0f };
+	std::vector<XMFLOAT4> hemisphereSamples;
 
 	uint32_t m_width;
 	uint32_t m_height;
@@ -115,10 +126,6 @@ private:
 	PipelineDesc m_gBufferAlphaPassPipelineDesc;
 	PipelineHandle m_gBufferOpaquePassPipeline;
 	PipelineHandle m_gBufferAlphaPassPipeline;
-
-	ShaderHandle m_lightingPS;
-	PipelineDesc m_lightingPassPipelineDesc;
-	PipelineHandle m_lightingPassPipeline;
 
 	ShaderHandle m_PBRlightingPS;
 	PipelineDesc m_PBRlightingPassPipelineDesc;
@@ -154,6 +161,18 @@ private:
 	ShaderHandle m_pointShadowMapVS;
 	PipelineHandle m_pointShadowMapPipeline;
 
+	ShaderHandle m_ssaoVS;
+	ShaderHandle m_ssaoPS;
+	PipelineDesc m_SSAOPipelineDesc;
+	PipelineHandle m_SSAOPipeline;
+
+	ShaderHandle m_bilateralBlurVS;
+	ShaderHandle m_bilateralBlurPS_Vertical;
+	ShaderHandle m_bilateralBlurPS_Horizontal;
+	PipelineDesc m_bilateralBlurPipelineDesc;
+	PipelineHandle m_bilateralBlurPipeline_Vertical;
+	PipelineHandle m_bilateralBlurPipeline_Horizontal;
+
 	BufferHandle m_perFrameCB;
 	BufferHandle m_perObjectCB;
 	BufferHandle m_lightingDataCB;
@@ -178,6 +197,10 @@ private:
 	TextureHandle m_defaultCubemapTexture;
 
 	std::vector<TextureHandle> m_pointShadowMapTextures;
+
+	TextureHandle m_ssaoTexture;
+	TextureHandle m_ssaoNoiseTexture;
+	TextureHandle m_ssaoTempTexture;
 
 	struct PerFrameCB
 	{
@@ -241,6 +264,30 @@ private:
 	{
 		int lightIdx;
 		int faceIdx;
+	};
+
+	struct SSAOCB
+	{
+		XMFLOAT4X4 ViewMatrix;
+		XMFLOAT4X4 ProjMatrix;
+		XMFLOAT4X4 InvProjMatrix;
+
+		float SampleRadius;
+		float Bias;
+		float Power;
+		int KernelSize;
+
+		XMFLOAT2 NoiseScale;
+		XMFLOAT2 padding;
+
+		XMFLOAT4 Samples[32];
+	};
+
+	struct BilateralBlurCB
+	{
+		XMFLOAT2 TexelSize; 
+		float DepthSigma;
+		float NormalSigma;
 	};
 
 

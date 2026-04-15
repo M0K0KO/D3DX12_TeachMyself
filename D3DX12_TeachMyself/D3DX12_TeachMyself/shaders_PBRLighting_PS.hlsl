@@ -18,7 +18,10 @@ Texture2D<float2> gBRDF_LUT : register(t6);
 
 Texture2D<float> gShadowMap : register(t7);
 
-TextureCube<float> pointShadowMaps[MAX_POINT_LIGHTS] : register(t8);
+Texture2D gSSAOTex : register(t8);
+
+TextureCube<float> pointShadowMaps[MAX_POINT_LIGHTS] : register(t9);
+
 
 SamplerState gSamplerPoint : register(s0); 
 SamplerState gSamplerLinear : register(s1);
@@ -209,7 +212,8 @@ float4 main(PSInput input) : SV_TARGET
     // --- Read GBuffer ---
     float4 albedoAO = gAlbedoAO.Sample(gSamplerPoint, uv);
     float3 albedo = albedoAO.rgb;
-    float ao = albedoAO.a;
+    float ssao = gSSAOTex.Sample(gSamplerLinear, uv).r;
+    float ao = albedoAO.a * ssao;
 
     float3 normalRGB = gNormalMap.Sample(gSamplerPoint, uv).rgb;
     float3 N = normalize(normalRGB * 2.0f - 1.0f);
@@ -322,4 +326,7 @@ float4 main(PSInput input) : SV_TARGET
     return float4(color, 1.0);
     
     //return float4(1.0 - shadow, 1.0 - shadow, 1.0 - shadow, 1.0f);
+    
+    //float ssao = gSSAOTex.Sample(gSamplerLinear, uv);
+    //return float4(ssao, ssao, ssao, 1);
 }
