@@ -65,7 +65,6 @@ float4 main(PSIn input) : SV_TARGET
     
     
     float3 randomVec = gNoise.SampleLevel(pointS, noiseUV, 0).xyz;
-    randomVec = randomVec * 2.0f - 1.0f;
     
     float3 tangent = normalize(randomVec - normalVS * dot(randomVec, normalVS));
     float3 bitangent = cross(normalVS, tangent);

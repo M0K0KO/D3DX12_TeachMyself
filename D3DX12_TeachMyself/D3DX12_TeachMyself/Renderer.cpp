@@ -151,7 +151,6 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene, const FrameDat
 	XMStoreFloat2(&perFrame.ScreenSize, { static_cast<float>(m_width), static_cast<float>(m_height) });
 	
 
-
 	LightCB light;
 	light.Direction = frameData.DirectionalLightDir;
 	light.Color = frameData.DirectionalLightColor;
@@ -214,8 +213,8 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene, const FrameDat
 	XMStoreFloat4x4(&ssaoCB.InvProjMatrix, XMMatrixTranspose(XMMatrixInverse(nullptr, XMLoadFloat4x4(&frameData.ProjMatrix))));
 	ssaoCB.SampleRadius = 0.7f;        
 	ssaoCB.Bias = 0.04f;        
-	ssaoCB.Power = 1.5f;         
-	ssaoCB.KernelSize = 32;     
+	ssaoCB.Power = 2.0f;
+	ssaoCB.KernelSize = 32;
 	ssaoCB.NoiseScale = XMFLOAT2(
 		m_width / 4.0f,
 		m_height / 4.0f
@@ -230,7 +229,7 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene, const FrameDat
 	BilateralBlurCB blurCB;
 	blurCB.DepthSigma = 80;
 	blurCB.NormalSigma = 12;
-	blurCB.TexelSize = { 1.0f / m_width, 1.0f / m_height };
+	blurCB.TexelSize = { 2.0f / m_width, 2.0f / m_height };
 
 
 	float cascadeSplits[CASCADE_COUNT + 1];
@@ -972,7 +971,6 @@ void Renderer::InitSSAOPass(GraphicsDevice* device)
 
 	TextureDesc ssaoTextureDesc = { m_width / 2, m_height / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
 	m_ssaoTexture = device->CreateTexture(ssaoTextureDesc, nullptr);
-
 
 	std::vector<XMFLOAT4> noise(16);
 	std::uniform_real_distribution<float> dist(0.0f, 1.0f);
