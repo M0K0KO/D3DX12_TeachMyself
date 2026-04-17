@@ -3,6 +3,9 @@
 #include "TextureLoader.h"
 #include "MokoTime.h"
 #include "MokoLog.h"
+#include "EntityScene.h"
+#include "components.h"
+#include "MokoMath.h"
 
 Application::Application()
 	:
@@ -46,9 +49,6 @@ void Application::Init()
 	m_device = std::make_unique<GraphicsDevice_DX12>();
 	m_device->Initialize(wnd.GetHWND(), wnd.GetWidth(), wnd.GetHeight());
 
-	m_scene.cam = {};
-	m_scene.cam.SetAspectRatio(m_device->GetWidth(), m_device->GetHeight());
-
 	AssetLoader loader;
 	auto sponzaScene = loader.LoadGLTF("../Model/Sponza/Sponza.gltf");
 
@@ -81,34 +81,62 @@ void Application::Init()
 	TextureHandle defaultNormal = m_device->CreateTexture({ 1, 1, Format::R8G8B8A8_UNORM, TextureUsage::ShaderResource }, normal);
 	TextureHandle defaultMR = m_device->CreateTexture({ 1, 1, Format::R8G8B8A8_UNORM, TextureUsage::ShaderResource }, mr);
 
+	m_ecsScene.Initialize();
+
 	for (auto& subMesh : sponzaScene.subMeshes)
 	{
-		Scene::RenderObject obj = {};
-		obj.vertexBuffer = vb;
-		obj.indexBuffer = ib;
-		obj.indexOffset = subMesh.indexOffset;
-		obj.indexCount = subMesh.indexCount;
+		Entity e = m_ecsScene.CreateEntity();
+
+		auto& t = m_ecsScene.GetRegistry().Get<TransformComponent>(e);
+		XMStoreFloat4x4(&t.worldMatrix, XMMatrixIdentity());
+
+		auto& mr = m_ecsScene.GetRegistry().Add<MeshRendererComponent>(e);
+		mr.vertexBuffer = vb;
+		mr.indexBuffer = ib;
+		mr.indexOffset = subMesh.indexOffset;
+		mr.indexCount = subMesh.indexCount;
 
 		auto& mat = sponzaScene.materials[subMesh.materialIndex];
+		mr.material.baseColor = (mat.baseColorTexture >= 0) ? gpuTextures[mat.baseColorTexture] : defaultWhite;
+		mr.material.normal = (mat.normalTexture >= 0) ? gpuTextures[mat.normalTexture] : defaultNormal;
+		mr.material.metallicRoughness = (mat.metallicRoughnessTexture >= 0) ? gpuTextures[mat.metallicRoughnessTexture] : defaultMR;
+		mr.material.alphaMode = mat.alphaMode;
+		mr.material.alphaCutoff = mat.alphaCutoff;
+		mr.material.metallicFactor = mat.metallicFactor;
+		mr.material.roughnessFactor = mat.roughnessFactor;
+		mr.visible = true;
 
-		obj.material.baseColor = (mat.baseColorTexture >= 0)
-			? gpuTextures[mat.baseColorTexture] : defaultWhite;
-		obj.material.normal = (mat.normalTexture >= 0)
-			? gpuTextures[mat.normalTexture] : defaultNormal;
-		obj.material.metallicRoughness = (mat.metallicRoughnessTexture >= 0)
-			? gpuTextures[mat.metallicRoughnessTexture] : defaultMR;
-		obj.material.alphaMode = mat.alphaMode;
-		obj.material.alphaCutoff = mat.alphaCutoff;
-		obj.material.metallicFactor = mat.metallicFactor;
-		obj.material.roughnessFactor = mat.roughnessFactor;
+		mr.aabbMin = subMesh.aabbMin;
+		mr.aabbMax = subMesh.aabbMax;
+	}
+	m_ecsScene.SetSceneAABB(sponzaScene.sceneAABBMin, sponzaScene.sceneAABBMax);
 
-		obj.aabbMin = subMesh.aabbMin;
-		obj.aabbMax = subMesh.aabbMax;
+	{
+		Entity e = m_ecsScene.CreateEntity();
+		auto& dl = m_ecsScene.GetRegistry().Add<DirectionalLightComponent>(e);
+		dl.direction = { 0.0f, -1.0f, 0.0f };
+		dl.color = { 1,1,1 };
+		dl.intensity = 1.0f;
+	}
 
-		XMStoreFloat4x4(&obj.world, XMMatrixIdentity());
-		m_scene.renderObjects.push_back(obj);
-		m_scene.sceneAABBMax = sponzaScene.sceneAABBMax;
-		m_scene.sceneAABBMin = sponzaScene.sceneAABBMin;
+	{
+		Entity e = m_ecsScene.CreateEntity();
+		auto& t = m_ecsScene.GetRegistry().Get<TransformComponent>(e);
+		t.position = { 0.0f, 2.0f, 0.0f };
+
+		auto& pl = m_ecsScene.GetRegistry().Add<PointLightComponent>(e);
+		pl.color = { 1.0f, 0.0f, 0.0f };
+		pl.radius = 10.0f;
+		pl.intensity = 5.0f;
+	}
+
+	{
+		Entity e = m_ecsScene.CreateEntity();
+		auto& cam = m_ecsScene.GetRegistry().Add<CameraComponent>(e);
+		cam.aspect = float(m_device->GetWidth()) / float(m_device->GetHeight());
+		cam.isMain = true;
+		auto& t = m_ecsScene.GetRegistry().Get<TransformComponent>(e);
+		t.position = { 0.0f, 1.0f, -5.0f };
 	}
 
 	m_renderer.Init(m_device.get());
@@ -127,12 +155,10 @@ void Application::Init()
 
 void Application::Update()
 {
-
-	UpdateFrameData();
-
 	HandleKeyboardEvents();
 	HandleDebugModeInput();
-	HandleCameraMovement(MokoTime::GetDeltaTime());
+	UpdateCameraController(MokoTime::GetDeltaTime());
+	m_ecsScene.UpdateTransforms();
 }
 
 void Application::Render()
@@ -141,58 +167,132 @@ void Application::Render()
 	{
 		m_device->ResizeSwapChain(m_pendingWidth, m_pendingHeight);
 		m_renderer.OnResize(m_pendingWidth, m_pendingHeight);
-		m_scene.cam.SetAspectRatio(m_pendingWidth, m_pendingHeight);
+		auto view = m_ecsScene.GetRegistry().GetView<CameraComponent>();
+		for (auto [e, cam] : view)
+		{
+			if (cam.isMain) cam.aspect = float(m_pendingWidth) / float(m_pendingHeight);
+		}
 		m_needsResize = false;
 		return;
 	}
-	m_renderer.Render(m_device.get(), m_scene, frameData);
+
+	RenderScene renderScene = ExtractRenderScene();
+	m_renderer.Render(m_device.get(), renderScene);
 }
 
-void Application::UpdateFrameData()
+void Application::UpdateCameraController(float dt)
 {
-	frameData.PointLights.clear();
+	constexpr float travelSpeed = 4.0f;
+	constexpr float rotationSpeed = 0.004f;
 
-	XMStoreFloat4x4(&frameData.ViewMatrix, m_scene.cam.GetViewMatrix());
-	XMStoreFloat4x4(&frameData.ProjMatrix, m_scene.cam.GetProjectionMatrix());
-	frameData.CameraPos = m_scene.cam.GetPos();
-	frameData.ScreenSize = { static_cast<float>(wnd.GetWidth()), static_cast<float>(wnd.GetHeight()) };
+	// Gather input
+	XMFLOAT3 localMove = { 0, 0, 0 };
+	XMFLOAT2 mouseDelta = { 0, 0 };
 
-	static float time = 0.0f;
-	time += MokoTime::GetDeltaTime();
+	if (!wnd.CursorEnabled())
+	{
+		if (wnd.kbd.KeyIsPressed('W')) localMove.z += 1.0f;
+		if (wnd.kbd.KeyIsPressed('S')) localMove.z -= 1.0f;
+		if (wnd.kbd.KeyIsPressed('A')) localMove.x -= 1.0f;
+		if (wnd.kbd.KeyIsPressed('D')) localMove.x += 1.0f;
+		if (wnd.kbd.KeyIsPressed('R')) localMove.y += 1.0f;
+		if (wnd.kbd.KeyIsPressed('F')) localMove.y -= 1.0f;
 
-	float sunSpeed = 0.2f;
-	float angle = sinf(time * sunSpeed) * 0.5f;
-	/*
-	XMVECTOR lightDir = DirectX::XMVector3Normalize(
-		DirectX::XMVectorSet(
-			0.0f,
-			-1.0f,
-			angle,
-			0.0f
-		)
-	);
-	*/
+		while (const auto d = wnd.mouse.ReadRawDelta())
+		{
+			mouseDelta.x += (float)d->x;
+			mouseDelta.y += (float)d->y;
+		}
+	}
+	else
+	{
+		while (wnd.mouse.ReadRawDelta()) {}
+	}
 
-	XMVECTOR lightDir = XMVector3Normalize(XMVectorSet(0.0f, -0.5f, 0.5f, 0.0f));
+	auto view = m_ecsScene.GetRegistry().GetView<TransformComponent, CameraComponent>();
+	for (auto [e, t, cam] : view)
+	{
+		if (!cam.isMain) continue;
 
-	XMStoreFloat3(&frameData.DirectionalLightDir, lightDir);
-	XMStoreFloat3(&frameData.DirectionalLightColor, XMVectorSet(2.0f, 1.8f, 1.5f, 1.0f));
-	frameData.DirectionalLightIntensity = 1.0f;
+		// Rotate
+		cam.yaw = wrap_angle(cam.yaw + mouseDelta.x * rotationSpeed);
+		cam.pitch = std::clamp(cam.pitch + mouseDelta.y * rotationSpeed,
+			-PI * 0.5f * 0.995f, PI * 0.5f * 0.995f);
+
+		// Translate (local ¡æ world)
+		XMVECTOR local = XMLoadFloat3(&localMove);
+		XMMATRIX rot = XMMatrixRotationRollPitchYaw(cam.pitch, cam.yaw, 0.0f);
+		XMVECTOR world = XMVector3Transform(local, rot);
+		world = XMVectorScale(world, travelSpeed * dt);
+
+		t.position.x += XMVectorGetX(world);
+		t.position.y += XMVectorGetY(world);
+		t.position.z += XMVectorGetZ(world);
+		break;
+	}
+}
 
 
-	float posX = sinf(time * 0.5f) * 1.0f;
-	float posY = sinf(time * 1.0f) * 0.5f;
-	//frameData.PointLights.push_back({ { posX, posY + 3.0f, 0.0f }, 10.0f, { 0.2509f, 0.8784f, 0.8156f }, 6.0f });
-	frameData.PointLights.push_back({ { 6.0f, 2.5f, 0.0f }, 10.0f, { 0.2509f, 0.8784f, 0.8156f }, 10.0f });
-	
-	//frameData.PointLights.push_back({ { 3.2f, 4.1f, -2.7f }, 12.3f, { 0.82f, 0.21f, 0.15f }, 3.8f });
-	//frameData.PointLights.push_back({ { -5.6f, 1.8f, 6.9f }, 9.7f, { 0.12f, 0.76f, 0.33f }, 2.4f });
-	//frameData.PointLights.push_back({ { 7.4f, 3.3f, 1.2f }, 14.5f, { 0.91f, 0.84f, 0.22f }, 5.1f });
-	//frameData.PointLights.push_back({ { -8.1f, 6.0f, -4.5f }, 11.2f, { 0.45f, 0.18f, 0.89f }, 4.3f });
-	//frameData.PointLights.push_back({ { 0.5f, 2.2f, -9.3f }, 8.6f, { 0.67f, 0.92f, 0.11f }, 1.9f });
-	//frameData.PointLights.push_back({ { 9.8f, 5.5f, 3.7f }, 13.1f, { 0.23f, 0.55f, 0.97f }, 3.2f });
-	//frameData.PointLights.push_back({ { -2.9f, 7.4f, 8.0f }, 10.4f, { 0.99f, 0.44f, 0.36f }, 4.7f });
-	frameData.PointLightCount = frameData.PointLights.size();
+RenderScene Application::ExtractRenderScene()
+{
+	RenderScene rs;
+	rs.renderObjects.reserve(512);
+	rs.sceneAABBMax = m_ecsScene.GetSceneAABBMax();
+	rs.sceneAABBMin = m_ecsScene.GetSceneAABBMin();
+
+	auto meshView = m_ecsScene.GetRegistry().GetView<TransformComponent, MeshRendererComponent>();
+	for (auto [e, t, mr] : meshView)
+	{
+		if (!mr.visible) continue;
+		RenderObject obj;
+		obj.vertexBuffer = mr.vertexBuffer;
+		obj.indexBuffer = mr.indexBuffer;
+		obj.indexOffset = mr.indexOffset;
+		obj.indexCount = mr.indexCount;
+		obj.material = mr.material;
+		obj.world = t.worldMatrix;
+		obj.aabbMin = mr.aabbMin;
+		obj.aabbMax = mr.aabbMax;
+		rs.renderObjects.push_back(obj);
+	}
+
+	auto dirLightView = m_ecsScene.GetRegistry().GetView<DirectionalLightComponent>();
+	for (auto [e, dl] : dirLightView)
+	{
+		rs.frameData.DirectionalLightDir = dl.direction;
+		rs.frameData.DirectionalLightColor = dl.color;
+		rs.frameData.DirectionalLightIntensity = dl.intensity;
+		rs.frameData.Ambient = dl.ambient;
+		break;
+	}
+
+	auto pointLightView = m_ecsScene.GetRegistry().GetView<TransformComponent, PointLightComponent>();
+	for (auto [e, t, pl] : pointLightView)
+	{
+		PointLightData data;
+		data.Position = { t.worldMatrix._41, t.worldMatrix._42, t.worldMatrix._43 };
+		data.Color = pl.color;
+		data.Radius = pl.radius;
+		data.Intensity = pl.intensity;
+		rs.frameData.PointLights.push_back(data);
+	}
+	rs.frameData.PointLightCount = (int)rs.frameData.PointLights.size();
+
+	auto camView = m_ecsScene.GetRegistry().GetView<TransformComponent, CameraComponent>();
+	for (auto [e, t, cam] : camView)
+	{
+		if (!cam.isMain) continue;
+		XMFLOAT3 pos = { t.worldMatrix._41, t.worldMatrix._42, t.worldMatrix._43 };
+		XMMATRIX view = CameraMath::GetViewMatrix(pos, cam.pitch, cam.yaw);
+		XMMATRIX proj = CameraMath::GetProjectionMatrix(cam.fovY, cam.aspect, cam.nearZ, cam.farZ);
+
+		XMStoreFloat4x4(&rs.frameData.ViewMatrix, view);
+		XMStoreFloat4x4(&rs.frameData.ProjMatrix, proj);
+		rs.frameData.CameraPos = pos;
+		break;
+	}
+
+	return rs;
 }
 
 void  Application::HandleKeyboardEvents()
@@ -263,44 +363,6 @@ void  Application::HandleDebugModeInput()
 	{
 		m_renderer.ChangeDebugMode(DebugMode::SSAO_DISABLED);
 		wnd.SetTitle(L"DebugMode :: SSAO DISABLED");
-	}
-}
-void  Application::HandleCameraMovement(float deltaTime)
-{
-	if (!wnd.CursorEnabled())
-	{
-		if (wnd.kbd.KeyIsPressed('W'))
-		{
-			m_scene.cam.Translate({ 0.0f,0.0f,deltaTime });
-		}
-		if (wnd.kbd.KeyIsPressed('A'))
-		{
-			m_scene.cam.Translate({ -deltaTime,0.0f,0.0f });
-		}
-		if (wnd.kbd.KeyIsPressed('S'))
-		{
-			m_scene.cam.Translate({ 0.0f,0.0f,-deltaTime });
-		}
-		if (wnd.kbd.KeyIsPressed('D'))
-		{
-			m_scene.cam.Translate({ deltaTime,0.0f,0.0f });
-		}
-		if (wnd.kbd.KeyIsPressed('R'))
-		{
-			m_scene.cam.Translate({ 0.0f,deltaTime,0.0f });
-		}
-		if (wnd.kbd.KeyIsPressed('F'))
-		{
-			m_scene.cam.Translate({ 0.0f,-deltaTime,0.0f });
-		}
-	}
-
-	while (const auto delta = wnd.mouse.ReadRawDelta())
-	{
-		if (!wnd.CursorEnabled())
-		{
-			m_scene.cam.Rotate((float)delta->x, (float)delta->y);
-		}
 	}
 }
 

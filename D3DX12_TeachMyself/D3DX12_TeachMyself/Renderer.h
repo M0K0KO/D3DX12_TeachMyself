@@ -2,8 +2,8 @@
 #include "RHITypes.h"
 #include "GraphicsDevice.h"
 #include "ShaderCompiler.h"
-#include "Scene.h"
 #include "RenderGraph.h"
+#include "RenderScene.h"
 #include "FrameData.h"
 
 enum class DebugMode
@@ -28,7 +28,7 @@ class Renderer
 {
 public:
 	void Init(GraphicsDevice* device);
-	void Render(GraphicsDevice* device, const Scene& scene, const FrameData& frameData);
+	void Render(GraphicsDevice* device, const RenderScene& renderScene);
 	void Shutdown();
 
 	void ChangeDebugMode(DebugMode mode) { debugMode = mode; };
@@ -100,17 +100,17 @@ private:
 	void InitSkyboxPass(GraphicsDevice* device);
 	void InitDebugPass(GraphicsDevice* device);
 
-	void AddDepthPrePass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
-	void AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
-	void AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
-	void AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
-	void AddSSAOPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
-	void AddGTAOPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
-	void AddSSAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
-	void AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
-	void AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
-	void AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
-	void AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
+	void AddDepthPrePass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
+	void AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
+	void AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
+	void AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
+	void AddSSAOPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
+	void AddGTAOPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
+	void AddSSAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
+	void AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
+	void AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
+	void AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
+	void AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
 
 	void PrintGPUTimes(GraphicsDevice* device);
 

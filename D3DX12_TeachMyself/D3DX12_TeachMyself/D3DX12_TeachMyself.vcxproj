@@ -224,14 +224,20 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="CommandContext.h" />
     <ClInclude Include="CommandContext_DX12.h" />
+    <ClInclude Include="ComponentPool.h" />
+    <ClInclude Include="components.h" />
     <ClInclude Include="d3dx12.h" />
     <ClInclude Include="DirectXTex\DirectXTex.h" />
     <ClInclude Include="DX12Helpers.h" />
+    <ClInclude Include="Entity.h" />
+    <ClInclude Include="EntityManager.h" />
+    <ClInclude Include="EntityScene.h" />
     <ClInclude Include="FrameData.h" />
     <ClInclude Include="GPUTimestampProfiler.h" />
     <ClInclude Include="GraphicsDevice.h" />
     <ClInclude Include="GraphicsDevice_DX12.h" />
     <ClInclude Include="HRException.h" />
+    <ClInclude Include="IComponentPool.h" />
     <ClInclude Include="json.hpp" />
     <ClInclude Include="Keyboard.h" />
     <ClInclude Include="Mesh.h" />
@@ -239,10 +245,11 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="MokoMath.h" />
     <ClInclude Include="MokoTime.h" />
     <ClInclude Include="Mouse.h" />
+    <ClInclude Include="Registry.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="RenderGraph.h" />
+    <ClInclude Include="RenderScene.h" />
     <ClInclude Include="RHITypes.h" />
-    <ClInclude Include="Scene.h" />
     <ClInclude Include="ShaderCompiler.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="stb_image_write.h" />
@@ -250,6 +257,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="TextureLoader.h" />
     <ClInclude Include="tiny_gltf.h" />
     <ClInclude Include="UploadHeapRingAllocator.h" />
+    <ClInclude Include="View.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>
@@ -258,6 +266,8 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CommandContext_DX12.cpp" />
     <ClCompile Include="DX12Helpers.cpp" />
+    <ClCompile Include="EntityManager.cpp" />
+    <ClCompile Include="EntityScene.cpp" />
     <ClCompile Include="GraphicsDevice_DX12.cpp" />
     <ClCompile Include="Keyboard.cpp" />
     <ClCompile Include="main.cpp" />

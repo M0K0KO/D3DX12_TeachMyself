@@ -27,6 +27,7 @@ struct FrameData
 	XMFLOAT3 DirectionalLightDir;
 	XMFLOAT3 DirectionalLightColor;
 	float DirectionalLightIntensity;
+	float Ambient;
 
 	// Point Light Data
 	int PointLightCount;

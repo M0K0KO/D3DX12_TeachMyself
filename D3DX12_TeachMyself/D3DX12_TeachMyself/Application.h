@@ -2,9 +2,10 @@
 #include "stdafx.h"
 #include "Window.h"
 #include "GraphicsDevice_DX12.h"
-#include "Scene.h"
 #include "Renderer.h"
 #include "FrameData.h"
+#include "EntityScene.h"
+#include "Camera.h"
 
 class Application
 {
@@ -18,17 +19,18 @@ private:
 	void Update();
 	void Render();
 
-	void UpdateFrameData();
+	void UpdateCameraController(float dt);
+
+	RenderScene ExtractRenderScene();
 
 	void HandleKeyboardEvents();
 	void HandleDebugModeInput();
-	void HandleCameraMovement(float deltaTime);
 
 private:
 	std::unique_ptr<GraphicsDevice> m_device;
 
 	Window wnd;
-	Scene m_scene;
+	EntityScene m_ecsScene;
 	Renderer m_renderer;
 
 	uint32_t m_pendingWidth = 0;
@@ -36,6 +38,4 @@ private:
 	bool m_needsResize = false;
 
 	bool m_initialized = false;
-
-	FrameData frameData;
 };

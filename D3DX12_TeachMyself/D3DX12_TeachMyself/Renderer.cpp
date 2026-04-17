@@ -86,7 +86,7 @@ void Renderer::Init(GraphicsDevice* device)
 	debugMode = DebugMode::PBR_Enabled;
 }
 
-void Renderer::Render(GraphicsDevice* device, const Scene& scene, const FrameData& frameData)
+void Renderer::Render(GraphicsDevice* device, const RenderScene& renderScene)
 {
 	ReloadPSO(device);
 
@@ -96,6 +96,7 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene, const FrameDat
 	CommandContext& ctx = device->BeginFrame();
 
 	RenderGraph graph(device);
+	auto& frameData = renderScene.frameData;
 
 	RGResourceDesc backBufferDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget};
 	RGResourceHandle backBuffer = graph.ImportTexture(device->GetCurrentBackBuffer(), backBufferDesc, RGResourceState::Present);
@@ -179,6 +180,8 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene, const FrameDat
 	XMMATRIX lightVP = lightView * lightProj;
 
 
+
+
 	PointShadowCB pointShadow;
 	const XMFLOAT3 targets[6] = { {1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1} };
 	const XMFLOAT3 ups[6] = { {0,1,0},{0,1,0},{0,0,-1},{0,0,1},{0,1,0},{0,1,0} };
@@ -257,53 +260,48 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene, const FrameDat
 	BuildCascadeShadowMatrices(
 		inverseVP,
 		XMLoadFloat3(&frameData.DirectionalLightDir),
-		scene.sceneAABBMin, scene.sceneAABBMax,
+		renderScene.sceneAABBMin, renderScene.sceneAABBMax,
 		0.1f, 100.0f,
 		cascadeSplits,
 		fc.LightViewProj);
 
-	graph.AddPass(
-		"CB UpdatePass",
-		[&](RGBuilder& builder) {},
-		[&](CommandContext& passCtx) {
-			fc.perFrameCB = passCtx.UpdateConstantBuffer(0, &perFrame, sizeof(PerFrameCB));
-			fc.lightCB = passCtx.UpdateConstantBuffer(1, &light, sizeof(LightCB));
-			ShadowCB shadow;
-			for (int c = 0; c < CASCADE_COUNT; c++)
-			{
-				XMStoreFloat4x4(&shadow.LightViewProj[c], XMMatrixTranspose(fc.LightViewProj[c]));
-				shadow.cascadeSplits[c] = cascadeSplits[c + 1];
-			}
-			fc.shadowCB = passCtx.UpdateConstantBuffer(2, &shadow, sizeof(ShadowCB));
-			fc.pointShadowCB = passCtx.UpdateConstantBuffer(3, &pointShadow, sizeof(PointShadowCB));
-			fc.ssaoCB = passCtx.UpdateConstantBuffer(4, &ssaoCB, sizeof(SSAOCB));
-			fc.bilateralBlurCB = passCtx.UpdateConstantBuffer(5, &blurCB, sizeof(BilateralBlurCB));
-			fc.gtaoCB = passCtx.UpdateConstantBuffer(6, &gtaoCB, sizeof(GTAOCB));
-		}
-	);
+	ShadowCB shadow;
+	for (int c = 0; c < CASCADE_COUNT; c++)
+	{
+		XMStoreFloat4x4(&shadow.LightViewProj[c], XMMatrixTranspose(fc.LightViewProj[c]));
+		shadow.cascadeSplits[c] = cascadeSplits[c + 1];
+	}
 
-	AddDepthPrePass(device, graph, fc, scene);
-	AddGBufferPass(device, graph, fc, scene);
-	AddDirectionalShadowPass(device, graph, fc, scene);
-	AddPointShadowPass(device, graph, fc, scene);
+	fc.perFrameCB = ctx.UpdateConstantBuffer(0, &perFrame, sizeof(PerFrameCB));
+	fc.lightCB = ctx.UpdateConstantBuffer(1, &light, sizeof(LightCB));
+	fc.shadowCB = ctx.UpdateConstantBuffer(2, &shadow, sizeof(ShadowCB));
+	fc.pointShadowCB = ctx.UpdateConstantBuffer(3, &pointShadow, sizeof(PointShadowCB));
+	fc.ssaoCB = ctx.UpdateConstantBuffer(4, &ssaoCB, sizeof(SSAOCB));
+	fc.bilateralBlurCB = ctx.UpdateConstantBuffer(5, &blurCB, sizeof(BilateralBlurCB));
+	fc.gtaoCB = ctx.UpdateConstantBuffer(6, &gtaoCB, sizeof(GTAOCB));
+
+	AddDepthPrePass(device, graph, fc, renderScene);
+	AddGBufferPass(device, graph, fc, renderScene);
+	AddDirectionalShadowPass(device, graph, fc, renderScene);
+	AddPointShadowPass(device, graph, fc, renderScene);
 
 	
-	AddSSAOPass(device, graph, fc, scene);
-	AddGTAOPass(device, graph, fc, scene);
+	AddSSAOPass(device, graph, fc, renderScene);
+	AddGTAOPass(device, graph, fc, renderScene);
 
-	//AddSSAOBilateralBlurPass(device, graph, fc, scene);
-	AddGTAOBilateralBlurPass(device, graph, fc, scene);
+	//AddSSAOBilateralBlurPass(device, graph, fc, renderScene);
+	AddGTAOBilateralBlurPass(device, graph, fc, renderScene);
 
 	if (debugMode == DebugMode::PBR_Enabled)
 	{
-		AddPBRLightingPass(device, graph, fc, scene);
+		AddPBRLightingPass(device, graph, fc, renderScene);
 	}
 	else
 	{
-		AddDebugPass(device, graph, fc, scene);
+		AddDebugPass(device, graph, fc, renderScene);
 	}
 
-	AddSkyboxPass(device, graph, fc, scene);
+	AddSkyboxPass(device, graph, fc, renderScene);
 
 	graph.Compile();
 	graph.Execute(ctx);
@@ -1238,7 +1236,7 @@ void Renderer::InitDebugPass(GraphicsDevice* device)
 }
 
 
-void Renderer::AddDepthPrePass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
+void Renderer::AddDepthPrePass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene)
 {
 	graph.AddPass(
 		"DepthPrePass",
@@ -1272,7 +1270,7 @@ void Renderer::AddDepthPrePass(GraphicsDevice* device, RenderGraph& graph, Frame
 		}
 	);
 }
-void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
+void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene)
 {
 	graph.AddPass(
 		"GBufferOpaquePass",
@@ -1367,7 +1365,7 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 		}
 	);
 }
-void Renderer::AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
+void Renderer::AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene)
 {
 	graph.AddPass(
 		"DirectionalShadowPass",
@@ -1415,7 +1413,7 @@ void Renderer::AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& gra
 		}
 	);
 }
-void Renderer::AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
+void Renderer::AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene)
 {
 	if (fc.pointLightCount <= 0)
 		return;
@@ -1440,7 +1438,7 @@ void Renderer::AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, Fr
 					{
 						const auto& pointLight = fc.pointLights[lightIdx];
 
-						std::vector<const Scene::RenderObject*> visibleObjects;
+						std::vector<const RenderObject*> visibleObjects;
 						visibleObjects.reserve(scene.renderObjects.size());
 
 						for (const auto& obj : scene.renderObjects)
@@ -1470,7 +1468,7 @@ void Renderer::AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, Fr
 							shadowConstants.faceIdx = face;
 							passCtx.SetRootConstants(2, &shadowConstants, 2);
 
-							for (const Scene::RenderObject* objPtr : visibleObjects)
+							for (const RenderObject* objPtr : visibleObjects)
 							{
 								const auto& obj = *objPtr;
 
@@ -1497,7 +1495,7 @@ void Renderer::AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, Fr
 		}
 	);
 }
-void Renderer::AddSSAOPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
+void Renderer::AddSSAOPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene)
 {
 	graph.AddPass(
 		"SSAOPass",
@@ -1528,7 +1526,7 @@ void Renderer::AddSSAOPass(GraphicsDevice* device, RenderGraph& graph, FrameCont
 		}
 	);
 }
-void Renderer::AddGTAOPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
+void Renderer::AddGTAOPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene)
 {
 	graph.AddPass(
 		"GTAOPass",
@@ -1550,7 +1548,7 @@ void Renderer::AddGTAOPass(GraphicsDevice* device, RenderGraph& graph, FrameCont
 		}
 	);
 }
-void Renderer::AddSSAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
+void Renderer::AddSSAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene)
 {
 	graph.AddPass(
 		"BilateralBlurPass_Horizontal",
@@ -1608,7 +1606,7 @@ void Renderer::AddSSAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 		}
 	);
 }
-void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
+void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene)
 {
 	graph.AddPass(
 		"BilateralBlurPass_Horizontal",
@@ -1662,7 +1660,7 @@ void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 		}
 	);
 }
-void Renderer::AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
+void Renderer::AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene)
 {
 	graph.AddPass(
 		"PBRLightingPass",
@@ -1716,7 +1714,7 @@ void Renderer::AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, Fr
 		}
 	);
 }
-void Renderer::AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
+void Renderer::AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene)
 {
 	graph.AddPass(
 		"SkyboxPass",
@@ -1743,7 +1741,7 @@ void Renderer::AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameCo
 		}
 	);
 }
-void Renderer::AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
+void Renderer::AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene)
 {
 	graph.AddPass(
 		"DebugPass",
