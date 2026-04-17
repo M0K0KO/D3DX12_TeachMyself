@@ -22,6 +22,7 @@ public:
 	CBHandle UpdateConstantBuffer(UINT slot, const void* data, size_t size) override;
 	void SetComputeDescriptorTable(UINT slot, UINT heapSlot) override;
 	void BindConstantBuffer(uint32_t slot, CBHandle handle) override;
+	void BindComputeConstantBuffer(uint32_t slot, CBHandle handle) override;
 	void BindTexture(TextureHandle handle, uint32_t slot) override;
 	void TransitionBarrier(TextureHandle handle, RGResourceState before, RGResourceState after) override;
 	void ClearRenderTarget(TextureHandle handle, const float clearValue[4]) override;

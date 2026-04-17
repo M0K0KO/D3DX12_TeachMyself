@@ -18,6 +18,7 @@ public:
 	virtual CBHandle UpdateConstantBuffer(UINT slot, const void* data, size_t size) = 0;
 	virtual void SetComputeDescriptorTable(UINT slot, UINT heapSlot) = 0;
 	virtual void BindConstantBuffer(uint32_t slot, CBHandle handle) = 0;
+	virtual void BindComputeConstantBuffer(uint32_t slot, CBHandle handle) = 0;
 	virtual void BindTexture(TextureHandle handle, uint32_t slot) = 0;
 	virtual void TransitionBarrier(TextureHandle handle, RGResourceState before, RGResourceState after) = 0;
 	virtual void ClearRenderTarget(TextureHandle handle, const float clearValue[4]) = 0;

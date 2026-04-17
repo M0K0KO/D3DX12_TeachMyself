@@ -54,6 +54,8 @@ public:
 		RGResourceHandle ssaoTexture;
 		RGResourceHandle ssaoNoiseTexture;
 		RGResourceHandle ssaoTempTexture;
+		RGResourceHandle gtaoTexture;
+		RGResourceHandle gtaoTempTexture;
 
 		CBHandle perFrameCB;
 		CBHandle lightCB;
@@ -63,6 +65,8 @@ public:
 
 		CBHandle ssaoCB;
 		CBHandle bilateralBlurCB;
+		CBHandle gtaoCB;
+		CBHandle gtaoBilateralBlurCB;
 	};
 
 private:
@@ -89,7 +93,9 @@ private:
 	void InitDirectionalShadowPass(GraphicsDevice* device);
 	void InitPointShadowPass(GraphicsDevice* device);
 	void InitSSAOPass(GraphicsDevice* device);
-	void InitBilateralBlurPass(GraphicsDevice* device);
+	void InitGTAOPass(GraphicsDevice* device);
+	void InitSSAOBilateralBlurPass(GraphicsDevice* device);
+	void InitGTAOBilateralBlurPass(GraphicsDevice* device);
 	void InitPBRLightingPass(GraphicsDevice* device);
 	void InitSkyboxPass(GraphicsDevice* device);
 	void InitDebugPass(GraphicsDevice* device);
@@ -99,7 +105,9 @@ private:
 	void AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
 	void AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
 	void AddSSAOPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
-	void AddBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
+	void AddGTAOPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
+	void AddSSAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
+	void AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
 	void AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
 	void AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
 	void AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene);
@@ -166,12 +174,20 @@ private:
 	PipelineDesc m_SSAOPipelineDesc;
 	PipelineHandle m_SSAOPipeline;
 
+	ShaderHandle m_GTAOCS;
+	ComputePipelineDesc m_GTAOComputePipelineDesc;
+	PipelineHandle m_GTAOComputePipeline;
+
 	ShaderHandle m_bilateralBlurVS;
 	ShaderHandle m_bilateralBlurPS_Vertical;
 	ShaderHandle m_bilateralBlurPS_Horizontal;
 	PipelineDesc m_bilateralBlurPipelineDesc;
 	PipelineHandle m_bilateralBlurPipeline_Vertical;
 	PipelineHandle m_bilateralBlurPipeline_Horizontal;
+
+	ShaderHandle m_bilateralBlurCS;
+	ComputePipelineDesc m_bilateralBlurComputePipelineDesc;
+	PipelineHandle m_bilateralBlurComputePipeline;
 
 	BufferHandle m_perFrameCB;
 	BufferHandle m_perObjectCB;
@@ -201,6 +217,9 @@ private:
 	TextureHandle m_ssaoTexture;
 	TextureHandle m_ssaoNoiseTexture;
 	TextureHandle m_ssaoTempTexture;
+
+	TextureHandle m_gtaoTexture;
+	TextureHandle m_gtaoTempTexture;
 
 	struct PerFrameCB
 	{
@@ -283,6 +302,19 @@ private:
 		XMFLOAT4 Samples[32];
 	};
 
+	struct GTAOCB
+	{
+		XMFLOAT4X4 View;
+		XMFLOAT4X4 InvProj;
+		XMFLOAT2 InvRes;
+		float Radius;
+		float FalloffStart;
+		float FalloffEnd;
+		UINT NumSlices;
+		UINT NumSteps;
+		UINT FrameIndex;
+	};
+
 	struct BilateralBlurCB
 	{
 		XMFLOAT2 TexelSize; 
@@ -290,6 +322,14 @@ private:
 		float NormalSigma;
 	};
 
+	struct GTAOBilateralBlurCB
+	{
+		XMFLOAT2 InvRes;
+		XMINT2 Direction;
+		float DepthSigma;
+		float NormalSigma;
+		int Radius;
+	};
 
 	struct MaterialConstants
 	{

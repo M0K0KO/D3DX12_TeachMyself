@@ -38,7 +38,9 @@ void Renderer::Init(GraphicsDevice* device)
 	InitDirectionalShadowPass(device);
 	InitPointShadowPass(device);
 	InitSSAOPass(device);
-	InitBilateralBlurPass(device);
+	InitGTAOPass(device);
+	InitSSAOBilateralBlurPass(device);
+	InitGTAOBilateralBlurPass(device);
 	InitPBRLightingPass(device);
 	InitSkyboxPass(device);
 	InitDebugPass(device);
@@ -142,6 +144,12 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene, const FrameDat
 	RGResourceDesc ssaoTempTextureDesc = { m_width / 2, m_height / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
 	RGResourceHandle ssaoTempTexture = graph.ImportTexture(m_ssaoTempTexture, ssaoTempTextureDesc, RGResourceState::RenderTarget);
 
+	RGResourceDesc gtaoTextureDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::UnorderedAccess };
+	RGResourceHandle gtaoTexture = graph.ImportTexture(m_gtaoTexture, gtaoTextureDesc, RGResourceState::UnorderedAccess);
+	
+	RGResourceDesc gtaoTempTextureDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::UnorderedAccess };
+	RGResourceHandle gtaoTempTexture = graph.ImportTexture(m_gtaoTempTexture, gtaoTempTextureDesc, RGResourceState::UnorderedAccess);
+
 	PerFrameCB perFrame;
 	XMMATRIX vp = XMLoadFloat4x4(&frameData.ViewMatrix) * XMLoadFloat4x4(&frameData.ProjMatrix);
 	XMStoreFloat4x4(&perFrame.ViewProj, XMMatrixTranspose(vp));
@@ -202,7 +210,7 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene, const FrameDat
 		irradiacneMap, prefilteredEnvMap, brdfLUT, shadowMap, pointShadowMaps,
 		importedPointLightCount,
 		std::move(fcPointLights),
-		ssaoTexture, ssaoNoiseTexture, ssaoTempTexture,
+		ssaoTexture, ssaoNoiseTexture, ssaoTempTexture, gtaoTexture, gtaoTempTexture,
 		{}, {}, {}, {}, {}, {}
 	};
 
@@ -232,6 +240,18 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene, const FrameDat
 	blurCB.TexelSize = { 2.0f / m_width, 2.0f / m_height };
 
 
+	GTAOCB gtaoCB;
+	XMStoreFloat4x4(&gtaoCB.View, XMMatrixTranspose(XMLoadFloat4x4(&frameData.ViewMatrix)));
+	XMStoreFloat4x4(&gtaoCB.InvProj, XMMatrixInverse(nullptr, XMMatrixTranspose(XMLoadFloat4x4(&frameData.ProjMatrix))));
+	XMStoreFloat2(&gtaoCB.InvRes, { 1.0f / m_width, 1.0f / m_height });
+	gtaoCB.Radius = 0.5f;
+	gtaoCB.FalloffStart = gtaoCB.Radius * 0.75f;
+	gtaoCB.FalloffEnd = gtaoCB.Radius;
+	gtaoCB.NumSlices = 2;
+	gtaoCB.NumSteps = 6;
+	gtaoCB.FrameIndex = 0;
+
+
 	float cascadeSplits[CASCADE_COUNT + 1];
 
 	BuildCascadeShadowMatrices(
@@ -258,6 +278,7 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene, const FrameDat
 			fc.pointShadowCB = passCtx.UpdateConstantBuffer(3, &pointShadow, sizeof(PointShadowCB));
 			fc.ssaoCB = passCtx.UpdateConstantBuffer(4, &ssaoCB, sizeof(SSAOCB));
 			fc.bilateralBlurCB = passCtx.UpdateConstantBuffer(5, &blurCB, sizeof(BilateralBlurCB));
+			fc.gtaoCB = passCtx.UpdateConstantBuffer(6, &gtaoCB, sizeof(GTAOCB));
 		}
 	);
 
@@ -266,8 +287,12 @@ void Renderer::Render(GraphicsDevice* device, const Scene& scene, const FrameDat
 	AddDirectionalShadowPass(device, graph, fc, scene);
 	AddPointShadowPass(device, graph, fc, scene);
 
+	
 	AddSSAOPass(device, graph, fc, scene);
-	AddBilateralBlurPass(device, graph, fc, scene);
+	AddGTAOPass(device, graph, fc, scene);
+
+	//AddSSAOBilateralBlurPass(device, graph, fc, scene);
+	AddGTAOBilateralBlurPass(device, graph, fc, scene);
 
 	if (debugMode == DebugMode::PBR_Enabled)
 	{
@@ -332,6 +357,8 @@ void Renderer::ReloadPSO(GraphicsDevice* device)
 	bool dirtyDepthDebugPS = ShaderCompiler::IsDirty(m_depthDebugPS);
 	bool dirtyPBRLightingPS = ShaderCompiler::IsDirty(m_PBRlightingPS);
 
+	bool dirtyGTAOCS = ShaderCompiler::IsDirty(m_GTAOCS);
+
 	// Depth PrePass
 	if (dirtyDepthVS)
 	{
@@ -391,6 +418,12 @@ void Renderer::ReloadPSO(GraphicsDevice* device)
 		m_PBRlightingPassPipeline = device->CreatePipeline(m_PBRlightingPassPipelineDesc);
 	}
 
+	if (dirtyGTAOCS)
+	{
+		m_GTAOComputePipelineDesc.cs = ShaderCompiler::GetBytecode(m_GTAOCS);
+		m_GTAOComputePipeline = device->CreateComputePipeline(m_GTAOComputePipelineDesc);
+	}
+
 	// 마지막에 한 번만 clear
 	if (dirtyDepthVS)        ShaderCompiler::ClearDirty(m_depthVS);
 
@@ -402,6 +435,8 @@ void Renderer::ReloadPSO(GraphicsDevice* device)
 	if (dirtyDebugPS)        ShaderCompiler::ClearDirty(m_debugPS);
 	if (dirtyDepthDebugPS)   ShaderCompiler::ClearDirty(m_depthDebugPS);
 	if (dirtyPBRLightingPS)  ShaderCompiler::ClearDirty(m_PBRlightingPS);
+
+	if (dirtyGTAOCS)		 ShaderCompiler::ClearDirty(m_GTAOCS);
 }
 
 void Renderer::PrintGPUTimes(GraphicsDevice* device)
@@ -994,7 +1029,36 @@ void Renderer::InitSSAOPass(GraphicsDevice* device)
 
 	m_ssaoNoiseTexture = device->CreateTexture(ssaoNoiseTextureDesc, noise.data());
 }
-void Renderer::InitBilateralBlurPass(GraphicsDevice* device)
+void Renderer::InitGTAOPass(GraphicsDevice* device)
+{
+	RootSignatureDesc GTAOPassRSDesc = {};
+	GTAOPassRSDesc.allowIA = false;
+	GTAOPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::All });
+	GTAOPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
+	GTAOPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::All });
+	GTAOPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::All });
+	GTAOPassRSDesc.staticSamplers.push_back({ SamplerFilter::Point, SamplerAddressMode::Clamp, 0, ShaderVisibility::All });
+
+	m_GTAOCS = ShaderCompiler::CompileFromFile(
+		L"shaders_GTAO_CS.hlsl",
+		"CSMain",
+		"cs_5_1"
+	);
+
+	m_GTAOComputePipelineDesc = {};
+	m_GTAOComputePipelineDesc.rootSignatureDesc = GTAOPassRSDesc;
+	m_GTAOComputePipelineDesc.cs = ShaderCompiler::GetBytecode(m_GTAOCS);
+	m_GTAOComputePipeline = device->CreateComputePipeline(m_GTAOComputePipelineDesc);
+
+	TextureDesc gtaoTextureDesc = {};
+	gtaoTextureDesc.width = m_width;
+	gtaoTextureDesc.height = m_height;
+	gtaoTextureDesc.format = Format::R8G8B8A8_UNORM;
+	gtaoTextureDesc.usage = TextureUsage::UnorderedAccess;
+	m_gtaoTexture = device->CreateTexture(gtaoTextureDesc);
+	m_gtaoTempTexture = device->CreateTexture(gtaoTextureDesc);
+}
+void Renderer::InitSSAOBilateralBlurPass(GraphicsDevice* device)
 {
 	m_bilateralBlurPS_Vertical = ShaderCompiler::CompileFromFile(
 		L"shaders_BilateralBlurVertical_PS.hlsl",
@@ -1036,6 +1100,35 @@ void Renderer::InitBilateralBlurPass(GraphicsDevice* device)
 	TextureDesc ssaoTempTextureDesc = { m_width / 2, m_height / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
 	m_ssaoTempTexture = device->CreateTexture(ssaoTempTextureDesc, nullptr);
 }
+void Renderer::InitGTAOBilateralBlurPass(GraphicsDevice* device)
+{
+	m_bilateralBlurCS = ShaderCompiler::CompileFromFile(
+		L"shaders_BilateralBlur_CS.hlsl",
+		"CSMain",
+		"cs_5_1"
+	);
+
+	RootSignatureDesc bilateralBlurPassRSDesc = {};
+	bilateralBlurPassRSDesc.allowIA = false;
+	bilateralBlurPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::All });
+	bilateralBlurPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::All });
+	bilateralBlurPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::All });
+	bilateralBlurPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::All });
+	bilateralBlurPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
+	bilateralBlurPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 0, ShaderVisibility::All });
+
+	m_bilateralBlurComputePipelineDesc = {};
+	m_bilateralBlurComputePipelineDesc.rootSignatureDesc = bilateralBlurPassRSDesc;
+	m_bilateralBlurComputePipelineDesc.cs = ShaderCompiler::GetBytecode(m_bilateralBlurCS);
+	m_bilateralBlurComputePipeline = device->CreateComputePipeline(m_bilateralBlurComputePipelineDesc);
+
+	TextureDesc gtaoTempTextureDesc = {};
+	gtaoTempTextureDesc.width = m_width;
+	gtaoTempTextureDesc.height = m_height;
+	gtaoTempTextureDesc.format = Format::R8G8B8A8_UNORM;
+	gtaoTempTextureDesc.usage = TextureUsage::UnorderedAccess;
+	m_gtaoTempTexture = device->CreateTexture(gtaoTempTextureDesc);
+}
 void Renderer::InitPBRLightingPass(GraphicsDevice* device)
 {
 	RootSignatureDesc PBRlightingPassRSDesc = {};
@@ -1051,7 +1144,8 @@ void Renderer::InitPBRLightingPass(GraphicsDevice* device)
 	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 6, 1, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 7, 1, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 8, 1, ShaderVisibility::Pixel });
-	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 9, MAX_POINT_LIGHTS, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 9, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 10, MAX_POINT_LIGHTS, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.staticSamplers.push_back({ SamplerFilter::Point, SamplerAddressMode::Clamp, 0, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 1, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.staticSamplers.push_back({ SamplerFilter::Comparison, SamplerAddressMode::Border, 2, ShaderVisibility::Pixel });
@@ -1434,7 +1528,29 @@ void Renderer::AddSSAOPass(GraphicsDevice* device, RenderGraph& graph, FrameCont
 		}
 	);
 }
-void Renderer::AddBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
+void Renderer::AddGTAOPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
+{
+	graph.AddPass(
+		"GTAOPass",
+		[&](RGBuilder& builder) {
+			builder.Read(fc.depthTexture, RGResourceState::ShaderResource);
+			builder.Read(fc.gbufferNormal, RGResourceState::ShaderResource);
+
+			builder.Write(fc.gtaoTexture, RGResourceState::UnorderedAccess);
+		},
+		[this, &fc, device](CommandContext& passCtx) {
+			{
+				passCtx.SetComputePipeline(m_GTAOComputePipeline);
+				passCtx.BindComputeConstantBuffer(0, fc.gtaoCB);
+				passCtx.SetComputeDescriptorTable(1, device->GetUAVHeapSlot(m_gtaoTexture));
+				passCtx.SetComputeDescriptorTable(2, device->GetSRVHeapSlot(m_depthTexture));
+				passCtx.SetComputeDescriptorTable(3, device->GetSRVHeapSlot(m_gbufferNormal));
+				passCtx.Dispatch((m_width + 7) / 8, (m_height + 7) / 8, 1);
+			}
+		}
+	);
+}
+void Renderer::AddSSAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
 {
 	graph.AddPass(
 		"BilateralBlurPass_Horizontal",
@@ -1492,6 +1608,60 @@ void Renderer::AddBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, 
 		}
 	);
 }
+void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
+{
+	graph.AddPass(
+		"BilateralBlurPass_Horizontal",
+		[&](RGBuilder& builder) {
+			builder.Read(fc.gtaoTexture, RGResourceState::ShaderResource);
+			builder.Read(fc.depthTexture, RGResourceState::ShaderResource);
+			builder.Read(fc.gbufferNormal, RGResourceState::ShaderResource);
+
+			builder.Write(fc.gtaoTempTexture, RGResourceState::UnorderedAccess);
+		},
+		[this, &fc, device](CommandContext& passCtx) {
+			{
+				passCtx.SetComputePipeline(m_bilateralBlurComputePipeline);
+
+				GTAOBilateralBlurCB cb{ {1.0f / m_width, 1.0f / m_height}, {1,0}, 0.1f, 32.0f, 6 };
+				fc.gtaoBilateralBlurCB = passCtx.UpdateConstantBuffer(0, &cb, sizeof(GTAOBilateralBlurCB));
+				passCtx.BindComputeConstantBuffer(0, fc.gtaoBilateralBlurCB);
+
+				passCtx.SetComputeDescriptorTable(1, device->GetSRVHeapSlot(m_gtaoTexture));
+				passCtx.SetComputeDescriptorTable(2, device->GetSRVHeapSlot(m_depthTexture));
+				passCtx.SetComputeDescriptorTable(3, device->GetSRVHeapSlot(m_gbufferNormal));
+				passCtx.SetComputeDescriptorTable(4, device->GetUAVHeapSlot(m_gtaoTempTexture));
+				passCtx.Dispatch((m_width + 7) / 8, (m_height + 7) / 8, 1);
+			}
+		}
+	);
+
+	graph.AddPass(
+		"BilateralBlurPass_Vertical",
+		[&](RGBuilder& builder) {
+			builder.Read(fc.gtaoTempTexture, RGResourceState::ShaderResource);
+			builder.Read(fc.depthTexture, RGResourceState::ShaderResource);
+			builder.Read(fc.gbufferNormal, RGResourceState::ShaderResource);
+
+			builder.Write(fc.gtaoTexture, RGResourceState::UnorderedAccess);
+		},
+		[this, &fc, device](CommandContext& passCtx) {
+			{
+				passCtx.SetComputePipeline(m_bilateralBlurComputePipeline);
+
+				GTAOBilateralBlurCB cb{ {1.0f / m_width, 1.0f / m_height}, {0,1}, 0.1f, 32.0f, 6 };
+				fc.gtaoBilateralBlurCB = passCtx.UpdateConstantBuffer(0, &cb, sizeof(GTAOBilateralBlurCB));
+				passCtx.BindComputeConstantBuffer(0, fc.gtaoBilateralBlurCB);
+
+				passCtx.SetComputeDescriptorTable(1, device->GetSRVHeapSlot(m_gtaoTempTexture));
+				passCtx.SetComputeDescriptorTable(2, device->GetSRVHeapSlot(m_depthTexture));
+				passCtx.SetComputeDescriptorTable(3, device->GetSRVHeapSlot(m_gbufferNormal));
+				passCtx.SetComputeDescriptorTable(4, device->GetUAVHeapSlot(m_gtaoTexture));
+				passCtx.Dispatch((m_width + 7) / 8, (m_height + 7) / 8, 1);
+			}
+		}
+	);
+}
 void Renderer::AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const Scene& scene)
 {
 	graph.AddPass(
@@ -1506,6 +1676,7 @@ void Renderer::AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, Fr
 			builder.Read(fc.brdfLutTexture, RGResourceState::ShaderResource);
 			builder.Read(fc.shadowMap, RGResourceState::ShaderResource);
 			builder.Read(fc.ssaoTexture, RGResourceState::ShaderResource);
+			builder.Read(fc.gtaoTexture, RGResourceState::ShaderResource);
 
 			for (auto& resource : fc.pointShadowMaps)
 			{
@@ -1536,7 +1707,8 @@ void Renderer::AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, Fr
 				passCtx.BindTexture(m_brdfLUTTexture, 9);
 				passCtx.BindTexture(m_shadowMapTexture, 10);
 				passCtx.BindTexture(m_ssaoTexture, 11);
-				passCtx.BindTexture(m_pointShadowMapTextures[0], 12);
+				passCtx.BindTexture(m_gtaoTexture, 12);
+				passCtx.BindTexture(m_pointShadowMapTextures[0], 13);
 
 				passCtx.Draw(3, 0);
 			}

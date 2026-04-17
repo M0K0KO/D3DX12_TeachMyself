@@ -95,6 +95,11 @@ void CommandContext_DX12::BindConstantBuffer(uint32_t slot, CBHandle handle)
 	m_commandList->SetGraphicsRootConstantBufferView(slot, handle.gpuAddress);
 }
 
+void CommandContext_DX12::BindComputeConstantBuffer(uint32_t slot, CBHandle handle)
+{
+	m_commandList->SetComputeRootConstantBufferView(slot, handle.gpuAddress);
+}
+
 void CommandContext_DX12::BindTexture(TextureHandle handle, uint32_t slot)
 {
 	auto texture = m_pDevice->m_textures[handle.id];
