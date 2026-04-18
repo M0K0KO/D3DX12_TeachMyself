@@ -227,6 +227,8 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="ComponentPool.h" />
     <ClInclude Include="components.h" />
     <ClInclude Include="d3dx12.h" />
+    <ClInclude Include="DescriptorAllocator.h" />
+    <ClInclude Include="DescriptorHandle.h" />
     <ClInclude Include="DirectXTex\DirectXTex.h" />
     <ClInclude Include="DX12Helpers.h" />
     <ClInclude Include="Entity.h" />
@@ -269,6 +271,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="AssetLoader.cpp" />
     <ClCompile Include="CameraControllerSystem.cpp" />
     <ClCompile Include="CommandContext_DX12.cpp" />
+    <ClCompile Include="DescriptorAllocator.cpp" />
     <ClCompile Include="DX12Helpers.cpp" />
     <ClCompile Include="EntityManager.cpp" />
     <ClCompile Include="EntityScene.cpp" />

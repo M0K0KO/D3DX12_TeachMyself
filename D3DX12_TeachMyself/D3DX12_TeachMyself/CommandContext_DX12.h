@@ -17,13 +17,24 @@ public:
 	void SetPipeline(PipelineHandle handle) override;
 	void SetVertexBuffer(BufferHandle handle) override;
 	void SetIndexBuffer(BufferHandle handle) override;
-	void SetComputeRootConstants(UINT slot, const void* data, UINT count32Bit) override;
-	void SetRootConstants(UINT slot, const void* data, UINT count32Bit) override;
-	CBHandle UpdateConstantBuffer(UINT slot, const void* data, size_t size) override;
-	void SetComputeDescriptorTable(UINT slot, UINT heapSlot) override;
+	
+	void SetRootConstants(uint32_t slot, const void* data, uint32_t count32Bit) override;
+	void SetComputeRootConstants(uint32_t slot, const void* data, uint32_t count32Bit) override;
+
+	CBHandle UpdateConstantBuffer(const void* data, size_t size) override;
+
 	void BindConstantBuffer(uint32_t slot, CBHandle handle) override;
 	void BindComputeConstantBuffer(uint32_t slot, CBHandle handle) override;
-	void BindTexture(TextureHandle handle, uint32_t slot) override;
+
+	void BindTexture(uint32_t slot, TextureHandle handle) override;
+	void BindComputeTexture(uint32_t slot, TextureHandle handle) override;
+
+	void BindUav(uint32_t slot, TextureHandle handle, uint32_t mip = 0) override;
+	void BindComputeUav(uint32_t slot, TextureHandle handle, uint32_t mip = 0) override;
+
+	void SetDescriptorTable(uint32_t slot, DescriptorHandle handle) override;
+	void SetComputeDescriptorTable(uint32_t slot, DescriptorHandle handle) override;
+
 	void TransitionBarrier(TextureHandle handle, RGResourceState before, RGResourceState after) override;
 	void ClearRenderTarget(TextureHandle handle, const float clearValue[4]) override;
 	void ClearDepthStencil(TextureHandle handle, float depth, int faceIdx = -1) override;

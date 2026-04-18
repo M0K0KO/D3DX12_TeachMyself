@@ -1,3 +1,5 @@
+#define NOMINMAX
+
 #include "Renderer.h"
 #include "ShaderCompiler.h"
 #include "CommandContext.h"
@@ -130,7 +132,7 @@ void Renderer::Render(GraphicsDevice* device, const RenderScene& renderScene)
 
 	std::vector<RGResourceHandle> pointShadowMaps;
 	RGResourceDesc pointShadowMapDesc = { 1024, 1024, Format::R32_TYPELESS, TextureUsage::DepthStencil };
-	const int importedPointLightCount = min(MAX_POINT_LIGHTS, frameData.PointLightCount);
+	const int importedPointLightCount = std::min(MAX_POINT_LIGHTS, frameData.PointLightCount);
 	for (int i = 0; i < importedPointLightCount; i++)
 	{
 		pointShadowMaps.push_back(graph.ImportTexture(m_pointShadowMapTextures[i], pointShadowMapDesc, RGResourceState::DepthWrite));
@@ -167,7 +169,7 @@ void Renderer::Render(GraphicsDevice* device, const RenderScene& renderScene)
 	light.Ambient = { 0.03f, 0.03f, 0.03f };
 
 	light.PointLightCount = frameData.PointLightCount;
-	for (int i = 0; i < min(MAX_POINT_LIGHTS, frameData.PointLightCount); i++)
+	for (int i = 0; i < std::min(MAX_POINT_LIGHTS, frameData.PointLightCount); i++)
 	{
 		auto pointLight = frameData.PointLights[i];
 		light.PointLights[i] = { pointLight.Position, pointLight.Radius, pointLight.Color, pointLight.Intensity };
@@ -272,13 +274,13 @@ void Renderer::Render(GraphicsDevice* device, const RenderScene& renderScene)
 		shadow.cascadeSplits[c] = cascadeSplits[c + 1];
 	}
 
-	fc.perFrameCB = ctx.UpdateConstantBuffer(0, &perFrame, sizeof(PerFrameCB));
-	fc.lightCB = ctx.UpdateConstantBuffer(1, &light, sizeof(LightCB));
-	fc.shadowCB = ctx.UpdateConstantBuffer(2, &shadow, sizeof(ShadowCB));
-	fc.pointShadowCB = ctx.UpdateConstantBuffer(3, &pointShadow, sizeof(PointShadowCB));
-	fc.ssaoCB = ctx.UpdateConstantBuffer(4, &ssaoCB, sizeof(SSAOCB));
-	fc.bilateralBlurCB = ctx.UpdateConstantBuffer(5, &blurCB, sizeof(BilateralBlurCB));
-	fc.gtaoCB = ctx.UpdateConstantBuffer(6, &gtaoCB, sizeof(GTAOCB));
+	fc.perFrameCB = ctx.UpdateConstantBuffer(&perFrame, sizeof(PerFrameCB));
+	fc.lightCB = ctx.UpdateConstantBuffer(&light, sizeof(LightCB));
+	fc.shadowCB = ctx.UpdateConstantBuffer(&shadow, sizeof(ShadowCB));
+	fc.pointShadowCB = ctx.UpdateConstantBuffer(&pointShadow, sizeof(PointShadowCB));
+	fc.ssaoCB = ctx.UpdateConstantBuffer(&ssaoCB, sizeof(SSAOCB));
+	fc.bilateralBlurCB = ctx.UpdateConstantBuffer(&blurCB, sizeof(BilateralBlurCB));
+	fc.gtaoCB = ctx.UpdateConstantBuffer(&gtaoCB, sizeof(GTAOCB));
 
 	AddDepthPrePass(device, graph, fc, renderScene);
 	AddGBufferPass(device, graph, fc, renderScene);
@@ -507,8 +509,8 @@ void Renderer::CreateCubeMap(GraphicsDevice* device)
 	device->ExecuteImmediate(
 		[&](CommandContext& ctx) {
 			ctx.SetComputePipeline(m_equirectCSPipeline);
-			ctx.SetComputeDescriptorTable(0, device->GetSRVHeapSlot(m_equirectTexture));
-			ctx.SetComputeDescriptorTable(1, device->GetUAVHeapSlot(m_cubemapTexture));
+			ctx.SetComputeDescriptorTable(0, device->GetSRVHandle(m_equirectTexture));
+			ctx.SetComputeDescriptorTable(1, device->GetUAVHandle(m_cubemapTexture));
 			ctx.SetComputeRootConstants(2, &kCubemapSize, 1);
 			ctx.Dispatch(kCubemapSize / 8, kCubemapSize / 8, 6);
 
@@ -546,8 +548,8 @@ void Renderer::CreateIrradianceMap(GraphicsDevice* device)
 	device->ExecuteImmediate(
 		[&](CommandContext& ctx) {
 			ctx.SetComputePipeline(m_irradianceMapCSPipeline);
-			ctx.SetComputeDescriptorTable(0, device->GetSRVHeapSlot(m_cubemapTexture));
-			ctx.SetComputeDescriptorTable(1, device->GetUAVHeapSlot(m_irradianceMapTexture));
+			ctx.SetComputeDescriptorTable(0, device->GetSRVHandle(m_cubemapTexture));
+			ctx.SetComputeDescriptorTable(1, device->GetUAVHandle(m_irradianceMapTexture));
 			ctx.Dispatch(32 / 8, 32 / 8, 6);
 
 			ctx.TransitionBarrier(m_irradianceMapTexture, RGResourceState::UnorderedAccess, RGResourceState::ShaderResource);
@@ -591,14 +593,14 @@ void Renderer::CreatePrefilteredEnvironmentMap(GraphicsDevice* device)
 	device->ExecuteImmediate(
 		[&](CommandContext& ctx) {
 			ctx.SetComputePipeline(m_prefilteredEnvironmentMapCSPipeline);
-			ctx.SetComputeDescriptorTable(0, device->GetSRVHeapSlot(m_cubemapTexture));
+			ctx.SetComputeDescriptorTable(0, device->GetSRVHandle(m_cubemapTexture));
 
 			for (uint32_t mip = 0; mip < mipLevels; mip++)
 			{
 				float roughness = (float)mip / (float(mipLevels - 1));
 				uint32_t mipSize = 512 >> mip;
 
-				ctx.SetComputeDescriptorTable(1, device->GetUAVHeapSlot(m_prefilteredEnvMapTexture, mip));
+				ctx.SetComputeDescriptorTable(1, device->GetUAVHandle(m_prefilteredEnvMapTexture, mip));
 				ctx.SetComputeRootConstants(2, &roughness, 1);
 				ctx.Dispatch(
 					std::max(mipSize / 8u, 1u),
@@ -638,7 +640,7 @@ void Renderer::CreateBRDFLUT(GraphicsDevice* device)
 	device->ExecuteImmediate(
 		[&](CommandContext& ctx) {
 			ctx.SetComputePipeline(m_brdfLUTCSPipeline);
-			ctx.SetComputeDescriptorTable(0, device->GetUAVHeapSlot(m_brdfLUTTexture));
+			ctx.SetComputeDescriptorTable(0, device->GetUAVHandle(m_brdfLUTTexture));
 			ctx.Dispatch(512 / 16, 512 / 16, 1);
 
 			ctx.TransitionBarrier(m_brdfLUTTexture, RGResourceState::UnorderedAccess, RGResourceState::ShaderResource);
@@ -734,9 +736,9 @@ void Renderer::BuildCascadeShadowMatrices(
 			XMFLOAT3 p;
 			XMStoreFloat3(&p, v);
 
-			mins.x = min(mins.x, p.x);
-			mins.y = min(mins.y, p.y);
-			mins.z = min(mins.z, p.z);
+			mins.x = std::min(mins.x, p.x);
+			mins.y = std::min(mins.y, p.y);
+			mins.z = std::min(mins.z, p.z);
 
 			maxs.x = std::max(maxs.x, p.x);
 			maxs.y = std::max(maxs.y, p.y);
@@ -751,7 +753,7 @@ void Renderer::BuildCascadeShadowMatrices(
 			XMFLOAT3 p;
 			XMStoreFloat3(&p, v);
 
-			sceneZMin = min(sceneZMin, p.z);
+			sceneZMin = std::min(sceneZMin, p.z);
 		}
 
 		mins.z = sceneZMin;
@@ -1258,7 +1260,7 @@ void Renderer::AddDepthPrePass(GraphicsDevice* device, RenderGraph& graph, Frame
 				{
 					if (obj.material.alphaMode == AlphaMode::Opaque)
 					{
-						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
+						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(&obj.world, sizeof(PerObjectCB));
 						passCtx.BindConstantBuffer(1, perObjectCBHandle);
 						passCtx.SetVertexBuffer(obj.vertexBuffer);
 						passCtx.SetIndexBuffer(obj.indexBuffer);
@@ -1303,14 +1305,14 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 
 						passCtx.SetRootConstants(5, &matConst, 3);
 
-						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
+						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(&obj.world, sizeof(PerObjectCB));
 						passCtx.SetVertexBuffer(obj.vertexBuffer);
 						passCtx.SetIndexBuffer(obj.indexBuffer);
 
 						passCtx.BindConstantBuffer(1, perObjectCBHandle);
-						passCtx.BindTexture(obj.material.baseColor, 2);
-						passCtx.BindTexture(obj.material.normal, 3);
-						passCtx.BindTexture(obj.material.metallicRoughness, 4);
+						passCtx.BindTexture(2, obj.material.baseColor);
+						passCtx.BindTexture(3, obj.material.normal);
+						passCtx.BindTexture(4, obj.material.metallicRoughness);
 
 						assert(obj.indexBuffer.IsValid());
 						assert(obj.vertexBuffer.IsValid());
@@ -1347,15 +1349,15 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 						matConst.roughnessFactor = obj.material.roughnessFactor;
 						passCtx.SetRootConstants(5, &matConst, 3);
 
-						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
+						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(&obj.world, sizeof(PerObjectCB));
 
 						passCtx.SetVertexBuffer(obj.vertexBuffer);
 						passCtx.SetIndexBuffer(obj.indexBuffer);
 
 						passCtx.BindConstantBuffer(1, perObjectCBHandle);
-						passCtx.BindTexture(obj.material.baseColor, 2);
-						passCtx.BindTexture(obj.material.normal, 3);
-						passCtx.BindTexture(obj.material.metallicRoughness, 4);
+						passCtx.BindTexture(2, obj.material.baseColor);
+						passCtx.BindTexture(3, obj.material.normal);
+						passCtx.BindTexture(4, obj.material.metallicRoughness);
 
 						passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
 					}
@@ -1392,14 +1394,14 @@ void Renderer::AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& gra
 
 						XMFLOAT4X4 transposed;
 						XMStoreFloat4x4(&transposed, XMMatrixTranspose(fc.LightViewProj[c]));
-						auto cascadeCB = passCtx.UpdateConstantBuffer(0, &transposed, sizeof(XMFLOAT4X4));
+						auto cascadeCB = passCtx.UpdateConstantBuffer(&transposed, sizeof(XMFLOAT4X4));
 						passCtx.BindConstantBuffer(0, cascadeCB);
 
 						for (const auto& obj : scene.renderObjects)
 						{
 							if (obj.material.alphaMode == AlphaMode::Opaque)
 							{
-								auto perObjectCB = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
+								auto perObjectCB = passCtx.UpdateConstantBuffer(&obj.world, sizeof(PerObjectCB));
 								passCtx.BindConstantBuffer(1, perObjectCB);
 								passCtx.SetVertexBuffer(obj.vertexBuffer);
 								passCtx.SetIndexBuffer(obj.indexBuffer);
@@ -1472,7 +1474,7 @@ void Renderer::AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, Fr
 							{
 								const auto& obj = *objPtr;
 
-								auto perObjectCB = passCtx.UpdateConstantBuffer(1, &obj.world, sizeof(obj.world));
+								auto perObjectCB = passCtx.UpdateConstantBuffer(&obj.world, sizeof(PerObjectCB));
 								passCtx.BindConstantBuffer(1, perObjectCB);
 
 								if (obj.vertexBuffer.id != lastVB)
@@ -1517,9 +1519,9 @@ void Renderer::AddSSAOPass(GraphicsDevice* device, RenderGraph& graph, FrameCont
 				passCtx.BindConstantBuffer(0, fc.perFrameCB);
 				passCtx.BindConstantBuffer(1, fc.ssaoCB);
 
-				passCtx.BindTexture(m_depthTexture, 2);
-				passCtx.BindTexture(m_gbufferNormal, 3);
-				passCtx.BindTexture(m_ssaoNoiseTexture, 4);
+				passCtx.BindTexture(2, m_depthTexture);
+				passCtx.BindTexture(3, m_gbufferNormal);
+				passCtx.BindTexture(4, m_ssaoNoiseTexture);
 
 				passCtx.Draw(3, 0);
 			}
@@ -1540,9 +1542,9 @@ void Renderer::AddGTAOPass(GraphicsDevice* device, RenderGraph& graph, FrameCont
 			{
 				passCtx.SetComputePipeline(m_GTAOComputePipeline);
 				passCtx.BindComputeConstantBuffer(0, fc.gtaoCB);
-				passCtx.SetComputeDescriptorTable(1, device->GetUAVHeapSlot(m_gtaoTexture));
-				passCtx.SetComputeDescriptorTable(2, device->GetSRVHeapSlot(m_depthTexture));
-				passCtx.SetComputeDescriptorTable(3, device->GetSRVHeapSlot(m_gbufferNormal));
+				passCtx.SetComputeDescriptorTable(1, device->GetUAVHandle(m_gtaoTexture));
+				passCtx.SetComputeDescriptorTable(2, device->GetSRVHandle(m_depthTexture));
+				passCtx.SetComputeDescriptorTable(3, device->GetSRVHandle(m_gbufferNormal));
 				passCtx.Dispatch((m_width + 7) / 8, (m_height + 7) / 8, 1);
 			}
 		}
@@ -1569,9 +1571,9 @@ void Renderer::AddSSAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 
 				passCtx.BindConstantBuffer(0, fc.bilateralBlurCB);
 
-				passCtx.BindTexture(m_ssaoTexture, 1);
-				passCtx.BindTexture(m_depthTexture, 2);
-				passCtx.BindTexture(m_gbufferNormal, 3);
+				passCtx.BindTexture(1, m_ssaoTexture);
+				passCtx.BindTexture(2, m_depthTexture);
+				passCtx.BindTexture(3, m_gbufferNormal);
 
 				passCtx.Draw(3, 0);
 			}
@@ -1597,9 +1599,9 @@ void Renderer::AddSSAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 
 				passCtx.BindConstantBuffer(0, fc.bilateralBlurCB);
 
-				passCtx.BindTexture(m_ssaoTempTexture, 1);
-				passCtx.BindTexture(m_depthTexture, 2);
-				passCtx.BindTexture(m_gbufferNormal, 3);
+				passCtx.BindTexture(1, m_ssaoTempTexture);
+				passCtx.BindTexture(2, m_depthTexture);
+				passCtx.BindTexture(3, m_gbufferNormal);
 
 				passCtx.Draw(3, 0);
 			}
@@ -1622,13 +1624,13 @@ void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 				passCtx.SetComputePipeline(m_bilateralBlurComputePipeline);
 
 				GTAOBilateralBlurCB cb{ {1.0f / m_width, 1.0f / m_height}, {1,0}, 0.1f, 32.0f, 6 };
-				fc.gtaoBilateralBlurCB = passCtx.UpdateConstantBuffer(0, &cb, sizeof(GTAOBilateralBlurCB));
+				fc.gtaoBilateralBlurCB = passCtx.UpdateConstantBuffer(&cb, sizeof(GTAOBilateralBlurCB));
 				passCtx.BindComputeConstantBuffer(0, fc.gtaoBilateralBlurCB);
 
-				passCtx.SetComputeDescriptorTable(1, device->GetSRVHeapSlot(m_gtaoTexture));
-				passCtx.SetComputeDescriptorTable(2, device->GetSRVHeapSlot(m_depthTexture));
-				passCtx.SetComputeDescriptorTable(3, device->GetSRVHeapSlot(m_gbufferNormal));
-				passCtx.SetComputeDescriptorTable(4, device->GetUAVHeapSlot(m_gtaoTempTexture));
+				passCtx.SetComputeDescriptorTable(1, device->GetSRVHandle(m_gtaoTexture));
+				passCtx.SetComputeDescriptorTable(2, device->GetSRVHandle(m_depthTexture));
+				passCtx.SetComputeDescriptorTable(3, device->GetSRVHandle(m_gbufferNormal));
+				passCtx.SetComputeDescriptorTable(4, device->GetUAVHandle(m_gtaoTempTexture));
 				passCtx.Dispatch((m_width + 7) / 8, (m_height + 7) / 8, 1);
 			}
 		}
@@ -1648,13 +1650,13 @@ void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 				passCtx.SetComputePipeline(m_bilateralBlurComputePipeline);
 
 				GTAOBilateralBlurCB cb{ {1.0f / m_width, 1.0f / m_height}, {0,1}, 0.1f, 32.0f, 6 };
-				fc.gtaoBilateralBlurCB = passCtx.UpdateConstantBuffer(0, &cb, sizeof(GTAOBilateralBlurCB));
+				fc.gtaoBilateralBlurCB = passCtx.UpdateConstantBuffer(&cb, sizeof(GTAOBilateralBlurCB));
 				passCtx.BindComputeConstantBuffer(0, fc.gtaoBilateralBlurCB);
 
-				passCtx.SetComputeDescriptorTable(1, device->GetSRVHeapSlot(m_gtaoTempTexture));
-				passCtx.SetComputeDescriptorTable(2, device->GetSRVHeapSlot(m_depthTexture));
-				passCtx.SetComputeDescriptorTable(3, device->GetSRVHeapSlot(m_gbufferNormal));
-				passCtx.SetComputeDescriptorTable(4, device->GetUAVHeapSlot(m_gtaoTexture));
+				passCtx.SetComputeDescriptorTable(1, device->GetSRVHandle(m_gtaoTempTexture));
+				passCtx.SetComputeDescriptorTable(2, device->GetSRVHandle(m_depthTexture));
+				passCtx.SetComputeDescriptorTable(3, device->GetSRVHandle(m_gbufferNormal));
+				passCtx.SetComputeDescriptorTable(4, device->GetUAVHandle(m_gtaoTexture));
 				passCtx.Dispatch((m_width + 7) / 8, (m_height + 7) / 8, 1);
 			}
 		}
@@ -1696,17 +1698,17 @@ void Renderer::AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, Fr
 				passCtx.BindConstantBuffer(1, fc.lightCB);
 				passCtx.BindConstantBuffer(2, fc.shadowCB);
 
-				passCtx.BindTexture(m_depthTexture, 3);
-				passCtx.BindTexture(m_gbufferAlbedo, 4);
-				passCtx.BindTexture(m_gbufferNormal, 5);
-				passCtx.BindTexture(m_gbufferMR, 6);
-				passCtx.BindTexture(m_irradianceMapTexture, 7);
-				passCtx.BindTexture(m_prefilteredEnvMapTexture, 8);
-				passCtx.BindTexture(m_brdfLUTTexture, 9);
-				passCtx.BindTexture(m_shadowMapTexture, 10);
-				passCtx.BindTexture(m_ssaoTexture, 11);
-				passCtx.BindTexture(m_gtaoTexture, 12);
-				passCtx.BindTexture(m_pointShadowMapTextures[0], 13);
+				passCtx.BindTexture(3, m_depthTexture);
+				passCtx.BindTexture(4, m_gbufferAlbedo);
+				passCtx.BindTexture(5, m_gbufferNormal);
+				passCtx.BindTexture(6, m_gbufferMR);
+				passCtx.BindTexture(7, m_irradianceMapTexture);
+				passCtx.BindTexture(8, m_prefilteredEnvMapTexture);
+				passCtx.BindTexture(9, m_brdfLUTTexture);
+				passCtx.BindTexture(10, m_shadowMapTexture);
+				passCtx.BindTexture(11, m_ssaoTexture);
+				passCtx.BindTexture(12, m_gtaoTexture);
+				passCtx.BindTexture(13, m_pointShadowMapTextures[0]);
 
 				passCtx.Draw(3, 0);
 			}
@@ -1733,7 +1735,7 @@ void Renderer::AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameCo
 
 			passCtx.BindConstantBuffer(0, fc.perFrameCB);
 
-			passCtx.BindTexture(m_cubemapTexture, 1);
+			passCtx.BindTexture(1, m_cubemapTexture);
 
 			passCtx.Draw(3, 0);
 
@@ -1761,37 +1763,37 @@ void Renderer::AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameCon
 			if (debugMode == DebugMode::DepthTexture)
 			{
 				passCtx.SetPipeline(m_depthDebugPipeline);
-				passCtx.BindTexture(m_depthTexture, 0);
+				passCtx.BindTexture(0, m_depthTexture);
 			}
 			else if (debugMode == DebugMode::Albedo)
 			{
 				passCtx.SetPipeline(m_debugPipeline);
-				passCtx.BindTexture(m_gbufferAlbedo, 0);
+				passCtx.BindTexture(0, m_gbufferAlbedo);
 			}
 			else if (debugMode == DebugMode::Normal)
 			{
 				passCtx.SetPipeline(m_debugPipeline);
-				passCtx.BindTexture(m_gbufferNormal, 0);
+				passCtx.BindTexture(0, m_gbufferNormal);
 			}
 			else if (debugMode == DebugMode::MR)
 			{
 				passCtx.SetPipeline(m_debugPipeline);
-				passCtx.BindTexture(m_gbufferMR, 0);
+				passCtx.BindTexture(0, m_gbufferMR);
 			}
 			else if (debugMode == DebugMode::BRDF_LUT)
 			{
 				passCtx.SetPipeline(m_debugPipeline);
-				passCtx.BindTexture(m_brdfLUTTexture, 0);
+				passCtx.BindTexture(0, m_brdfLUTTexture);
 			}
 			else if (debugMode == DebugMode::IrradianceMap)
 			{
 				passCtx.SetPipeline(m_debugPipeline);
-				passCtx.BindTexture(m_irradianceMapTexture, 0);
+				passCtx.BindTexture(0, m_irradianceMapTexture);
 			}
 			else if (debugMode == DebugMode::PreFilteredEnvrionmentMap)
 			{
 				passCtx.SetPipeline(m_debugPipeline);
-				passCtx.BindTexture(m_prefilteredEnvMapTexture, 0);
+				passCtx.BindTexture(0, m_prefilteredEnvMapTexture);
 			}
 			passCtx.SetViewport(0, 0, (float)m_width, (float)m_height);
 			passCtx.SetScissorRect(0, 0, (LONG)m_width, (LONG)m_height);

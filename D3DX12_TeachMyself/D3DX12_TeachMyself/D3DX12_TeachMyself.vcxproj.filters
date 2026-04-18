@@ -135,6 +135,9 @@
     <ClCompile Include="InputState.cpp">
       <Filter>Source Files\ECS</Filter>
     </ClCompile>
+    <ClCompile Include="DescriptorAllocator.cpp">
+      <Filter>Source Files\Allocator</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -268,6 +271,12 @@
     </ClInclude>
     <ClInclude Include="InputState.h">
       <Filter>Header Files\ECS</Filter>
+    </ClInclude>
+    <ClInclude Include="DescriptorHandle.h">
+      <Filter>Header Files\Allocator</Filter>
+    </ClInclude>
+    <ClInclude Include="DescriptorAllocator.h">
+      <Filter>Header Files\Allocator</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

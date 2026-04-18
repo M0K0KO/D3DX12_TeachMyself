@@ -1,5 +1,6 @@
 #pragma once
 #include "RHITypes.h"
+#include "DescriptorHandle.h"
 #include <functional>
 #include <string>
 
@@ -19,8 +20,8 @@ public:
 	virtual PipelineHandle CreatePipeline(const PipelineDesc desc) = 0;
 	virtual PipelineHandle CreateComputePipeline(const ComputePipelineDesc desc) = 0;
 
-	virtual uint32_t GetSRVHeapSlot(TextureHandle handle) = 0;
-	virtual uint32_t GetUAVHeapSlot(TextureHandle handle, uint32_t mip = 0) = 0;
+	virtual DescriptorHandle GetSRVHandle(TextureHandle handle) = 0;
+	virtual DescriptorHandle GetUAVHandle(TextureHandle handle, uint32_t mip = 0) = 0;
 
 	virtual void BeginTextureUpload() = 0;
 	virtual TextureHandle LoadTexture(const std::wstring& path) = 0;

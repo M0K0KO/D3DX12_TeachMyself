@@ -6,7 +6,9 @@
 #include "TextureLoader.h"
 #include "GPUTimestampProfiler.h"
 #include <functional>
-
+#include "DescriptorAllocator.h"
+#include "DescriptorHandle.h"
+#include <array>
 
 using namespace Microsoft::WRL;
 using namespace DirectX;
@@ -27,8 +29,8 @@ public:
 	PipelineHandle CreatePipeline(const PipelineDesc desc) override;
 	PipelineHandle CreateComputePipeline(const ComputePipelineDesc desc) override;
 
-	uint32_t GetSRVHeapSlot(TextureHandle handle) override;
-	uint32_t GetUAVHeapSlot(TextureHandle handle, uint32_t mip = 0) override;
+	DescriptorHandle GetSRVHandle(TextureHandle handle) override;
+	DescriptorHandle GetUAVHandle(TextureHandle handle, uint32_t mip = 0) override;
 
 	void BeginTextureUpload() override;
 	TextureHandle LoadTexture(const std::wstring& path) override;
@@ -45,9 +47,23 @@ public:
 	uint32_t GetWidth() override;
 	uint32_t GetHeight() override;
 
+public:
 	float GetTimestampMs(uint32_t passIndex) override;
-
 	const ComPtr<ID3D12Resource> GetTextureResource(TextureHandle handle);
+
+	DescriptorAllocator& GetCbvSrvUavAllocator() { return m_cbvSrvUavAllocator; }
+	DescriptorAllocator& GetRtvAllocator() { return m_rtvAllocator; }
+	DescriptorAllocator& GetDsvAllocator() { return m_dsvAllocator; }
+
+	DescriptorHandle AllocateSRV() { return m_cbvSrvUavAllocator.Allocate(); }
+	DescriptorHandle AllocateUAV() { return m_cbvSrvUavAllocator.Allocate(); }
+	DescriptorHandle AllocateCBV() { return m_cbvSrvUavAllocator.Allocate(); }
+
+	DescriptorHandle AllocateRTV() { return m_rtvAllocator.Allocate(); }
+	DescriptorHandle AllocateDSV() { return m_dsvAllocator.Allocate(); }
+
+
+
 private:
 	ComPtr<ID3D12RootSignature> BuildRootSignature(const RootSignatureDesc& desc);
 
@@ -82,19 +98,18 @@ private:
 
 	std::unique_ptr<UploadHeapRingAllocator> uploadHeapAllocator;
 
+	DescriptorAllocator m_cbvSrvUavAllocator;
+	DescriptorAllocator m_dsvAllocator;
+	DescriptorAllocator m_rtvAllocator;
+
 	CD3DX12_VIEWPORT m_viewport;
 	CD3DX12_RECT m_scissorRect;
 	ComPtr<IDXGISwapChain3> m_swapChain;
 	ComPtr<ID3D12Resource> m_renderTargets[FrameCount];
 	ComPtr<ID3D12CommandAllocator> m_commandAllocators[FrameCount];
 	ComPtr<ID3D12CommandAllocator> m_immediateAllocator;
-	ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
-	ComPtr<ID3D12DescriptorHeap> m_cbvSrvHeap;
-	ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
 	ComPtr<ID3D12GraphicsCommandList> m_commandList;
 	ComPtr<ID3D12GraphicsCommandList> m_immediateCommandList;
-	UINT m_rtvDescriptorSize;
-	UINT m_dsvDescriptorSize;
 
 	struct InternalBuffer
 	{
@@ -109,13 +124,15 @@ private:
 	{
 		ComPtr<ID3D12Resource> resource;
 		TextureDesc desc;
-		uint32_t srvHeapSlot = UINT32_MAX;
-		std::vector<UINT> uavHeapSlots;
-		D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle;
-		D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle;
-
 		CubemapTextureDesc cubeDesc;
-		D3D12_CPU_DESCRIPTOR_HANDLE faceDsvHandles[6];
+
+		DescriptorHandle srv;
+		DescriptorHandle uav;
+		DescriptorHandle rtv;
+		DescriptorHandle dsv;
+
+		std::vector<DescriptorHandle> uavMips;
+		std::array<DescriptorHandle, 6> faceDsvs;
 	};
 
 	struct InternalPipeline
@@ -130,13 +147,7 @@ private:
 
 	TextureHandle m_backBufferHandles[FrameCount];
 
-	uint32_t m_rtvHeapNextSlot = 0;
-	uint32_t m_cbvSrvHeapNextSlot = 0;
-	uint32_t m_dsvHeapNextSlot = 0;
-
 	std::unique_ptr<TextureLoader> m_pTextureLoader;
-
-	UINT m_cbvSrvDescriptorSize;
 
 	GPUTimestampProfiler m_profiler;
 };

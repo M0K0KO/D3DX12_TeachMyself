@@ -107,49 +107,28 @@ void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uin
 	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
 
 	{
-		D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
-		rtvHeapDesc.NumDescriptors = 128;
-		rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-		rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-		HR_CHECK(m_device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap)));
-
-		m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-
-		D3D12_DESCRIPTOR_HEAP_DESC cbvSrvHeapDesc = {};
-		cbvSrvHeapDesc.NumDescriptors = 16384;
-		cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-		cbvSrvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-		HR_CHECK(m_device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&m_cbvSrvHeap)));
-
-		D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
-		dsvHeapDesc.NumDescriptors = 128;
-		dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-		dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-		HR_CHECK(m_device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_dsvHeap)));
-
-		m_dsvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+		m_cbvSrvUavAllocator.Init(m_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 16384, true);
+		m_rtvAllocator.Init(m_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 128, false);
+		m_dsvAllocator.Init(m_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 128, false);
 	}
 
 	{
-		CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
-
 		for (UINT n = 0; n < FrameCount; n++)
 		{
 			HR_CHECK(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_renderTargets[n])));
-			m_device->CreateRenderTargetView(m_renderTargets[n].Get(), nullptr, rtvHandle);
+			auto rtvHandle = AllocateRTV();
+			m_device->CreateRenderTargetView(m_renderTargets[n].Get(), nullptr, rtvHandle.cpu);
 
 			InternalTexture tex = {};
 			tex.resource = m_renderTargets[n];
 			tex.desc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
-			tex.rtvHandle = rtvHandle;
+			tex.rtv = rtvHandle;
 
 			m_backBufferHandles[n].id = static_cast<uint32_t>(m_textures.size());
 			m_textures.push_back(tex);
 
-			rtvHandle.Offset(1, m_rtvDescriptorSize);
 			HR_CHECK(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocators[n])));
 		}
-		m_rtvHeapNextSlot = FrameCount;
 
 		HR_CHECK(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_immediateAllocator)));
 	}
@@ -178,8 +157,6 @@ void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uin
 	uploadHeapAllocator = std::make_unique<UploadHeapRingAllocator>(m_device.Get(), m_fence.Get());
 	m_pTextureLoader = std::make_unique<TextureLoader>(m_device.Get());
 
-	m_cbvSrvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
 	m_profiler.Initialize(m_device.Get(), m_commandQueue.Get());
 }
 
@@ -197,7 +174,6 @@ void GraphicsDevice_DX12::MoveToNextFrame()
 
 	HR_CHECK(m_commandQueue->Signal(m_fence.Get(), m_fenceValues[m_frameIndex]));
 
-	uploadHeapAllocator->FinishFrame(currentFenceValue);
 
 	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
 	if (m_fence->GetCompletedValue() < m_fenceValues[m_frameIndex])
@@ -205,6 +181,9 @@ void GraphicsDevice_DX12::MoveToNextFrame()
 		HR_CHECK(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent));
 		WaitForSingleObjectEx(m_fenceEvent, INFINITE, FALSE);
 	}
+
+	UINT64 completed = m_fence->GetCompletedValue();
+	uploadHeapAllocator->FinishFrame(completed);
 
 	m_fenceValues[m_frameIndex] = currentFenceValue + 1;
 }
@@ -220,7 +199,7 @@ void GraphicsDevice_DX12::ExecuteImmediate(std::function<void(CommandContext&)> 
 	m_commandContext.SetInternalCommandList(m_immediateCommandList.Get());
 	m_commandContext.ResetState();
 
-	ID3D12DescriptorHeap* heaps[] = { m_cbvSrvHeap.Get() };
+	ID3D12DescriptorHeap* heaps[] = { GetCbvSrvUavAllocator().GetHeap() };
 	m_immediateCommandList->SetDescriptorHeaps(_countof(heaps), heaps);
 
 	fn(m_commandContext);
@@ -245,7 +224,7 @@ CommandContext& GraphicsDevice_DX12::BeginFrame()
 	m_commandList->RSSetViewports(1, &m_viewport);
 	m_commandList->RSSetScissorRects(1, &m_scissorRect);
 
-	ID3D12DescriptorHeap* ppHeaps[] = { m_cbvSrvHeap.Get() };
+	ID3D12DescriptorHeap* ppHeaps[] = { GetCbvSrvUavAllocator().GetHeap() };
 	m_commandList->SetDescriptorHeaps(1, ppHeaps);
 
 	uploadHeapAllocator->ReleaseCompleted();
@@ -344,12 +323,8 @@ TextureHandle GraphicsDevice_DX12::CreateRTTexture(const TextureDesc& desc)
 		&clearValue,
 		IID_PPV_ARGS(&texture)));
 
-	UINT rtvHeapSlot = m_rtvHeapNextSlot++;
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(
-		m_rtvHeap->GetCPUDescriptorHandleForHeapStart(),
-		rtvHeapSlot,
-		m_rtvDescriptorSize);
-	m_device->CreateRenderTargetView(texture.Get(), nullptr, rtvHandle);
+	auto rtvHandle = AllocateRTV();
+	m_device->CreateRenderTargetView(texture.Get(), nullptr, rtvHandle.cpu);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -359,16 +334,12 @@ TextureHandle GraphicsDevice_DX12::CreateRTTexture(const TextureDesc& desc)
 
 	UINT srvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	UINT srvHeapSlot = m_cbvSrvHeapNextSlot++;
-	CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(
-		m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart(),
-		srvHeapSlot,
-		srvDescriptorSize);
-	m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle);
+	auto srvHandle = AllocateSRV();
+	m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle.cpu);
 
 	internalTexture.resource = texture;
-	internalTexture.srvHeapSlot = srvHeapSlot;
-	internalTexture.rtvHandle = rtvHandle;
+	internalTexture.srv = srvHandle;
+	internalTexture.rtv = rtvHandle;
 
 	uint32_t id = m_textures.size();
 	m_textures.push_back(internalTexture);
@@ -428,15 +399,11 @@ TextureHandle GraphicsDevice_DX12::CreateSRTexture(const TextureDesc& desc, cons
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Texture2D.MipLevels = 1;
 
-	UINT descriptorSize = m_device->GetDescriptorHandleIncrementSize(
-		D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	UINT slot = m_cbvSrvHeapNextSlot++;
-	CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(
-		m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart(), slot, descriptorSize);
-	m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle);
+	auto srvHandle = AllocateSRV();
+	m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle.cpu);
 
 	internalTexture.resource = texture;
-	internalTexture.srvHeapSlot = slot;
+	internalTexture.srv = srvHandle;
 
 	uint32_t id = m_textures.size();
 	m_textures.push_back(internalTexture);
@@ -480,11 +447,8 @@ TextureHandle GraphicsDevice_DX12::CreateDSTexture(const TextureDesc& desc)
 	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	dsvDesc.Texture2D.MipSlice = 0;
 
-	UINT dsvHeapSlot = m_dsvHeapNextSlot++;
-	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(
-		m_dsvHeap->GetCPUDescriptorHandleForHeapStart(),
-		dsvHeapSlot, m_dsvDescriptorSize);
-	m_device->CreateDepthStencilView(texture.Get(), &dsvDesc, dsvHandle);
+	auto dsvHandle = AllocateDSV();
+	m_device->CreateDepthStencilView(texture.Get(), &dsvDesc, dsvHandle.cpu);
 
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -493,19 +457,14 @@ TextureHandle GraphicsDevice_DX12::CreateDSTexture(const TextureDesc& desc)
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Texture2D.MipLevels = 1;
 
-	UINT descriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	UINT srvHeapSlot = m_cbvSrvHeapNextSlot++;
-	CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(
-		m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart(),
-		srvHeapSlot, descriptorSize);
-	m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle);
+	auto srvHandle = AllocateSRV();
+	m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle.cpu);
 
 
 	internalTexture.resource = texture;
-	// TO DO : allocator 패턴을 이용할 것
-	internalTexture.srvHeapSlot = srvHeapSlot;
-	internalTexture.dsvHandle = dsvHandle;
+	internalTexture.srv = srvHandle;
+	internalTexture.dsv = dsvHandle;
 
 	uint32_t id = m_textures.size();
 	m_textures.push_back(internalTexture);
@@ -542,33 +501,25 @@ TextureHandle GraphicsDevice_DX12::CreateUAVTexture(const TextureDesc& desc)
 	const UINT64 uploadBufferSize = GetRequiredIntermediateSize(texture.Get(), 0, 1);
 
 
-	UINT descriptorSize = m_device->GetDescriptorHandleIncrementSize(
-		D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	UINT srvSlot = m_cbvSrvHeapNextSlot++;
-	CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(
-		m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart(), srvSlot, descriptorSize);
-
+	auto srvHandle = AllocateSRV();
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc.Format = textureDesc.Format;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Texture2D.MipLevels = 1;
-	m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle);
+	m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle.cpu);
 
-	UINT uavSlot = m_cbvSrvHeapNextSlot++;
-	CD3DX12_CPU_DESCRIPTOR_HANDLE uavHandle(
-		m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart(), uavSlot, descriptorSize);
-
+	auto uavHandle = AllocateUAV();
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
 	uavDesc.Format = textureDesc.Format;
 	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
 	uavDesc.Texture2D.MipSlice = 0;
 	uavDesc.Texture2D.PlaneSlice = 0;
-	m_device->CreateUnorderedAccessView(texture.Get(), nullptr, &uavDesc, uavHandle);
+	m_device->CreateUnorderedAccessView(texture.Get(), nullptr, &uavDesc, uavHandle.cpu);
 
 	internalTexture.resource = texture;
-	internalTexture.srvHeapSlot = srvSlot;
-	internalTexture.uavHeapSlots.push_back(uavSlot);
+	internalTexture.srv = srvHandle;
+	internalTexture.uav = uavHandle;
 
 	uint32_t id = static_cast<uint32_t>(m_textures.size());
 	m_textures.push_back(internalTexture);
@@ -657,21 +608,16 @@ TextureHandle GraphicsDevice_DX12::CreateSRCubemapTexture(const CubemapTextureDe
 		});
 	}
 
-	UINT descriptorSize = m_device->GetDescriptorHandleIncrementSize(
-		D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	UINT srvSlot = m_cbvSrvHeapNextSlot++;
-	CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(
-		m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart(), srvSlot, descriptorSize);
-
+	auto srvHandle = AllocateSRV();
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc.Format = textureDesc.Format;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
 	srvDesc.TextureCube.MipLevels = desc.mipLevels;
-	m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle);
+	m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle.cpu);
 
 	internalTexture.resource = texture;
-	internalTexture.srvHeapSlot = srvSlot;
+	internalTexture.srv = srvHandle;
 
 	uint32_t id = static_cast<uint32_t>(m_textures.size());
 	m_textures.push_back(internalTexture);
@@ -718,30 +664,22 @@ TextureHandle GraphicsDevice_DX12::CreateDSCubemapTexture(const CubemapTextureDe
 		dsvDesc.Texture2DArray.MipSlice = 0;
 		dsvDesc.Texture2DArray.FirstArraySlice = i;
 
-		UINT dsvHeapSlot = m_dsvHeapNextSlot++;
-		CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(
-			m_dsvHeap->GetCPUDescriptorHandleForHeapStart(),
-			dsvHeapSlot, m_dsvDescriptorSize);
-		m_device->CreateDepthStencilView(texture.Get(), &dsvDesc, dsvHandle);
+		auto dsvHandle = AllocateDSV();
+		m_device->CreateDepthStencilView(texture.Get(), &dsvDesc, dsvHandle.cpu);
 
-		internalTexture.faceDsvHandles[i] = dsvHandle;
+		internalTexture.faceDsvs[i] = dsvHandle;
 	}
 
-	UINT descriptorSize = m_device->GetDescriptorHandleIncrementSize(
-		D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	UINT srvSlot = m_cbvSrvHeapNextSlot++;
-	CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(
-		m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart(), srvSlot, descriptorSize);
-
+	auto srvHandle = AllocateSRV();
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
 	srvDesc.TextureCube.MipLevels = desc.mipLevels;
-	m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle);
+	m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle.cpu);
 
 	internalTexture.resource = texture;
-	internalTexture.srvHeapSlot = srvSlot;
+	internalTexture.srv = srvHandle;
 
 	uint32_t id = static_cast<uint32_t>(m_textures.size());
 	m_textures.push_back(internalTexture);
@@ -777,25 +715,17 @@ TextureHandle GraphicsDevice_DX12::CreateUAVCubemapTexture(const CubemapTextureD
 	const UINT64 uploadBufferSize = GetRequiredIntermediateSize(texture.Get(), 0, 1);
 
 
-	UINT descriptorSize = m_device->GetDescriptorHandleIncrementSize(
-		D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	UINT srvSlot = m_cbvSrvHeapNextSlot++;
-	CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(
-		m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart(), srvSlot, descriptorSize);
-
+	auto srvHandle = AllocateSRV();
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc.Format = textureDesc.Format;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
 	srvDesc.TextureCube.MipLevels = desc.mipLevels;
-	m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle);
+	m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle.cpu);
 
 	for (UINT mip = 0; mip < desc.mipLevels; mip++)
 	{
-		UINT uavSlot = m_cbvSrvHeapNextSlot++;
-		CD3DX12_CPU_DESCRIPTOR_HANDLE uavHandle(
-			m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart(), uavSlot, descriptorSize);
-
+		auto uavHandle = AllocateUAV();
 		D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
 		uavDesc.Format = textureDesc.Format;
 		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
@@ -803,11 +733,11 @@ TextureHandle GraphicsDevice_DX12::CreateUAVCubemapTexture(const CubemapTextureD
 		uavDesc.Texture2DArray.FirstArraySlice = 0;
 		uavDesc.Texture2DArray.MipSlice = mip;
 
-		m_device->CreateUnorderedAccessView(texture.Get(), nullptr, &uavDesc, uavHandle);
-		internalTexture.uavHeapSlots.push_back(uavSlot);
+		m_device->CreateUnorderedAccessView(texture.Get(), nullptr, &uavDesc, uavHandle.cpu);
+		internalTexture.uavMips.push_back(uavHandle);
 	}
 	internalTexture.resource = texture;
-	internalTexture.srvHeapSlot = srvSlot;
+	internalTexture.srv = srvHandle;
 
 	uint32_t id = static_cast<uint32_t>(m_textures.size());
 	m_textures.push_back(internalTexture);
@@ -991,14 +921,24 @@ ComPtr<ID3D12RootSignature> GraphicsDevice_DX12::BuildRootSignature(const RootSi
 	return rs;
 }
 
-uint32_t GraphicsDevice_DX12::GetSRVHeapSlot(TextureHandle handle)
+DescriptorHandle GraphicsDevice_DX12::GetSRVHandle(TextureHandle handle)
 {
-	return m_textures[handle.id].srvHeapSlot;
+	return m_textures[handle.id].srv;
 }
 
-uint32_t GraphicsDevice_DX12::GetUAVHeapSlot(TextureHandle handle, uint32_t mip)
+DescriptorHandle GraphicsDevice_DX12::GetUAVHandle(TextureHandle handle, uint32_t mip)
 {
-	return m_textures[handle.id].uavHeapSlots[mip];
+	const auto& tex = m_textures[handle.id];
+
+	if (!tex.uavMips.empty())
+	{
+		assert(mip < tex.uavMips.size() && "GetUAVHandle: mip out of range");
+		return tex.uavMips[mip];
+	}
+
+	assert(tex.uav.IsValid() && "GetUAVHandle: texture has no UAV");
+	assert(mip == 0 && "GetUAVHandle: non-mip UAV requested with mip > 0");
+	return tex.uav;
 }
 
 void GraphicsDevice_DX12::BeginTextureUpload()
@@ -1024,14 +964,11 @@ TextureHandle GraphicsDevice_DX12::LoadTexture(const std::wstring& path)
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc.Texture2D.MipLevels = result.mipLevels;
 
-	UINT slot = m_cbvSrvHeapNextSlot++;
-	internal.srvHeapSlot = slot;
-	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuHandle(
-		m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart(),
-		slot, m_cbvSrvDescriptorSize);
+	auto srvHandle = AllocateSRV();
+	internal.srv = srvHandle;
 
 	m_device->CreateShaderResourceView(
-		result.resource.Get(), &srvDesc, cpuHandle);
+		result.resource.Get(), &srvDesc, srvHandle.cpu);
 
 	uint32_t id = (uint32_t)m_textures.size();
 	m_textures.push_back(internal);
@@ -1089,16 +1026,12 @@ void GraphicsDevice_DX12::ResizeSwapChain(uint32_t width, uint32_t height)
 	{
 		HR_CHECK(m_swapChain->GetBuffer(i, IID_PPV_ARGS(&m_renderTargets[i])));
 
-		CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(
-			m_rtvHeap->GetCPUDescriptorHandleForHeapStart(),
-			i, m_rtvDescriptorSize);
-		m_device->CreateRenderTargetView(m_renderTargets[i].Get(), nullptr, rtvHandle);
-
 		auto& tex = m_textures[m_backBufferHandles[i].id];
 		tex.resource = m_renderTargets[i];
 		tex.desc.width = width;
 		tex.desc.height = height;
-		tex.rtvHandle = rtvHandle;
+
+		m_device->CreateRenderTargetView(m_renderTargets[i].Get(), nullptr, tex.rtv.cpu);
 	} 
 
 	m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
@@ -1126,4 +1059,3 @@ float GraphicsDevice_DX12::GetTimestampMs(uint32_t passIndex)
 {
 	return m_profiler.GetTimestampMs(passIndex);
 }
-
