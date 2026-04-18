@@ -167,8 +167,8 @@ void Renderer::Render(GraphicsDevice* device, CommandContext& ctx, const RenderS
 	light.Intensity = frameData.DirectionalLightIntensity;
 	light.Ambient = { 0.03f, 0.03f, 0.03f };
 
-	light.PointLightCount = frameData.PointLightCount;
-	for (int i = 0; i < std::min(MAX_POINT_LIGHTS, frameData.PointLightCount); i++)
+	light.PointLightCount = importedPointLightCount;
+	for (int i = 0; i < importedPointLightCount; i++)
 	{
 		auto pointLight = frameData.PointLights[i];
 		light.PointLights[i] = { pointLight.Position, pointLight.Radius, pointLight.Color, pointLight.Intensity };
@@ -182,11 +182,10 @@ void Renderer::Render(GraphicsDevice* device, CommandContext& ctx, const RenderS
 
 
 
-
 	PointShadowCB pointShadow;
 	const XMFLOAT3 targets[6] = { {1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1} };
 	const XMFLOAT3 ups[6] = { {0,1,0},{0,1,0},{0,0,-1},{0,0,1},{0,1,0},{0,1,0} };
-	for (int lightIdx = 0; lightIdx < frameData.PointLightCount; lightIdx++)
+	for (int lightIdx = 0; lightIdx < importedPointLightCount; lightIdx++)
 	{
 		pointShadow.pointShadowData[lightIdx].LightPos = frameData.PointLights[lightIdx].Position;
 		pointShadow.pointShadowData[lightIdx].LightRadius = frameData.PointLights[lightIdx].Radius;

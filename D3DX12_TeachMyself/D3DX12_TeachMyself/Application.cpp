@@ -132,9 +132,9 @@ void Application::Init()
 		t.position = { 0.0f, 2.0f, 0.0f };
 
 		auto& pl = m_ecsScene.GetRegistry().Add<PointLightComponent>(e);
-		pl.color = { 1.0f, 0.0f, 0.0f };
-		pl.radius = 10.0f;
-		pl.intensity = 5.0f;
+		pl.color = { 0.0f, 0.7f, 0.7f };
+		pl.radius = 30.0f;
+		pl.intensity = 2.0f;
 	}
 
 	{

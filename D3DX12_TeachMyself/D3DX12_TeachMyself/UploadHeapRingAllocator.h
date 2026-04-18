@@ -25,7 +25,7 @@ public:
 	size_t GetEmptySpaceSize();
 
 private:
-	static constexpr UINT kCapacity = 128 * 1024 * 1024; // 32MB
+	static constexpr UINT kCapacity = 128 * 1024 * 1024; // 128MB
 	static constexpr UINT kAlignment = 256;
 
 	UINT AlignUp(UINT value, UINT alignment);
@@ -35,9 +35,9 @@ private:
 	void* m_cpuBase;     // ptr obtained by map()
 	D3D12_GPU_VIRTUAL_ADDRESS m_gpuBase;
 	
-	UINT m_head = 0;
-	UINT m_tail = 0;
+	UINT64 m_virtualHead = 0;
+	UINT64 m_virtualTail = 0;
 
-	struct FrameRecord { UINT64 fenceValue; UINT head; };
+	struct FrameRecord { UINT64 fenceValue; UINT64 virtualHead; };
 	std::queue<FrameRecord> m_frameQueue;
 };

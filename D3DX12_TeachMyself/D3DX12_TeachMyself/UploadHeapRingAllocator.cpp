@@ -34,7 +34,7 @@ void UploadHeapRingAllocator::ReleaseCompleted()
 
 	while (!m_frameQueue.empty() && m_frameQueue.front().fenceValue <= completed)
 	{
-		m_tail = m_frameQueue.front().head;
+		m_virtualTail = m_frameQueue.front().virtualHead;
 		m_frameQueue.pop();
 	}
 }
@@ -44,42 +44,42 @@ UploadAllocation UploadHeapRingAllocator::Allocate(size_t size)
 	UINT aligned = AlignUp(static_cast<UINT>(size), kAlignment);
 	assert(aligned <= kCapacity && "Ring Buffer Allocation exceeds total capacity");
 
-	if (m_head + aligned > kCapacity)
+	UINT offset = static_cast<UINT>(m_virtualHead % kCapacity);
+
+	if (offset + aligned > kCapacity)
 	{
-		LOG_WARN("[RingBuffer] WRAP-AROUND! Current Head: %u, AlignedSize: %u, Resetting to 0\n", m_head, aligned);
-
-		while (!m_frameQueue.empty() && m_frameQueue.front().head >= m_head)
-		{
-			WaitForFront();
-		}
-
-		m_head = 0;
+		LOG_WARN("[RingBuffer] WRAP-AROUND! offset=%u aligned=%u padding=%u\n",
+			offset, aligned, kCapacity - offset);
+		m_virtualHead += (kCapacity - offset);
+		offset = 0;
 	}
 
-	while (m_head < m_tail && m_head + aligned > m_tail)
+	while (m_virtualHead + aligned > m_virtualTail + kCapacity)
 	{
-		LOG_WARN("[RingBuffer] STALL! Head(%u) is catching up to Tail(%u). Waiting for GPU...\n", m_head, m_tail);
-
 		if (m_frameQueue.empty())
 		{
-			m_tail = m_head;
+			LOG_WARN("[RingBuffer] STALL with empty queue - forcing tail advance\n");
+			m_virtualTail = m_virtualHead;
 			break;
 		}
+
+		LOG_WARN("[RingBuffer] STALL! Waiting for GPU. vHead=%llu vTail=%llu inFlight=%llu\n",
+			m_virtualHead, m_virtualTail, m_virtualHead - m_virtualTail);
 		WaitForFront();
 	}
 
 	UploadAllocation alloc{};
-	alloc.offset = m_head;
-	alloc.cpuAddress = static_cast<uint8_t*>(m_cpuBase) + m_head;
-	alloc.gpuAddress = m_gpuBase + m_head;
+	alloc.offset = offset;
+	alloc.cpuAddress = static_cast<uint8_t*>(m_cpuBase) + offset;
+	alloc.gpuAddress = m_gpuBase + offset;
 
-	m_head += aligned;
+	m_virtualHead += aligned;
 	return alloc;
 }
 
 void UploadHeapRingAllocator::FinishFrame(UINT64 fenceValue)
 {
-	m_frameQueue.push({ fenceValue, m_head });
+	m_frameQueue.push({ fenceValue, m_virtualHead });
 }
 
 
@@ -90,10 +90,8 @@ UINT UploadHeapRingAllocator::AlignUp(UINT value, UINT alignment)
 
 size_t UploadHeapRingAllocator::GetEmptySpaceSize()
 {
-	if (m_head >= m_tail)
-		return (kCapacity - m_head) + m_tail - 1;
-	else
-		return (m_tail - m_head) - 1;
+	const UINT64 inFlight = m_virtualHead - m_virtualTail;
+	return (inFlight >= kCapacity) ? 0 : static_cast<size_t>(kCapacity - inFlight);
 }
 
 void UploadHeapRingAllocator::WaitForFront()
@@ -113,6 +111,6 @@ void UploadHeapRingAllocator::WaitForFront()
 			CloseHandle(event);
 		}
 	}
-	m_tail = front.head;
+	m_virtualTail = front.virtualHead;
 	m_frameQueue.pop();
 }

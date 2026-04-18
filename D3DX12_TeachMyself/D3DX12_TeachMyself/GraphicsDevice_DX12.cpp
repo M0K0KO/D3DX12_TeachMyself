@@ -174,6 +174,7 @@ void GraphicsDevice_DX12::MoveToNextFrame()
 	HR_CHECK(m_commandQueue->Signal(m_fence.Get(), fenceToSignal));
 	m_fenceValues[m_frameIndex] = fenceToSignal;
 
+	uploadHeapAllocator->FinishFrame(fenceToSignal);
 	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
 
 	if (m_fence->GetCompletedValue() < m_fenceValues[m_frameIndex])
@@ -181,9 +182,6 @@ void GraphicsDevice_DX12::MoveToNextFrame()
 		HR_CHECK(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent));
 		WaitForSingleObjectEx(m_fenceEvent, INFINITE, FALSE);
 	}
-
-	UINT64 completed = m_fence->GetCompletedValue();
-	uploadHeapAllocator->FinishFrame(completed);
 }
 
 void GraphicsDevice_DX12::ExecuteImmediate(std::function<void(CommandContext&)> fn)
