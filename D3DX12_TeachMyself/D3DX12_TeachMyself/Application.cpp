@@ -18,7 +18,7 @@ Application::Application()
 
 Application::~Application()
 {
-	m_systemManager.ShutdownAll(m_ecsScene);
+	m_systemManager->ShutdownAll(m_ecsScene);
 }
 
 int Application::Run()
@@ -146,9 +146,14 @@ void Application::Init()
 		t.position = { 0.0f, 1.0f, -5.0f };
 	}
 
-	m_systemManager.InitAll(m_ecsScene);
-	m_systemManager.Add<CameraControllerSystem>();
-	m_systemManager.Add<TransformSystem>();
+	m_systemManager = std::make_unique<SystemManager>();
+	m_systemManager->Add<CameraControllerSystem>();
+	m_systemManager->Add<TransformSystem>();
+
+	auto* dx12 = static_cast<GraphicsDevice_DX12*>(m_device.get());
+	m_editorSystem = m_systemManager->Add<EditorSystem>(dx12, wnd.GetHWND());
+
+	m_systemManager->InitAll(m_ecsScene);
 
 	m_renderer.Init(m_device.get());
 
@@ -172,12 +177,14 @@ void Application::Update()
 	HandleDebugModeInput();
 
 	SystemContext ctx = { .window = &wnd, .input = &m_inputState };
+	m_systemManager->UpdateAll(m_ecsScene, MokoTime::GetDeltaTime(), ctx);
 
-	m_systemManager.UpdateAll(m_ecsScene, MokoTime::GetDeltaTime(), ctx);
 }
 
 void Application::Render()
 {
+	auto& ctx = m_device->BeginFrame();
+
 	if (m_needsResize)
 	{
 		m_device->ResizeSwapChain(m_pendingWidth, m_pendingHeight);
@@ -188,11 +195,14 @@ void Application::Render()
 			if (cam.isMain) cam.aspect = float(m_pendingWidth) / float(m_pendingHeight);
 		}
 		m_needsResize = false;
-		return;
 	}
 
 	RenderScene renderScene = ExtractRenderScene();
-	m_renderer.Render(m_device.get(), renderScene);
+	m_renderer.Render(m_device.get(), ctx, renderScene);
+	m_editorSystem->Render(ctx);
+
+	m_device->EndFrame();
+
 }
 
 RenderScene Application::ExtractRenderScene()
@@ -257,20 +267,17 @@ RenderScene Application::ExtractRenderScene()
 	return rs;
 }
 
-void  Application::HandleKeyboardEvents()
+void Application::HandleKeyboardEvents()
 {
 	if (m_inputState.WasKeyPressed(VK_ESCAPE))
 	{
-		LOG_WARN("ESC pressed\n");
 		if (wnd.CursorEnabled())
 		{
-			LOG_WARN("	-> Disabling Cursor\n");
 			wnd.DisableCursor();
 			wnd.mouse.EnableRaw();
 		}
 		else
 		{
-			LOG_WARN("	-> Enabling Cursor\n");
 			wnd.EnableCursor();
 			wnd.mouse.DisableRaw();
 		}

@@ -42,11 +42,19 @@ public:
 	using ResizeCallback = std::function<void(uint32_t, uint32_t)>;
 	void SetResizeCallback(ResizeCallback callback) { m_resizeCallback = callback; }
 
+
+
 private:
 	void ConfineCursor();
 	void FreeCursor();
 	void HideCursor();
 	void ShowCursor();
+
+	void EnableImGuiMouse();
+	void DisableImGuiMouse();
+	void EnableImGuiKeyboard();
+	void DisableImGuiKeyboard();
+
 	static LRESULT CALLBACK HandleMsgSetup(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	static LRESULT CALLBACK HandleMsgThunk(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	LRESULT HandleMsg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -65,4 +73,6 @@ private:
 
 	ResizeCallback m_resizeCallback;
 	bool m_isResizing = false;
+
+	bool m_imGuiInputEnabled = true;
 };

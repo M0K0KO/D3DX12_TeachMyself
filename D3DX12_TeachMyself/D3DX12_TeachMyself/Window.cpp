@@ -1,5 +1,9 @@
 #include "Window.h"
 #include <format>
+#include <imgui_impl_win32.h>
+
+extern IMGUI_IMPL_API LRESULT
+ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM, LPARAM);
 
 Window::WindowClass Window::WindowClass::wndClass;
 
@@ -98,6 +102,8 @@ void Window::EnableCursor()
 {
 	cursorEnabled = true;
 	ShowCursor();
+	EnableImGuiMouse();
+	EnableImGuiKeyboard();
 	FreeCursor();
 }
 
@@ -105,6 +111,8 @@ void Window::DisableCursor()
 {
 	cursorEnabled = false;
 	HideCursor();
+	DisableImGuiMouse();
+	DisableImGuiKeyboard();
 	ConfineCursor();
 }
 
@@ -134,6 +142,23 @@ void Window::HideCursor()
 void Window::ShowCursor()
 {
 	while (::ShowCursor(TRUE) < 0);
+}
+	
+void Window::EnableImGuiMouse()
+{
+	ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
+}
+void Window::DisableImGuiMouse()
+{
+	ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouse;
+}
+void Window::EnableImGuiKeyboard()
+{
+	ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoKeyboard;
+}
+void Window::DisableImGuiKeyboard()
+{
+	ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoKeyboard;
 }
 
 std::optional<int> Window::ProcessMessages()
@@ -173,8 +198,34 @@ LRESULT CALLBACK Window::HandleMsgThunk(HWND hWnd, UINT msg, WPARAM wParam, LPAR
 	return pWnd->HandleMsg(hWnd, msg, wParam, lParam);
 }
 
+
 LRESULT Window::HandleMsg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+	if ((msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) && wParam == VK_ESCAPE)
+	{
+		if (!(lParam & 0x40000000))
+		{ 
+			kbd.OnKeyPressed(VK_ESCAPE);
+		}
+		return 0;
+	}
+
+	if (ImGui::GetCurrentContext() != nullptr && m_imGuiInputEnabled)
+	{
+		if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
+			return true;
+
+		ImGuiIO& io = ImGui::GetIO();
+		if (io.WantCaptureMouse && (msg == WM_LBUTTONDOWN || msg == WM_LBUTTONUP ||
+			msg == WM_RBUTTONDOWN || msg == WM_RBUTTONUP ||
+			msg == WM_MOUSEMOVE || msg == WM_MOUSEWHEEL))
+			return 0;
+
+		if (io.WantCaptureKeyboard && (msg == WM_KEYDOWN || msg == WM_KEYUP ||
+			msg == WM_CHAR))
+			return 0;
+	}
+
 	switch (msg)
 	{
 	case WM_ENTERSIZEMOVE:

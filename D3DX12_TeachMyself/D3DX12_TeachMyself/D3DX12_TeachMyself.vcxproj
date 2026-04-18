@@ -237,6 +237,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="DescriptorHandle.h" />
     <ClInclude Include="DirectXTex\DirectXTex.h" />
     <ClInclude Include="DX12Helpers.h" />
+    <ClInclude Include="EditorSystem.h" />
     <ClInclude Include="Entity.h" />
     <ClInclude Include="EntityManager.h" />
     <ClInclude Include="EntityScene.h" />
@@ -286,6 +287,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="CommandContext_DX12.cpp" />
     <ClCompile Include="DescriptorAllocator.cpp" />
     <ClCompile Include="DX12Helpers.cpp" />
+    <ClCompile Include="EditorSystem.cpp" />
     <ClCompile Include="EntityManager.cpp" />
     <ClCompile Include="EntityScene.cpp" />
     <ClCompile Include="GraphicsDevice_DX12.cpp" />

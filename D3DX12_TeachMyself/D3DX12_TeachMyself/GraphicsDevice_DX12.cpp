@@ -90,7 +90,7 @@ void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uin
 	HR_CHECK(m_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_commandQueue)));
 
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
-	swapChainDesc.BufferCount = FrameCount;
+	swapChainDesc.BufferCount = FRAMECOUNT;
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	swapChainDesc.Width = width;
 	swapChainDesc.Height = height;
@@ -113,7 +113,7 @@ void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uin
 	}
 
 	{
-		for (UINT n = 0; n < FrameCount; n++)
+		for (UINT n = 0; n < FRAMECOUNT; n++)
 		{
 			HR_CHECK(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_renderTargets[n])));
 			auto rtvHandle = AllocateRTV();
@@ -170,12 +170,12 @@ void GraphicsDevice_DX12::WaitForGpu()
 
 void GraphicsDevice_DX12::MoveToNextFrame()
 {
-	UINT64 currentFenceValue = m_fenceValues[m_frameIndex];
-
-	HR_CHECK(m_commandQueue->Signal(m_fence.Get(), m_fenceValues[m_frameIndex]));
-
+	const UINT64 fenceToSignal = m_nextFenceValue++;
+	HR_CHECK(m_commandQueue->Signal(m_fence.Get(), fenceToSignal));
+	m_fenceValues[m_frameIndex] = fenceToSignal;
 
 	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+
 	if (m_fence->GetCompletedValue() < m_fenceValues[m_frameIndex])
 	{
 		HR_CHECK(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent));
@@ -184,8 +184,6 @@ void GraphicsDevice_DX12::MoveToNextFrame()
 
 	UINT64 completed = m_fence->GetCompletedValue();
 	uploadHeapAllocator->FinishFrame(completed);
-
-	m_fenceValues[m_frameIndex] = currentFenceValue + 1;
 }
 
 void GraphicsDevice_DX12::ExecuteImmediate(std::function<void(CommandContext&)> fn)
@@ -216,6 +214,11 @@ void GraphicsDevice_DX12::ExecuteImmediate(std::function<void(CommandContext&)> 
 
 CommandContext& GraphicsDevice_DX12::BeginFrame()
 {
+	uint64_t pendingFence = m_nextFenceValue;
+	m_cbvSrvUavAllocator.SetCurrentFence(pendingFence);
+	m_rtvAllocator.SetCurrentFence(pendingFence);
+	m_dsvAllocator.SetCurrentFence(pendingFence);
+
 	HR_CHECK(m_commandAllocators[m_frameIndex]->Reset());
 	HR_CHECK(m_commandList->Reset(m_commandAllocators[m_frameIndex].Get(), nullptr));
 	m_commandContext.SetInternalCommandList(m_commandList.Get());
@@ -1008,21 +1011,21 @@ void GraphicsDevice_DX12::ResizeSwapChain(uint32_t width, uint32_t height)
 
 	WaitForGpu();
 
-	for (UINT i = 0; i < FrameCount; i++)
+	for (UINT i = 0; i < FRAMECOUNT; i++)
 	{
 		m_textures[m_backBufferHandles[i].id].resource.Reset();
 		m_renderTargets[i].Reset();
 	}
 
 	HR_CHECK(m_swapChain->ResizeBuffers(
-		FrameCount,
+		FRAMECOUNT,
 		width, height,
 		DXGI_FORMAT_R8G8B8A8_UNORM,
 		0));
 
 	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
 
-	for (UINT i = 0; i < FrameCount; i++)
+	for (UINT i = 0; i < FRAMECOUNT; i++)
 	{
 		HR_CHECK(m_swapChain->GetBuffer(i, IID_PPV_ARGS(&m_renderTargets[i])));
 
@@ -1038,7 +1041,7 @@ void GraphicsDevice_DX12::ResizeSwapChain(uint32_t width, uint32_t height)
 	m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(width), static_cast<LONG>(height));
 
 	const UINT64 currentFence = m_fenceValues[m_frameIndex];
-	for (UINT i = 0; i < FrameCount; i++)
+	for (UINT i = 0; i < FRAMECOUNT; i++)
 		m_fenceValues[i] = currentFence;
 
 	m_width = width;

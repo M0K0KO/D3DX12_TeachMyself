@@ -28,7 +28,7 @@ class Renderer
 {
 public:
 	void Init(GraphicsDevice* device);
-	void Render(GraphicsDevice* device, const RenderScene& renderScene);
+	void Render(GraphicsDevice* device, CommandContext& ctx, const RenderScene& renderScene);
 	void Shutdown();
 
 	void ChangeDebugMode(DebugMode mode) { debugMode = mode; };
@@ -111,8 +111,6 @@ private:
 	void AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
 	void AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
 	void AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
-
-	void PrintGPUTimes(GraphicsDevice* device);
 
 private:
 	static constexpr float clearColor[4] = { 0.0f, 0.0f,  0.0f,  0.0f };

@@ -9,6 +9,7 @@
 #include "MokoLog.h"
 #include "MokoTime.h"
 #include <random>
+#include <imgui_impl_dx12.h>
 
 static inline float PointAABBDistanceSq(const XMFLOAT3& p, const XMFLOAT3& aabbMin, const XMFLOAT3& aabbMax)
 {
@@ -88,14 +89,12 @@ void Renderer::Init(GraphicsDevice* device)
 	debugMode = DebugMode::PBR_Enabled;
 }
 
-void Renderer::Render(GraphicsDevice* device, const RenderScene& renderScene)
+void Renderer::Render(GraphicsDevice* device, CommandContext& ctx, const RenderScene& renderScene)
 {
 	ReloadPSO(device);
 
 	if (m_needsResize)
 		Resize(device);
-
-	CommandContext& ctx = device->BeginFrame();
 
 	RenderGraph graph(device);
 	auto& frameData = renderScene.frameData;
@@ -308,10 +307,6 @@ void Renderer::Render(GraphicsDevice* device, const RenderScene& renderScene)
 	graph.Compile();
 	graph.Execute(ctx);
 	graph.Clear();
-
-	device->EndFrame();
-
-	PrintGPUTimes(device);
 }
 
 void Renderer::Resize(GraphicsDevice* device)
@@ -438,28 +433,6 @@ void Renderer::ReloadPSO(GraphicsDevice* device)
 
 	if (dirtyGTAOCS)		 ShaderCompiler::ClearDirty(m_GTAOCS);
 }
-
-void Renderer::PrintGPUTimes(GraphicsDevice* device)
-{
-	float depthPrePassTime = device->GetTimestampMs(PassID::DepthPrePass);
-	float gBufferPassTime = device->GetTimestampMs(PassID::GBufferPass);
-	float gBufferAlphaPassTime = device->GetTimestampMs(PassID::GBufferAlphaPass);
-	float directionalShadowPassTime = device->GetTimestampMs(PassID::DirectionalShadowPass);
-	float pointShadowPassTime = device->GetTimestampMs(PassID::PointShadowPass);
-	float PBRlightingPassTime = device->GetTimestampMs(PassID::PBRLightingPass);
-	float skyboxPassTime = device->GetTimestampMs(PassID::SkyboxPass);
-
-	LOG_INFO(
-		"[GPU Time] | DepthPre: %6.3f ms | GBuffer: %6.3f ms | GBufferAlpha: %6.3f ms | DirectionalShadow: %6.3f ms | PointShadow : %6.3fms | PBRLighting: %6.3f ms | Skybox: %6.3f ms\n",
-		depthPrePassTime,
-		gBufferPassTime,
-		gBufferAlphaPassTime,
-		directionalShadowPassTime,
-		pointShadowPassTime,
-		PBRlightingPassTime,
-		skyboxPassTime);
-}
-
 
 void Renderer::CreateCubeMap(GraphicsDevice* device)
 {

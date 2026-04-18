@@ -13,6 +13,8 @@
 using namespace Microsoft::WRL;
 using namespace DirectX;
 
+static const UINT FRAMECOUNT = 3;
+
 class GraphicsDevice_DX12 : public GraphicsDevice
 {
 	friend class CommandContext_DX12;
@@ -49,6 +51,7 @@ public:
 
 public:
 	float GetTimestampMs(uint32_t passIndex) override;
+	void WaitForGpu();
 	const ComPtr<ID3D12Resource> GetTextureResource(TextureHandle handle);
 
 	DescriptorAllocator& GetCbvSrvUavAllocator() { return m_cbvSrvUavAllocator; }
@@ -62,7 +65,17 @@ public:
 	DescriptorHandle AllocateRTV() { return m_rtvAllocator.Allocate(); }
 	DescriptorHandle AllocateDSV() { return m_dsvAllocator.Allocate(); }
 
+	D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentBackBufferRTV()
+	{
+		const auto& tex = m_textures[m_backBufferHandles[m_frameIndex].id];
+		return tex.rtv.cpu;
+	}
 
+public:
+	ID3D12Device* GetDevicePtr() { return m_device.Get(); };
+	ID3D12CommandQueue* GetCommandQueuePtr() { return m_commandQueue.Get(); };
+	DXGI_FORMAT GetSwapChainFormat() { return DXGI_FORMAT_R8G8B8A8_UNORM; };
+	GPUTimestampProfiler* GetGPUProfiler() { return &m_profiler; };
 
 private:
 	ComPtr<ID3D12RootSignature> BuildRootSignature(const RootSignatureDesc& desc);
@@ -78,11 +91,9 @@ private:
 
 	void ReserveResources();
 	
-	void WaitForGpu();
 	void MoveToNextFrame();
 
 private:
-	static const UINT FrameCount = 3;
 
 	UINT m_width;
 	UINT m_height;
@@ -94,7 +105,8 @@ private:
 	UINT m_frameIndex;
 	HANDLE m_fenceEvent;
 	ComPtr<ID3D12Fence> m_fence;
-	UINT64 m_fenceValues[FrameCount];
+	UINT64 m_fenceValues[FRAMECOUNT];
+	UINT64 m_nextFenceValue = 1;
 
 	std::unique_ptr<UploadHeapRingAllocator> uploadHeapAllocator;
 
@@ -105,8 +117,8 @@ private:
 	CD3DX12_VIEWPORT m_viewport;
 	CD3DX12_RECT m_scissorRect;
 	ComPtr<IDXGISwapChain3> m_swapChain;
-	ComPtr<ID3D12Resource> m_renderTargets[FrameCount];
-	ComPtr<ID3D12CommandAllocator> m_commandAllocators[FrameCount];
+	ComPtr<ID3D12Resource> m_renderTargets[FRAMECOUNT];
+	ComPtr<ID3D12CommandAllocator> m_commandAllocators[FRAMECOUNT];
 	ComPtr<ID3D12CommandAllocator> m_immediateAllocator;
 	ComPtr<ID3D12GraphicsCommandList> m_commandList;
 	ComPtr<ID3D12GraphicsCommandList> m_immediateCommandList;
@@ -114,8 +126,8 @@ private:
 	struct InternalBuffer
 	{
 		ComPtr<ID3D12Resource> resource;
-		ComPtr<ID3D12Resource> frameResources[FrameCount];
-		UINT8* mappedPointers[FrameCount] = {};
+		ComPtr<ID3D12Resource> frameResources[FRAMECOUNT];
+		UINT8* mappedPointers[FRAMECOUNT] = {};
 		uint32_t heapSlot = UINT32_MAX;
 		BufferDesc desc;
 	};
@@ -145,7 +157,7 @@ private:
 	std::vector<InternalTexture> m_textures;
 	std::vector<InternalPipeline> m_pipelines;
 
-	TextureHandle m_backBufferHandles[FrameCount];
+	TextureHandle m_backBufferHandles[FRAMECOUNT];
 
 	std::unique_ptr<TextureLoader> m_pTextureLoader;
 

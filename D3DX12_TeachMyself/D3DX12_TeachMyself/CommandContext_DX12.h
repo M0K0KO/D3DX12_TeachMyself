@@ -43,6 +43,8 @@ public:
 	void DrawIndexed(uint32_t indexCount, uint32_t startIndex, uint32_t baseVertex) override;
 	void Draw(uint32_t vertexCount, uint32_t startVertex) override;
 
+	void* GetNativeHandle() override;
+
 	void BeginTimestamp(uint32_t passIndex) override;
 	void EndTimestamp(uint32_t passIndex) override;
 

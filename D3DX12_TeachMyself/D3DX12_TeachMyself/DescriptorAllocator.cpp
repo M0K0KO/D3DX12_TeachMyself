@@ -51,12 +51,22 @@ DescriptorHandle DescriptorAllocator::Allocate()
 	return handle;
 }
 
-void DescriptorAllocator::Free(const DescriptorHandle& handle, uint64_t fenceValue)
+void DescriptorAllocator::Free(const DescriptorHandle& handle)
 {
 	if (!handle.IsValid())
 		return;
 
-	m_pendingFrees.push({ handle.index, fenceValue });
+	m_pendingFrees.push({ handle.index, m_currentFence });
+}
+
+void DescriptorAllocator::FreeByCpuHandle(D3D12_CPU_DESCRIPTOR_HANDLE cpu)
+{
+	assert(cpu.ptr >= m_cpuStart.ptr &&
+		cpu.ptr < m_cpuStart.ptr + m_capacity * m_incrementSize);
+
+	uint32_t index = static_cast<uint32_t>((cpu.ptr - m_cpuStart.ptr) / m_incrementSize);
+
+	m_pendingFrees.push({ index, m_currentFence });
 }
 
 void DescriptorAllocator::FinishFrame(uint64_t completedFenceValue)

@@ -7,6 +7,7 @@
 #include "EntityScene.h"
 #include "SystemManager.h"
 #include "InputState.h"
+#include "EditorSystem.h"
 
 class Application
 {
@@ -30,9 +31,11 @@ private:
 
 	Window wnd;
 	EntityScene m_ecsScene;
-	SystemManager m_systemManager;
+	std::unique_ptr<SystemManager> m_systemManager;
 	InputState m_inputState;
 	Renderer m_renderer;
+
+	EditorSystem* m_editorSystem;
 
 	uint32_t m_pendingWidth = 0;
 	uint32_t m_pendingHeight = 0;

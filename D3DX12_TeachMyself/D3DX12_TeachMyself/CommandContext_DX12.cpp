@@ -194,7 +194,7 @@ void CommandContext_DX12::ClearDepthStencil(TextureHandle handle, float depth, i
 
 void CommandContext_DX12::SetRenderTarget(UINT numRT, TextureHandle* renderTargets, TextureHandle depth, int faceIdx)
 {
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT];
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT] = {};
 	for (UINT i = 0; i < numRT; i++)
 	{
 		assert(renderTargets[i].IsValid() && "SetRenderTarget: invalid RT handle");
@@ -224,6 +224,11 @@ void CommandContext_DX12::DrawIndexed(uint32_t indexCount, uint32_t startIndex, 
 void CommandContext_DX12::Draw(uint32_t vertexCount, uint32_t startVertex)
 {
 	m_commandList->DrawInstanced(vertexCount, 1, startVertex, 0);
+}
+
+void* CommandContext_DX12::GetNativeHandle()
+{
+	return m_commandList;
 }
 
 void CommandContext_DX12::BeginTimestamp(uint32_t passIndex)

@@ -1,5 +1,6 @@
 #pragma once
 #include "stdafx.h"
+#include <array>
 
 #undef max
 
@@ -11,7 +12,14 @@ enum PassID
     DirectionalShadowPass = 3,
     PointShadowPass = 4,
     PBRLightingPass = 5,
-    SkyboxPass = 6
+    SkyboxPass = 6,
+    Count
+};
+
+struct ProfilerResult
+{
+    std::string name;
+    float ms;
 };
 
 
@@ -103,13 +111,37 @@ public:
         m_readbackBuffers[readFrame]->Unmap(0, nullptr);
     }
 
-    float GetTimestampMs(uint32_t passIndex)
+    const float GetTimestampMs(uint32_t passIndex) const
     {
         uint64_t start = m_timestamps[passIndex * 2];
         uint64_t end = m_timestamps[passIndex * 2 + 1];
         if (end <= start || m_frequency == 0)
             return 0.0f;
         return float(double(end - start) * 1000.0 / double(m_frequency));
+    }
+
+    const std::vector<ProfilerResult> GetLastFrameResults() const
+    {
+        constexpr float alpha = 0.1f;
+
+        std::vector<ProfilerResult> results;
+        results.reserve((size_t)PassID::Count);
+
+        auto smooth = [&](PassID id, float current) {
+            float& s = m_smoothedMs[(size_t)id];
+            s = s * (1.0f - alpha) + current * alpha;
+            return s;
+            };
+
+        results.push_back({ "DepthPrePass", smooth(PassID::DepthPrePass, GetTimestampMs(PassID::DepthPrePass)) });
+        results.push_back({ "GBufferPass", smooth(PassID::GBufferPass, GetTimestampMs(PassID::GBufferPass)) });
+        results.push_back({ "GBufferAlphaPass", smooth(PassID::GBufferAlphaPass, GetTimestampMs(PassID::GBufferAlphaPass)) });
+        results.push_back({ "DirectionalShadowPass", smooth(PassID::DirectionalShadowPass, GetTimestampMs(PassID::DirectionalShadowPass)) });
+        results.push_back({ "PointShadowPass", smooth(PassID::PointShadowPass, GetTimestampMs(PassID::PointShadowPass)) });
+        results.push_back({ "PBRLightingPass", smooth(PassID::PBRLightingPass, GetTimestampMs(PassID::PBRLightingPass)) });
+        results.push_back({ "SkyboxPass", smooth(PassID::SkyboxPass, GetTimestampMs(PassID::SkyboxPass)) });
+
+        return results;
     }
 
 private:
@@ -122,6 +154,7 @@ private:
     uint32_t m_activePassCount = 0;
 
     uint64_t m_timestamps[QueryCount] = {};
+    mutable std::array<float, (size_t)PassID::Count> m_smoothedMs{};
 
     Microsoft::WRL::ComPtr<ID3D12QueryHeap> m_queryHeap;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_readbackBuffers[BufferedFrames];

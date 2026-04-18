@@ -45,6 +45,8 @@ public:
 	virtual void DrawIndexed(uint32_t indexCount, uint32_t startIndex, uint32_t baseVertex) = 0;
 	virtual void Draw(uint32_t vertexCount, uint32_t startVertex) = 0;
 
+	virtual void* GetNativeHandle() = 0;
+
 	virtual void BeginTimestamp(uint32_t passIndex) = 0;
 	virtual void EndTimestamp(uint32_t passIndex) = 0;
 }; 
