@@ -64,11 +64,6 @@ void EntityScene::SetParent(Entity child, Entity newParent)
 	pHier.firstChild = child;
 }
 
-void EntityScene::UpdateTransforms()
-{
-	UpdateTransformRecursive(rootEntity, XMMatrixIdentity());
-}
-
 void EntityScene::DetachFromParent(Entity e)
 {
 	auto& hier = registry.Get<HierarchyComponent>(e);
@@ -94,25 +89,6 @@ void EntityScene::DetachFromParent(Entity e)
 	hier.parent = INVALID_ENTITY;
 	hier.prevSibling = INVALID_ENTITY;
 	hier.nextSibling = INVALID_ENTITY;
-}
-
-void EntityScene::UpdateTransformRecursive(Entity e, const XMMATRIX& parentWorld)
-{
-	auto& t = registry.Get<TransformComponent>(e);
-
-	XMMATRIX local = GetLocalMatrix(t.position, t.rotation, t.scale);
-	XMMATRIX world = local * parentWorld;
-
-	XMStoreFloat4x4(&t.locallMatrix, local);
-	XMStoreFloat4x4(&t.worldMatrix, world);
-
-	auto& hier = registry.Get<HierarchyComponent>(e);
-	Entity c = hier.firstChild;
-	while (!(c == INVALID_ENTITY))
-	{
-		UpdateTransformRecursive(c, world);
-		c = registry.Get<HierarchyComponent>(c).nextSibling;
-	}
 }
 
 Entity EntityScene::GetMainCamera()

@@ -5,21 +5,20 @@
 #include "Renderer.h"
 #include "FrameData.h"
 #include "EntityScene.h"
-#include "Camera.h"
+#include "SystemManager.h"
+#include "InputState.h"
 
 class Application
 {
 public:
 	Application();
-	~Application() = default;;
+	~Application();
 	int Run();
 
 private:
 	void Init();
 	void Update();
 	void Render();
-
-	void UpdateCameraController(float dt);
 
 	RenderScene ExtractRenderScene();
 
@@ -31,6 +30,8 @@ private:
 
 	Window wnd;
 	EntityScene m_ecsScene;
+	SystemManager m_systemManager;
+	InputState m_inputState;
 	Renderer m_renderer;
 
 	uint32_t m_pendingWidth = 0;

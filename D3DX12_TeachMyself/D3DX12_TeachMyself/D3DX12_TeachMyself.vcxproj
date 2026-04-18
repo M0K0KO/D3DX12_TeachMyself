@@ -221,7 +221,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
   <ItemGroup>
     <ClInclude Include="Application.h" />
     <ClInclude Include="AssetLoader.h" />
-    <ClInclude Include="Camera.h" />
+    <ClInclude Include="CameraControllerSystem.h" />
     <ClInclude Include="CommandContext.h" />
     <ClInclude Include="CommandContext_DX12.h" />
     <ClInclude Include="ComponentPool.h" />
@@ -238,6 +238,8 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="GraphicsDevice_DX12.h" />
     <ClInclude Include="HRException.h" />
     <ClInclude Include="IComponentPool.h" />
+    <ClInclude Include="InputState.h" />
+    <ClInclude Include="ISystem.h" />
     <ClInclude Include="json.hpp" />
     <ClInclude Include="Keyboard.h" />
     <ClInclude Include="Mesh.h" />
@@ -254,8 +256,10 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="stb_image_write.h" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="SystemManager.h" />
     <ClInclude Include="TextureLoader.h" />
     <ClInclude Include="tiny_gltf.h" />
+    <ClInclude Include="TransformSystem.h" />
     <ClInclude Include="UploadHeapRingAllocator.h" />
     <ClInclude Include="View.h" />
     <ClInclude Include="Window.h" />
@@ -263,19 +267,22 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
     <ClCompile Include="AssetLoader.cpp" />
-    <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="CameraControllerSystem.cpp" />
     <ClCompile Include="CommandContext_DX12.cpp" />
     <ClCompile Include="DX12Helpers.cpp" />
     <ClCompile Include="EntityManager.cpp" />
     <ClCompile Include="EntityScene.cpp" />
     <ClCompile Include="GraphicsDevice_DX12.cpp" />
+    <ClCompile Include="InputState.cpp" />
     <ClCompile Include="Keyboard.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Mouse.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="RenderGraph.cpp" />
     <ClCompile Include="stdafx.cpp" />
+    <ClCompile Include="SystemManager.cpp" />
     <ClCompile Include="TextureLoader.cpp" />
+    <ClCompile Include="TransformSystem.cpp" />
     <ClCompile Include="UploadHeapRingAllocator.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>

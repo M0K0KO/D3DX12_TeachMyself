@@ -17,12 +17,12 @@ public:
 	void DestroyEntity(Entity e);
 
 	void SetParent(Entity child, Entity parent);
-	void UpdateTransforms();
 
 	Entity GetMainCamera();
 
 	EntityManager& GetEntityManager() { return entityManager; };
 	Registry& GetRegistry() { return registry; };
+	Entity GetRoot() { return rootEntity; };
 
 	void SetSceneAABB(XMFLOAT3 min, XMFLOAT3 max);
 	XMFLOAT3 GetSceneAABBMin() const;
@@ -30,7 +30,6 @@ public:
 	
 private:
 	void DetachFromParent(Entity e);
-	void UpdateTransformRecursive(Entity e, const XMMATRIX& parentWorld);
 
 private:
 	EntityManager entityManager;

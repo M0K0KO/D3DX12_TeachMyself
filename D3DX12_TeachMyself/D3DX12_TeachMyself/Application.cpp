@@ -6,12 +6,19 @@
 #include "EntityScene.h"
 #include "components.h"
 #include "MokoMath.h"
+#include "TransformSystem.h"
+#include "CameraControllerSystem.h"
 
 Application::Application()
 	:
 	wnd(1920, 1080, L"Moko Engine")
 {
 
+}
+
+Application::~Application()
+{
+	m_systemManager.ShutdownAll(m_ecsScene);
 }
 
 int Application::Run()
@@ -139,6 +146,10 @@ void Application::Init()
 		t.position = { 0.0f, 1.0f, -5.0f };
 	}
 
+	m_systemManager.InitAll(m_ecsScene);
+	m_systemManager.Add<CameraControllerSystem>();
+	m_systemManager.Add<TransformSystem>();
+
 	m_renderer.Init(m_device.get());
 
 	wnd.SetResizeCallback([this](uint32_t w, uint32_t h) {
@@ -155,10 +166,14 @@ void Application::Init()
 
 void Application::Update()
 {
+	m_inputState.Capture(wnd);
+
 	HandleKeyboardEvents();
 	HandleDebugModeInput();
-	UpdateCameraController(MokoTime::GetDeltaTime());
-	m_ecsScene.UpdateTransforms();
+
+	SystemContext ctx = { .window = &wnd, .input = &m_inputState };
+
+	m_systemManager.UpdateAll(m_ecsScene, MokoTime::GetDeltaTime(), ctx);
 }
 
 void Application::Render()
@@ -179,59 +194,6 @@ void Application::Render()
 	RenderScene renderScene = ExtractRenderScene();
 	m_renderer.Render(m_device.get(), renderScene);
 }
-
-void Application::UpdateCameraController(float dt)
-{
-	constexpr float travelSpeed = 4.0f;
-	constexpr float rotationSpeed = 0.004f;
-
-	// Gather input
-	XMFLOAT3 localMove = { 0, 0, 0 };
-	XMFLOAT2 mouseDelta = { 0, 0 };
-
-	if (!wnd.CursorEnabled())
-	{
-		if (wnd.kbd.KeyIsPressed('W')) localMove.z += 1.0f;
-		if (wnd.kbd.KeyIsPressed('S')) localMove.z -= 1.0f;
-		if (wnd.kbd.KeyIsPressed('A')) localMove.x -= 1.0f;
-		if (wnd.kbd.KeyIsPressed('D')) localMove.x += 1.0f;
-		if (wnd.kbd.KeyIsPressed('R')) localMove.y += 1.0f;
-		if (wnd.kbd.KeyIsPressed('F')) localMove.y -= 1.0f;
-
-		while (const auto d = wnd.mouse.ReadRawDelta())
-		{
-			mouseDelta.x += (float)d->x;
-			mouseDelta.y += (float)d->y;
-		}
-	}
-	else
-	{
-		while (wnd.mouse.ReadRawDelta()) {}
-	}
-
-	auto view = m_ecsScene.GetRegistry().GetView<TransformComponent, CameraComponent>();
-	for (auto [e, t, cam] : view)
-	{
-		if (!cam.isMain) continue;
-
-		// Rotate
-		cam.yaw = wrap_angle(cam.yaw + mouseDelta.x * rotationSpeed);
-		cam.pitch = std::clamp(cam.pitch + mouseDelta.y * rotationSpeed,
-			-PI * 0.5f * 0.995f, PI * 0.5f * 0.995f);
-
-		// Translate (local ¡æ world)
-		XMVECTOR local = XMLoadFloat3(&localMove);
-		XMMATRIX rot = XMMatrixRotationRollPitchYaw(cam.pitch, cam.yaw, 0.0f);
-		XMVECTOR world = XMVector3Transform(local, rot);
-		world = XMVectorScale(world, travelSpeed * dt);
-
-		t.position.x += XMVectorGetX(world);
-		t.position.y += XMVectorGetY(world);
-		t.position.z += XMVectorGetZ(world);
-		break;
-	}
-}
-
 
 RenderScene Application::ExtractRenderScene()
 {
@@ -297,69 +259,61 @@ RenderScene Application::ExtractRenderScene()
 
 void  Application::HandleKeyboardEvents()
 {
-	while (const auto e = wnd.kbd.ReadKey())
+	if (m_inputState.WasKeyPressed(VK_ESCAPE))
 	{
-		if (!e->IsPress())
+		LOG_WARN("ESC pressed\n");
+		if (wnd.CursorEnabled())
 		{
-			continue;
+			LOG_WARN("	-> Disabling Cursor\n");
+			wnd.DisableCursor();
+			wnd.mouse.EnableRaw();
 		}
-
-		switch (e->GetCode())
+		else
 		{
-		case VK_ESCAPE:
-			if (wnd.CursorEnabled())
-			{
-				wnd.DisableCursor();
-				wnd.mouse.EnableRaw();
-			}
-			else
-			{
-				wnd.EnableCursor();
-				wnd.mouse.DisableRaw();
-			}
-			break;
+			LOG_WARN("	-> Enabling Cursor\n");
+			wnd.EnableCursor();
+			wnd.mouse.DisableRaw();
 		}
 	}
-
 }
 void  Application::HandleDebugModeInput()
 {
-	if (wnd.kbd.KeyIsPressed('1'))
+	if (m_inputState.WasKeyPressed('1'))
 	{
 		m_renderer.ChangeDebugMode(DebugMode::PBR_Enabled);
 		wnd.SetTitle(L"DebugMode :: PBR ENABLED");
 	}
-	else if (wnd.kbd.KeyIsPressed('2'))
+	else if (m_inputState.WasKeyPressed('2'))
 	{
 		m_renderer.ChangeDebugMode(DebugMode::PBR_Disabled);
 		wnd.SetTitle(L"DebugMode :: PBR DISABLED");
 	}
-	else if (wnd.kbd.KeyIsPressed('3'))
+	else if (m_inputState.WasKeyPressed('3'))
 	{
 		m_renderer.ChangeDebugMode(DebugMode::DepthTexture);
 		wnd.SetTitle(L"DebugMode :: DEPTH");
 	}
-	else if (wnd.kbd.KeyIsPressed('4'))
+	else if (m_inputState.WasKeyPressed('4'))
 	{
 		m_renderer.ChangeDebugMode(DebugMode::Albedo);
 		wnd.SetTitle(L"DebugMode :: ALBEDO");
 	}
-	else if (wnd.kbd.KeyIsPressed('5'))
+	else if (m_inputState.WasKeyPressed('5'))
 	{
 		m_renderer.ChangeDebugMode(DebugMode::Normal);
 		wnd.SetTitle(L"DebugMode :: NORMAL");
 	}
-	else if (wnd.kbd.KeyIsPressed('6'))
+	else if (m_inputState.WasKeyPressed('6'))
 	{
 		m_renderer.ChangeDebugMode(DebugMode::MR);
 		wnd.SetTitle(L"DebugMode :: METALLIC_ROUGHNESS");
 	}
-	else if (wnd.kbd.KeyIsPressed('7'))
+	else if (m_inputState.WasKeyPressed('7'))
 	{
 		m_renderer.ChangeDebugMode(DebugMode::SSAO_ENABLED);
 		wnd.SetTitle(L"DebugMode :: SSAO ENABLED");
 	}
-	else if (wnd.kbd.KeyIsPressed('8'))
+	else if (m_inputState.WasKeyPressed('8'))
 	{
 		m_renderer.ChangeDebugMode(DebugMode::SSAO_DISABLED);
 		wnd.SetTitle(L"DebugMode :: SSAO DISABLED");
