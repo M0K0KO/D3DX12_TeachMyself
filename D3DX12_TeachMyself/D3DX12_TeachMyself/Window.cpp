@@ -240,20 +240,28 @@ LRESULT Window::HandleMsg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		{
 			RECT rc;
 			GetClientRect(hWnd, &rc);
-			m_resizeCallback(rc.right - rc.left, rc.bottom - rc.top);
+			const uint32_t newWidth = rc.right - rc.left;
+			const uint32_t newHeight = rc.bottom - rc.top;
+			width = static_cast<int>(newWidth);
+			height = static_cast<int>(newHeight);
+			m_resizeCallback(newWidth, newHeight);
 		}
 		return 0;
 
 	case WM_SIZE:
-		if (IsZoomed(hWnd))
-			return 0;
-
-		if (!m_isResizing && wParam != SIZE_MINIMIZED && m_resizeCallback)
+		if (wParam != SIZE_MINIMIZED)
 		{
-			uint32_t w = LOWORD(lParam);
-			uint32_t h = HIWORD(lParam);
-			if (w > 0 && h > 0)
-				m_resizeCallback(w, h);
+			const uint32_t w = LOWORD(lParam);
+			const uint32_t h = HIWORD(lParam);
+			{
+				width = static_cast<int>(w);
+				height = static_cast<int>(h);
+
+				if (!m_isResizing && m_resizeCallback)
+				{
+					m_resizeCallback(w, h);
+				}
+			}
 		}
 		return 0;
 	case WM_CLOSE:
