@@ -10,6 +10,6 @@ public:
 
 private:
     Entity cameraEntity = INVALID_ENTITY;
-    float moveSpeed = 10.0f;
+    float moveSpeed = 6.0f;
     float mouseSensitivity = 0.0025f;
 };

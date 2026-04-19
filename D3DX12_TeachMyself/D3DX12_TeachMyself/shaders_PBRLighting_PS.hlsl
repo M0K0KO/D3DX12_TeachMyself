@@ -194,6 +194,40 @@ float SampleShadowPCF(int cascadeIndex, float3 worldPos)
     return shadow / 9.0f;
 }
 
+float SamplePointShadow(int idx, float3 lightToSurface, float farZ)
+{
+    float dominant = max(abs(lightToSurface.x),
+                     max(abs(lightToSurface.y), abs(lightToSurface.z)));
+    
+    float nearZ = 0.1f;
+    float projDepth = (farZ * dominant - farZ * nearZ)
+                    / (dominant * (farZ - nearZ));
+    float bias = 0.005f;
+    
+    const float3 sampleOffsets[20] =
+    {
+        float3(1, 1, 1), float3(1, -1, 1), float3(-1, -1, 1), float3(-1, 1, 1),
+        float3(1, 1, -1), float3(1, -1, -1), float3(-1, -1, -1), float3(-1, 1, -1),
+        float3(1, 1, 0), float3(1, -1, 0), float3(-1, -1, 0), float3(-1, 1, 0),
+        float3(1, 0, 1), float3(-1, 0, 1), float3(1, 0, -1), float3(-1, 0, -1),
+        float3(0, 1, 1), float3(0, -1, 1), float3(0, -1, -1), float3(0, 1, -1)
+    };
+    
+    float dist = length(lightToSurface);
+    float diskRadius = (1.0 + dist / farZ) * 0.005; 
+    
+    float shadow = 0;
+    [unroll]
+    for (int s = 0; s < 20; ++s)
+    {
+        float3 sampleDir = lightToSurface + sampleOffsets[s] * diskRadius;
+        shadow += pointShadowMaps[idx].SampleCmpLevelZero(
+            gComparisonSampler, sampleDir, projDepth - bias);
+    }
+    return shadow / 20.0;
+}
+
+
 // =============================================================
 // Fullscreen Triangle Vertex -> PS Input
 // =============================================================
@@ -285,7 +319,7 @@ float4 main(PSInput input) : SV_TARGET
                 L /= dist;
         
                 float3 lightToSurface = worldPos - PointLights[i].Position;
-                float shadowSample = pointShadowMaps[i].SampleLevel(gSamplerPoint, lightToSurface, 0).r;
+                float shadowSample = SamplePointShadow(i, lightToSurface, 1000.0f);
                 float dominant = max(abs(lightToSurface.x), max(abs(lightToSurface.y), abs(lightToSurface.z)));
                 float nearZ = 0.1f;
                 float farZ = PointLights[i].Radius;
@@ -300,6 +334,7 @@ float4 main(PSInput input) : SV_TARGET
                 float NdotL = saturate(dot(N, L));
                 float3 brdf = CookTorranceBRDF(N, V, L, albedo, metallic, roughness);
 
+                pointShadow = lerp(1.0, pointShadow, atten);
                 totalLighting += pointShadow * brdf * radiance * NdotL;
             }
         }
