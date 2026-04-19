@@ -210,7 +210,9 @@ void Application::Init()
 	}
 
 	m_systemManager = std::make_unique<SystemManager>();
-	m_systemManager->Add<MokoJob::JobSystem>(0);
+	auto* jobSystem = m_systemManager->Add<MokoJob::JobSystem>(0);
+
+
 	m_systemManager->Add<CameraControllerSystem>();
 	m_systemManager->Add<TransformSystem>();
 

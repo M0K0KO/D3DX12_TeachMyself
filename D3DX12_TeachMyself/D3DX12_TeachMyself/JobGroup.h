@@ -13,7 +13,7 @@ namespace MokoJob
 
 		void Submit(std::function<void()> func);
 		void Wait();
-		JobHandle GetHandle() const { return JobHandle(m_counter); }
+		JobHandle GetHandle() const { return JobHandle(m_counter, &m_system); }
 
 		int PendingCount() const
 		{

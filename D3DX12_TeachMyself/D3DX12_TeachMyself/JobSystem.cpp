@@ -1,5 +1,8 @@
+#define NOMINMAX
+
 #include "JobSystem.h"
 #include "WorkerThread.h"
+#include "JobGroup.h"
 
 namespace MokoJob
 {
@@ -58,7 +61,7 @@ namespace MokoJob
 		job.counter = nullptr;
 
 		m_queue.Push(std::move(job));
-		return JobHandle(counter);
+		return JobHandle(counter, this);
 	}
 
 	void JobSystem::SubmitInternal(std::function<void()> func, std::atomic<int>* counter)
@@ -67,6 +70,49 @@ namespace MokoJob
 		job.func = std::move(func);
 		job.counter = counter;
 		m_queue.Push(std::move(job));
+	}
+
+	bool JobSystem::TryExecuteOne()
+	{
+		Job job;
+		if (m_queue.TryPop(job))
+		{
+			job.Execute();
+			return true;
+		}
+		
+		return false;
+	}
+
+	void JobSystem::ParallelFor(int begin, int end, int batchSize, std::function<void(int)> func)
+	{
+		if (begin >= end) return;
+		if (batchSize < 1) batchSize = 1;
+
+		const int total = end - begin;
+		const int jobCount = (total + batchSize - 1) / batchSize;
+
+		// main thread fallback
+		if (jobCount <= 1)
+		{
+			for (int i = begin; i < end; i++)
+				func(i);
+
+			return;
+		}
+
+		JobGroup group(*this);
+		for (int j = 0; j < jobCount; j++)
+		{
+			const int lo = begin + j * batchSize;
+			const int hi = std::min(lo + batchSize, end);
+
+			group.Submit([lo, hi, &func] {
+				for (int i = lo; i < hi; i++)
+					func(i);
+				});
+		}
+		group.Wait();
 	}
 
 	void JobSystem::ShutdownInternal()

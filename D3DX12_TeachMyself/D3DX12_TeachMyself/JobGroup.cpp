@@ -1,6 +1,7 @@
 #include "JobGroup.h"
 #include "JobSystem.h"
 #include <thread>
+#include "SpinWait.h"
 
 namespace MokoJob
 {
@@ -16,10 +17,17 @@ namespace MokoJob
 
 	void JobGroup::Wait()
 	{
+		SpinBackoff backoff;
+
 		while (m_counter->load(std::memory_order_acquire) > 0)
 		{
-			std::this_thread::yield();
+			if (m_system.TryExecuteOne())
+			{
+				backoff.Reset();
+				continue;
+			}
 		}
+		backoff.Step();
 	}
 }
 

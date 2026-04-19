@@ -272,6 +272,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="RenderScene.h" />
     <ClInclude Include="RHITypes.h" />
     <ClInclude Include="ShaderCompiler.h" />
+    <ClInclude Include="SpinWait.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="stb_image_write.h" />
     <ClInclude Include="stdafx.h" />
@@ -306,6 +307,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="GraphicsDevice_DX12.cpp" />
     <ClCompile Include="InputState.cpp" />
     <ClCompile Include="JobGroup.cpp" />
+    <ClCompile Include="JobHandle.cpp" />
     <ClCompile Include="JobQueue.cpp" />
     <ClCompile Include="JobSystem.cpp" />
     <ClCompile Include="Keyboard.cpp" />

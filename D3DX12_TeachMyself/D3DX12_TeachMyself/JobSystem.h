@@ -4,10 +4,11 @@
 #include "JobHandle.h"
 #include <vector>
 #include <memory>
-
+#include <functional>
 namespace MokoJob
 {
 	class WorkerThread;
+	class JobHandle;
 
 	class JobSystem : public ISystem
 	{
@@ -22,6 +23,10 @@ namespace MokoJob
 		void Submit(std::function<void()> func);
 		JobHandle SubmitTracked(std::function<void()> func);
 		void SubmitInternal(std::function<void()> func, std::atomic<int>* counter);
+
+		bool TryExecuteOne();
+
+		void ParallelFor(int begin, int end, int batchSize, std::function<void(int)> func);
 
 		int WorkerCount() const { return static_cast<int>(m_workers.size()); };
 
