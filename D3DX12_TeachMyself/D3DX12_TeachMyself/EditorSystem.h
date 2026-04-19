@@ -3,7 +3,7 @@
 #include "CommandContext_DX12.h"
 #include <imgui_impl_dx12.h>
 #include "DescriptorAllocator.h"
-
+#include "JobSystem.h"
 
 struct EditorState
 {
@@ -13,8 +13,8 @@ struct EditorState
 class EditorSystem : public ISystem
 {
 public:
-	EditorSystem(GraphicsDevice_DX12* device, HWND hwnd)
-		:m_device(device), m_hwnd(hwnd)
+	EditorSystem(GraphicsDevice_DX12* device, HWND hwnd, MokoJob::JobSystem* jobSystem)
+		:m_device(device), m_hwnd(hwnd), m_jobSystem(jobSystem)
 	{}
 	void Init(EntityScene&) override;
 	void Update(EntityScene& scene, float dt, const SystemContext& ctx) override;
@@ -36,10 +36,12 @@ private:
 	void DrawCameraComponent(Registry& registry, Entity e);
 
 	void DrawProfilerPanel();
+	void DrawJobSystemPanel();
 
 private:
 	GraphicsDevice_DX12* m_device = nullptr;
 	HWND m_hwnd = nullptr;
+	MokoJob::JobSystem* m_jobSystem;
 	bool m_initialized = false;
 
 	EditorState m_state;

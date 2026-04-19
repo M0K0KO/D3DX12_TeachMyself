@@ -1,10 +1,12 @@
 #pragma once
-#include "JobHandle.h"
 #include <functional>
+#include <memory>
+#include <atomic>
 
 namespace MokoJob
 {
 	class JobSystem;
+	class JobHandle;
 
 	class JobGroup
 	{
@@ -13,7 +15,7 @@ namespace MokoJob
 
 		void Submit(std::function<void()> func);
 		void Wait();
-		JobHandle GetHandle() const { return JobHandle(m_counter, &m_system); }
+		JobHandle GetHandle() const;
 
 		int PendingCount() const
 		{

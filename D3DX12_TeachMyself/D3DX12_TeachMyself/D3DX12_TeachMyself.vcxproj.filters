@@ -389,6 +389,9 @@
     <ClInclude Include="SpinWait.h">
       <Filter>Header Files\Jobs</Filter>
     </ClInclude>
+    <ClInclude Include="JobTime.h">
+      <Filter>Header Files\Jobs</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shaders_Depth_VS.hlsl">

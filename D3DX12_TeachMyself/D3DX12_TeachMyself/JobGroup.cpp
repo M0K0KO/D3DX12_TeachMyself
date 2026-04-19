@@ -1,5 +1,6 @@
 #include "JobGroup.h"
 #include "JobSystem.h"
+#include "JobHandle.h"
 #include <thread>
 #include "SpinWait.h"
 
@@ -11,7 +12,6 @@ namespace MokoJob
 
 	void JobGroup::Submit(std::function<void()> func)
 	{
-		m_counter->fetch_add(1, std::memory_order_relaxed);
 		m_system.SubmitInternal(std::move(func), m_counter.get());
 	}
 
@@ -28,6 +28,10 @@ namespace MokoJob
 			}
 		}
 		backoff.Step();
+	}
+	JobHandle JobGroup::GetHandle() const
+	{
+		return JobHandle(m_counter, &m_system);
 	}
 }
 

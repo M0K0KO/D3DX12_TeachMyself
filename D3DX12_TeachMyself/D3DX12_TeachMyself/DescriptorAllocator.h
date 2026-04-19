@@ -3,10 +3,7 @@
 #include <wrl/client.h>
 #include <vector>
 #include <queue>
-
-#define NOMINMAX
 #include "d3dx12.h"
-
 
 class DescriptorAllocator
 {

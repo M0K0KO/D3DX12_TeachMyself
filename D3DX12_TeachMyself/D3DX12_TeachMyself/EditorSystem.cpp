@@ -58,6 +58,7 @@ void EditorSystem::Update(EntityScene& scene, float dt, const SystemContext& ctx
 	DrawInspector(scene);
 
 	DrawProfilerPanel();
+	DrawJobSystemPanel();
 
 	ImGui::Render();
 }
@@ -292,5 +293,40 @@ void EditorSystem::DrawProfilerPanel()
 		ImGui::Separator();
 		ImGui::Text("Total: %6.3f ms", total);
 	}
+	ImGui::End();
+}
+
+void EditorSystem::DrawJobSystemPanel()
+{
+	if (!ImGui::Begin("Job System")) { ImGui::End(); return; }
+
+	auto snap = m_jobSystem->GetSnapshot();
+
+	ImGui::Text("Workers : %d", snap.workerCount);
+	ImGui::Text("Queue   : %llu", (unsigned long long)snap.queueSize);
+	ImGui::Text("Submit  : %llu", (unsigned long long)snap.submitted);
+	ImGui::Text("Done    : %llu", (unsigned long long)snap.completed);
+	uint64_t pending = snap.submitted - snap.completed;
+	ImGui::Text("Pending : %llu", (unsigned long long)pending);
+
+	ImGui::Separator();
+	ImGui::Text("Worker Utilization:");
+
+	for (int i = 0; i < snap.workerCount; ++i)
+	{
+		char label[32];
+		snprintf(label, sizeof(label), "W%d (%llu)", i,
+			(unsigned long long)snap.workerExecuted[i]);
+
+		float ratio = (float)snap.workerBusyRatio[i];
+		ImVec4 col = ImVec4(ratio, 1.0f - ratio, 0.2f, 1.0f);
+		ImGui::PushStyleColor(ImGuiCol_PlotHistogram, col);
+		ImGui::ProgressBar(ratio, ImVec2(200, 0), "");
+		ImGui::PopStyleColor();
+
+		ImGui::SameLine();
+		ImGui::Text("%s  %.1f%%", label, ratio * 100.0f);
+	}
+
 	ImGui::End();
 }

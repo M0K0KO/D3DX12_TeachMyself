@@ -8,6 +8,7 @@
 #include "SystemManager.h"
 #include "InputState.h"
 #include "EditorSystem.h"
+#include "JobSystem.h"
 
 class Application
 {
@@ -37,6 +38,7 @@ private:
 	Renderer m_renderer;
 	RenderScene m_renderScene;
 
+	MokoJob::JobSystem* m_jobSystem;
 	EditorSystem* m_editorSystem;
 
 	uint32_t m_pendingWidth = 0;

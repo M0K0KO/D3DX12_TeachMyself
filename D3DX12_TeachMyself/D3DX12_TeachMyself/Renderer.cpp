@@ -1,5 +1,3 @@
-#define NOMINMAX
-
 #include "Renderer.h"
 #include "ShaderCompiler.h"
 #include "CommandContext.h"

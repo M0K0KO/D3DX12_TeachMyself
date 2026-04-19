@@ -18,6 +18,8 @@ namespace MokoJob
 
 		void Shutdown();
 
+		uint64_t Size() { return m_queue.size(); };
+
 	private:
 		std::queue<Job> m_queue;
 		std::mutex m_mutex;

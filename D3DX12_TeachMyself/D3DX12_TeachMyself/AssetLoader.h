@@ -3,6 +3,8 @@
 #include "Mesh.h"
 #include "tiny_gltf.h"
 
+namespace MokoJob { class JobSystem; }
+
 class AssetLoader
 {
 public:
@@ -14,6 +16,9 @@ public:
 		int& height,
 		int& channels,
 		int desiredChannels = 0);
+
+	Mesh::Scene LoadGLTFParallel(const std::string& path, MokoJob::JobSystem& jobSys);
+
 	void FreeImage(float* data);
 
 private:

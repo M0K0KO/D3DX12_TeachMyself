@@ -62,7 +62,21 @@ void Application::Init()
 	m_device = std::make_unique<GraphicsDevice_DX12>();
 	m_device->Initialize(wnd.GetHWND(), wnd.GetWidth(), wnd.GetHeight());
 
+	m_systemManager = std::make_unique<SystemManager>();
+
+	m_jobSystem = m_systemManager->Add<MokoJob::JobSystem>(0);
+
+	m_systemManager->Add<CameraControllerSystem>();
+	m_systemManager->Add<TransformSystem>();
+
+	auto* dx12 = static_cast<GraphicsDevice_DX12*>(m_device.get());
+	m_editorSystem = m_systemManager->Add<EditorSystem>(dx12, wnd.GetHWND(), m_jobSystem);
+
+	m_systemManager->InitAll(m_ecsScene);
+
 	AssetLoader loader;
+
+	//auto sponzaScene = loader.LoadGLTFParallel("../Model/Sponza/Sponza.gltf", *m_jobSystem);
 	auto sponzaScene = loader.LoadGLTF("../Model/Sponza/Sponza.gltf");
 
 	const float wrapperScale = 1.0f;
@@ -209,17 +223,7 @@ void Application::Init()
 		t.position = { 0.0f, 1.0f, -5.0f };
 	}
 
-	m_systemManager = std::make_unique<SystemManager>();
-	auto* jobSystem = m_systemManager->Add<MokoJob::JobSystem>(0);
-
-
-	m_systemManager->Add<CameraControllerSystem>();
-	m_systemManager->Add<TransformSystem>();
-
-	auto* dx12 = static_cast<GraphicsDevice_DX12*>(m_device.get());
-	m_editorSystem = m_systemManager->Add<EditorSystem>(dx12, wnd.GetHWND());
-
-	m_systemManager->InitAll(m_ecsScene);
+	
 
 	m_renderer.Init(m_device.get());
 
@@ -263,7 +267,12 @@ void Application::Render()
 		m_needsResize = false;
 	}
 
+	auto t0 = std::chrono::high_resolution_clock::now();
 	RenderScene renderScene = ExtractRenderScene();
+	auto t1 = std::chrono::high_resolution_clock::now();
+	double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+	LOG_INFO("ExtractRenderScene: %.3f ms", ms);
+
 	m_renderer.Render(m_device.get(), ctx, renderScene);
 	m_editorSystem->Render(ctx);
 
