@@ -256,7 +256,6 @@ float4 main(PSInput input) : SV_TARGET
     }
     // Directional Shadow
     
-    
     float3 totalLighting = 0.0f;
     
     float3 V = normalize(cameraPos - worldPos); // surface to eye

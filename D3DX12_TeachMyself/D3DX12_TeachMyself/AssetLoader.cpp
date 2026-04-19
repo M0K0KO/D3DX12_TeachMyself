@@ -12,7 +12,7 @@
 
 using std::min;
 
-Mesh::Scene AssetLoader::LoadGLTF(const std::string& path, const float scale)
+Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
 {
     tinygltf::Model model;
     tinygltf::TinyGLTF loader;
@@ -126,6 +126,7 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path, const float scale)
 
     ProcessNode = [&](int nodeIndex, DirectX::XMMATRIX parentMatrix) {
         const auto& node = model.nodes[nodeIndex];
+        auto& sceneNode = scene.nodes[nodeIndex];
 
         DirectX::XMMATRIX local = DirectX::XMMatrixIdentity();
 
@@ -137,50 +138,52 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path, const float scale)
                 (float)node.matrix[8], (float)node.matrix[9], (float)node.matrix[10], (float)node.matrix[11],
                 (float)node.matrix[12], (float)node.matrix[13], (float)node.matrix[14], (float)node.matrix[15]
             );
+
+            XMVECTOR s, r, t;
+            XMMatrixDecompose(&s, &r, &t, local);
+            XMStoreFloat3(&sceneNode.scale, s);
+            XMStoreFloat4(&sceneNode.rotation, r);
+            XMStoreFloat3(&sceneNode.translation, t);
         }
         else
         {
-            DirectX::XMVECTOR scale = DirectX::XMVectorSet(1, 1, 1, 0);
-            DirectX::XMVECTOR rotation = DirectX::XMQuaternionIdentity();
-            DirectX::XMVECTOR translation = DirectX::XMVectorZero();
-
-            if (node.scale.size() == 3)
+            if (node.translation.size() == 3)
             {
-                scale = DirectX::XMVectorSet(
-                    (float)node.scale[0],
-                    (float)node.scale[1],
-                    (float)node.scale[2],
-                    0.0f
-                );
+                sceneNode.translation = {
+                    (float)node.translation[0],
+                    (float)node.translation[1],
+                    (float)node.translation[2]
+                };
             }
-
             if (node.rotation.size() == 4)
             {
-                rotation = DirectX::XMVectorSet(
+                sceneNode.rotation = {
                     (float)node.rotation[0],
                     (float)node.rotation[1],
                     (float)node.rotation[2],
                     (float)node.rotation[3]
-                );
+                };
+            }
+            if (node.scale.size() == 3)
+            {
+                sceneNode.scale = {
+                    (float)node.scale[0],
+                    (float)node.scale[1],
+                    (float)node.scale[2]
+                };
             }
 
-            if (node.translation.size() == 3)
-            {
-                translation = DirectX::XMVectorSet(
-                    (float)node.translation[0],
-                    (float)node.translation[1],
-                    (float)node.translation[2],
-                    1.0f
-                );
-            }
+            XMVECTOR s = XMLoadFloat3(&sceneNode.scale);
+            XMVECTOR r = XMLoadFloat4(&sceneNode.rotation);
+            XMVECTOR t = XMLoadFloat3(&sceneNode.translation);
 
             local =
-                DirectX::XMMatrixScalingFromVector(scale) *
-                DirectX::XMMatrixRotationQuaternion(rotation) *
-                DirectX::XMMatrixTranslationFromVector(translation);
+                DirectX::XMMatrixScalingFromVector(s) *
+                DirectX::XMMatrixRotationQuaternion(r) *
+                DirectX::XMMatrixTranslationFromVector(t);
         }
 
-        DirectX::XMMATRIX world = local * parentMatrix;
+        XMMATRIX world = local * parentMatrix;
 
         if (node.mesh >= 0)
         {
@@ -214,9 +217,9 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path, const float scale)
                 {
                     const float* p = reinterpret_cast<const float*>(posBase + i * posStride);
 
-                    scene.vertices[vertexOffset + i].position = { p[0] * scale, p[1] * scale, p[2] * scale };
+                    scene.vertices[vertexOffset + i].position = { p[0], p[1], p[2] };
 
-                    XMVECTOR localPos = XMVectorSet(p[0] * scale, p[1] * scale, p[2] * scale, 1.0f);
+                    XMVECTOR localPos = XMVectorSet(p[0], p[1], p[2], 1.0f);
                     XMVECTOR worldPos = XMVector3TransformCoord(localPos, world);
                     XMFLOAT3 wp; XMStoreFloat3(&wp, worldPos);
 

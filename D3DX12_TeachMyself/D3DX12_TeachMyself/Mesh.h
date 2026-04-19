@@ -31,6 +31,9 @@ namespace Mesh
 	struct Node
 	{
 		std::string name;
+		XMFLOAT3 translation = { 0,0,0 };
+		XMFLOAT4 rotation = { 0,0,0,1 };
+		XMFLOAT3 scale = { 1,1,1 };
 		int parentIndex = -1;
 		std::vector<int> children;
 		std::vector<int> subMeshIndices;

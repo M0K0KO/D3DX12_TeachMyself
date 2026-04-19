@@ -10,7 +10,7 @@ struct CameraComponent
 	float fovY = XM_PIDIV4;
 	float aspect = 16.0f / 9.0f;
 	float nearZ = 0.1f;
-	float farZ = 1000.0f;
+	float farZ = 100.0f;
 	float pitch = 0.0f;
 	float yaw = 0.0f;
 	bool isMain = true;

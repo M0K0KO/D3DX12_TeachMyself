@@ -61,7 +61,9 @@ void Application::Init()
 	m_device->Initialize(wnd.GetHWND(), wnd.GetWidth(), wnd.GetHeight());
 
 	AssetLoader loader;
-	auto sponzaScene = loader.LoadGLTF("../Model/Sponza/Sponza.gltf", 0.012f);
+	auto sponzaScene = loader.LoadGLTF("../Model/Sponza/Sponza.gltf");
+
+	const float wrapperScale = 1.0f;
 
 	BufferDesc vbDesc = { 
 		static_cast<uint32_t>(sponzaScene.vertices.size() * sizeof(Mesh::Vertex)), 
@@ -92,29 +94,45 @@ void Application::Init()
 	TextureHandle defaultNormal = m_device->CreateTexture({ 1, 1, Format::R8G8B8A8_UNORM, TextureUsage::ShaderResource }, normal);
 	TextureHandle defaultMR = m_device->CreateTexture({ 1, 1, Format::R8G8B8A8_UNORM, TextureUsage::ShaderResource }, mr);
 
+	Entity sponzaRoot = m_ecsScene.CreateSceneEntity("Sponza");
+	{
+		auto& t = m_ecsScene.GetRegistry().Get<TransformComponent>(sponzaRoot);
+		t.scale = { wrapperScale, wrapperScale, wrapperScale };
+		t.dirty = true;
+	}
 
 	std::vector<Entity> nodeEntities(sponzaScene.nodes.size(), INVALID_ENTITY);
-	for (size_t nodeIndex = 0; nodeIndex < sponzaScene.nodes.size(); ++nodeIndex)
+	for (size_t i = 0; i < sponzaScene.nodes.size(); ++i)
 	{
-		const auto& node = sponzaScene.nodes[nodeIndex];
-		nodeEntities[nodeIndex] = m_ecsScene.CreateSceneEntity(node.name);
+		const auto& node = sponzaScene.nodes[i];
+		Entity e = m_ecsScene.CreateSceneEntity(node.name);
+		nodeEntities[i] = e;
+
+		auto& t = m_ecsScene.GetRegistry().Get<TransformComponent>(e);
+		t.position = node.translation;
+		t.rotation = node.rotation;
+		t.scale = node.scale;
+		t.dirty = true;  
 	}
 
-	for (size_t nodeIndex = 0; nodeIndex < sponzaScene.nodes.size(); ++nodeIndex)
+	for (size_t i = 0; i < sponzaScene.nodes.size(); ++i)
 	{
-		const auto& node = sponzaScene.nodes[nodeIndex];
+		const auto& node = sponzaScene.nodes[i];
+		Entity child = nodeEntities[i];
+		if (child == INVALID_ENTITY) continue;
+
 		if (node.parentIndex < 0)
 		{
-			continue;
+			m_ecsScene.SetParent(child, sponzaRoot); 
 		}
-
-		Entity childEntity = nodeEntities[nodeIndex];
-		Entity parentEntity = nodeEntities[node.parentIndex];
-		if (childEntity != INVALID_ENTITY && parentEntity != INVALID_ENTITY)
+		else
 		{
-			m_ecsScene.SetParent(childEntity, parentEntity);
+			Entity parent = nodeEntities[node.parentIndex];
+			if (parent != INVALID_ENTITY)
+				m_ecsScene.SetParent(child, parent);
 		}
 	}
+
 	for (const auto& subMesh : sponzaScene.subMeshes)
 	{
 		Entity e = m_ecsScene.CreateSceneEntity(subMesh.name);
@@ -126,8 +144,9 @@ void Application::Init()
 				m_ecsScene.SetParent(e, parentEntity);
 			}
 		}
+
 		auto& t = m_ecsScene.GetRegistry().Get<TransformComponent>(e);
-		XMStoreFloat4x4(&t.worldMatrix, XMMatrixIdentity());
+		t.dirty = true;
 
 		auto& mr = m_ecsScene.GetRegistry().Add<MeshRendererComponent>(e);
 		mr.vertexBuffer = vb;
@@ -148,7 +167,17 @@ void Application::Init()
 		mr.aabbMin = subMesh.aabbMin;
 		mr.aabbMax = subMesh.aabbMax;
 	}
-	m_ecsScene.SetSceneAABB(sponzaScene.sceneAABBMin, sponzaScene.sceneAABBMax);
+	XMFLOAT3 scaledMin = {
+		sponzaScene.sceneAABBMin.x * wrapperScale,
+		sponzaScene.sceneAABBMin.y * wrapperScale,
+		sponzaScene.sceneAABBMin.z * wrapperScale
+	};
+	XMFLOAT3 scaledMax = {
+		sponzaScene.sceneAABBMax.x * wrapperScale,
+		sponzaScene.sceneAABBMax.y * wrapperScale,
+		sponzaScene.sceneAABBMax.z * wrapperScale
+	};
+	m_ecsScene.SetSceneAABB(scaledMin, scaledMax);
 
 	{
 		Entity e = m_ecsScene.CreateSceneEntity("Directional Light");

@@ -701,8 +701,14 @@ void Renderer::BuildCascadeShadowMatrices(
 
 		center = XMVectorScale(center, 1.0f / 8.0f);
 
+		float sceneDiagonal = XMVectorGetX(
+			XMVector3Length(
+				XMVectorSubtract(
+					XMLoadFloat3(&sceneAABBMax),
+					XMLoadFloat3(&sceneAABBMin))));
+
 		XMMATRIX lightView = XMMatrixLookAtLH(
-			XMVectorSubtract(center, XMVectorScale(lightDir, 100.0f)),
+			XMVectorSubtract(center, XMVectorScale(lightDir, sceneDiagonal)),
 			center,
 			XMVectorSet(0, 1, 0, 0));
 
@@ -725,7 +731,8 @@ void Renderer::BuildCascadeShadowMatrices(
 			maxs.z = std::max(maxs.z, p.z);
 		}
 
-		float sceneZMin = FLT_MAX;
+		XMFLOAT3 sceneMins = { FLT_MAX, FLT_MAX, FLT_MAX };
+		XMFLOAT3 sceneMaxs = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
 		for (int i = 0; i < 8; i++)
 		{
 			XMVECTOR v = XMVector4Transform(XMLoadFloat3(&sceneCorners[i]), lightView);
@@ -733,10 +740,28 @@ void Renderer::BuildCascadeShadowMatrices(
 			XMFLOAT3 p;
 			XMStoreFloat3(&p, v);
 
-			sceneZMin = std::min(sceneZMin, p.z);
-		}
+			sceneMins.x = std::min(sceneMins.x, p.x);
+			sceneMins.y = std::min(sceneMins.y, p.y);
+			sceneMins.z = std::min(sceneMins.z, p.z);
 
-		mins.z = sceneZMin;
+			sceneMaxs.x = std::max(sceneMaxs.x, p.x);
+			sceneMaxs.y = std::max(sceneMaxs.y, p.y);
+			sceneMaxs.z = std::max(sceneMaxs.z, p.z);
+		}
+		mins.x = std::max(mins.x, sceneMins.x);
+		mins.y = std::max(mins.y, sceneMins.y);
+		maxs.x = std::min(maxs.x, sceneMaxs.x);
+		maxs.y = std::min(maxs.y, sceneMaxs.y);
+
+		if (mins.x >= maxs.x || mins.y >= maxs.y)
+		{
+			mins.x = std::min(mins.x, sceneMins.x);
+			mins.y = std::min(mins.y, sceneMins.y);
+			maxs.x = std::max(maxs.x, sceneMaxs.x);
+			maxs.y = std::max(maxs.y, sceneMaxs.y);
+		}
+		mins.z = std::min(mins.z, sceneMins.z);
+		maxs.z = std::max(maxs.z, sceneMaxs.z);
 
 		float cascadeWidth = maxs.x - mins.x;
 		float cascadeHeight = maxs.y - mins.y;
