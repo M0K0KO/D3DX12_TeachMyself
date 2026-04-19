@@ -7,7 +7,7 @@ class AssetLoader
 {
 public:
 	AssetLoader() = default;
-	Mesh::Scene LoadGLTF(const std::string& path);
+	Mesh::Scene LoadGLTF(const std::string& path, const float scale = 1.0f);
 	float* LoadHDR(
 		const std::string& path,
 		int& width,

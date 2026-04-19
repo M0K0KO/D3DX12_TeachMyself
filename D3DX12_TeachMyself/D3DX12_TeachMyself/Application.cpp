@@ -61,7 +61,7 @@ void Application::Init()
 	m_device->Initialize(wnd.GetHWND(), wnd.GetWidth(), wnd.GetHeight());
 
 	AssetLoader loader;
-	auto sponzaScene = loader.LoadGLTF("../Model/Sponza/Sponza.gltf");
+	auto sponzaScene = loader.LoadGLTF("../Model/Sponza/Sponza.gltf", 0.012f);
 
 	BufferDesc vbDesc = { 
 		static_cast<uint32_t>(sponzaScene.vertices.size() * sizeof(Mesh::Vertex)), 

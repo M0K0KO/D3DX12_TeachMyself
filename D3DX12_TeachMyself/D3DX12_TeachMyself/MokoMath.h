@@ -76,3 +76,40 @@ inline XMMATRIX GetLocalMatrix(const XMFLOAT3& position,
 	return S * R * T;
 }
 
+inline XMFLOAT3 QuatToEuler(const XMFLOAT4& q)
+{
+	XMVECTOR quat = XMLoadFloat4(&q);
+
+	XMMATRIX m = XMMatrixRotationQuaternion(quat);
+
+	XMFLOAT3 euler;
+
+	euler.x = asinf(-m.r[2].m128_f32[1]);
+
+	if (cosf(euler.x) > 1e-6f)
+	{
+		euler.y = atan2f(m.r[2].m128_f32[0], m.r[2].m128_f32[2]);
+		euler.z = atan2f(m.r[0].m128_f32[1], m.r[1].m128_f32[1]);
+	}
+	else
+	{
+		euler.y = 0.0f;
+		euler.z = atan2f(-m.r[1].m128_f32[0], m.r[0].m128_f32[0]);
+	}
+
+	return euler;
+}
+
+inline XMFLOAT4 EulerToQuat(const XMFLOAT3& euler)
+{
+	XMVECTOR q = XMQuaternionRotationRollPitchYaw(
+		euler.x, // pitch
+		euler.y, // yaw
+		euler.z  // roll
+	);
+
+	XMFLOAT4 result;
+	XMStoreFloat4(&result, q);
+	return result;
+}
+

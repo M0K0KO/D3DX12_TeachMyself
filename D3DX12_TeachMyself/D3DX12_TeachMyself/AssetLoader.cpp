@@ -12,7 +12,7 @@
 
 using std::min;
 
-Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
+Mesh::Scene AssetLoader::LoadGLTF(const std::string& path, const float scale)
 {
     tinygltf::Model model;
     tinygltf::TinyGLTF loader;
@@ -214,18 +214,18 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
                 {
                     const float* p = reinterpret_cast<const float*>(posBase + i * posStride);
 
-                    DirectX::XMVECTOR pos = DirectX::XMVectorSet(p[0], p[1], p[2], 1.0f);
-                    pos = DirectX::XMVector3TransformCoord(pos, world);
+                    scene.vertices[vertexOffset + i].position = { p[0] * scale, p[1] * scale, p[2] * scale };
 
-                    DirectX::XMStoreFloat3(&scene.vertices[vertexOffset + i].position, pos);
-                    const auto& v = scene.vertices[vertexOffset + i].position;
+                    XMVECTOR localPos = XMVectorSet(p[0] * scale, p[1] * scale, p[2] * scale, 1.0f);
+                    XMVECTOR worldPos = XMVector3TransformCoord(localPos, world);
+                    XMFLOAT3 wp; XMStoreFloat3(&wp, worldPos);
 
-                    primAABBMin.x = std::min(primAABBMin.x, v.x);
-                    primAABBMin.y = std::min(primAABBMin.y, v.y);
-                    primAABBMin.z = std::min(primAABBMin.z, v.z);
-                    primAABBMax.x = std::max(primAABBMax.x, v.x);
-                    primAABBMax.y = std::max(primAABBMax.y, v.y);
-                    primAABBMax.z = std::max(primAABBMax.z, v.z);
+                    primAABBMin.x = std::min(primAABBMin.x, wp.x);
+                    primAABBMin.y = std::min(primAABBMin.y, wp.y);
+                    primAABBMin.z = std::min(primAABBMin.z, wp.z);
+                    primAABBMax.x = std::max(primAABBMax.x, wp.x);
+                    primAABBMax.y = std::max(primAABBMax.y, wp.y);
+                    primAABBMax.z = std::max(primAABBMax.z, wp.z);
                 }
 
                 scene.sceneAABBMin.x = std::min(scene.sceneAABBMin.x, primAABBMin.x);
@@ -245,23 +245,10 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
                     const uint8_t* base = GetBufferPointer(model, acc);
                     size_t stride = acc.ByteStride(view);
 
-                    DirectX::XMMATRIX normalMatrix =
-                        DirectX::XMMatrixTranspose(
-                            DirectX::XMMatrixInverse(nullptr, world));
-
                     for (size_t i = 0; i < vertexCount; ++i)
                     {
                         const float* n = reinterpret_cast<const float*>(base + i * stride);
-
-                        DirectX::XMVECTOR normal =
-                            DirectX::XMVectorSet(n[0], n[1], n[2], 0.0f);
-
-                        normal = DirectX::XMVector3TransformNormal(normal, normalMatrix);
-                        normal = DirectX::XMVector3Normalize(normal);
-
-                        DirectX::XMStoreFloat3(
-                            &scene.vertices[vertexOffset + i].normal,
-                            normal);
+                        scene.vertices[vertexOffset + i].normal = { n[0], n[1], n[2] };
                     }
                 }
 
@@ -278,14 +265,7 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
                     for (size_t i = 0; i < vertexCount; ++i)
                     {
                         const float* t = reinterpret_cast<const float*>(base + i * stride);
-                        DirectX::XMVECTOR tangent = DirectX::XMVectorSet(t[0], t[1], t[2], 0.0f);
-                        tangent = DirectX::XMVector3TransformNormal(tangent, world);
-                        tangent = DirectX::XMVector3Normalize(tangent);
-
-                        DirectX::XMStoreFloat3(
-                            reinterpret_cast<DirectX::XMFLOAT3*>(
-                                &scene.vertices[vertexOffset + i].tangent), tangent);
-                        scene.vertices[vertexOffset + i].tangent.w = t[3]; 
+                        scene.vertices[vertexOffset + i].tangent = { t[0], t[1], t[2], t[3] };
                     }
                 }
 
@@ -377,7 +357,7 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
     if (sceneIndex >= 0 && sceneIndex < model.scenes.size())
     {
         for (int nodeIndex : model.scenes[sceneIndex].nodes)
-            ProcessNode(nodeIndex, DirectX::XMMatrixIdentity());
+            ProcessNode(nodeIndex, XMMatrixIdentity());
     }
 
     return scene;

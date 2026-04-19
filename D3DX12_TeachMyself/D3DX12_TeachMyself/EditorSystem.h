@@ -28,6 +28,13 @@ private:
 	void DrawHierarchyNode(EntityScene& scene, Entity e);
 
 	void DrawInspector(EntityScene& scene);
+	void DrawNameComponent(Registry& registry, Entity e);
+	void DrawTransformComponent(Registry& registry, Entity e);
+	void DrawMeshRendererComponent(Registry& registry, Entity e);
+	void DrawDirectionalLightComponent(Registry& registry, Entity e);
+	void DrawPointLightComponent(Registry& registry, Entity e);
+	void DrawCameraComponent(Registry& registry, Entity e);
+
 	void DrawProfilerPanel();
 
 private:
