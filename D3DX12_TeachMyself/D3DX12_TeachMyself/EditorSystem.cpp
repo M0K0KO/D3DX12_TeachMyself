@@ -2,6 +2,9 @@
 #include "GraphicsDevice_DX12.h"
 #include <imgui_impl_win32.h>
 #include "MokoLog.h"
+#include "HirerarchyComponent.h"
+#include <numbers>
+#include "NameComponent.h"
 
 void EditorSystem::Init(EntityScene&)
 {
@@ -39,8 +42,14 @@ void EditorSystem::Update(EntityScene& scene, float dt, const SystemContext& ctx
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 
+	//ImGui::DockSpaceOverViewport();
+	ImGuiDockNodeFlags dockFlags = ImGuiDockNodeFlags_PassthruCentralNode;
+	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), dockFlags);
+
+	DrawHierarchy(scene);
+	DrawInspector(scene);
+
 	DrawProfilerPanel();
-	ImGui::ShowMetricsWindow();
 
 	ImGui::Render();
 }
@@ -71,6 +80,60 @@ void EditorSystem::Render(CommandContext& ctx)
 
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList);
 }
+
+void EditorSystem::DrawHierarchy(EntityScene& scene)
+{
+	ImGui::Begin("Hierarchy");
+	auto& hier = scene.GetRegistry().Get<HierarchyComponent>(scene.GetRoot());
+	Entity c = hier.firstChild;
+	while (c != INVALID_ENTITY)
+	{
+		DrawHierarchyNode(scene, c);
+		c = scene.GetRegistry().Get<HierarchyComponent>(c).nextSibling;
+	}
+
+	if (ImGui::IsMouseClicked(0) && ImGui::IsWindowHovered() && !ImGui::IsAnyItemHovered())
+	{
+		m_state.selected = INVALID_ENTITY;
+	}
+
+	ImGui::End();
+}
+
+void EditorSystem::DrawHierarchyNode(EntityScene& scene, Entity e)
+{
+	auto& registry = scene.GetRegistry();
+	auto& hier = registry.Get<HierarchyComponent>(e);
+
+	const char* name = "Entity";
+	if (registry.Has<NameComponent>(e))
+		name = registry.Get<NameComponent>(e).name.c_str();
+
+	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+
+	bool hasChildren = (hier.firstChild != INVALID_ENTITY);
+	if (!hasChildren) flags |= ImGuiTreeNodeFlags_Leaf;
+	if (m_state.selected == e) flags |= ImGuiTreeNodeFlags_Selected;
+
+	bool open = ImGui::TreeNodeEx((void*)(uintptr_t)(e.index | (uint64_t)e.generation << 32), flags, "%s", name);
+
+	if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+		m_state.selected = e;
+
+	if (open)
+	{
+		Entity c = hier.firstChild;
+		while (c != INVALID_ENTITY)
+		{
+			DrawHierarchyNode(scene, c);
+			c = registry.Get<HierarchyComponent>(c).nextSibling;
+		}
+		ImGui::TreePop();
+	}
+}
+
+void EditorSystem::DrawInspector(EntityScene& scene)
+{}
 
 void EditorSystem::DrawProfilerPanel()
 {

@@ -59,7 +59,11 @@ public:
 
     bool Has(Entity e) const override
     {
-        return e.index < sparse.size() && sparse[e.index] != INVALID;
+        if (e.index >= sparse.size()) return false;
+        size_t denseIdx = sparse[e.index];
+        if (denseIdx == INVALID) return false;
+
+        return denseToEntity[denseIdx] == e;
     }
 
     size_t Size() const override { return dense.size(); }

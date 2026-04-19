@@ -11,9 +11,10 @@ class EntityScene
 {
 	XMFLOAT3 sceneAABBMin, sceneAABBMax;
 public:
-	void Initialize();
+	EntityScene();
 
 	Entity CreateEntity(const std::string& name = "Entity");
+	Entity CreateSceneEntity(const std::string& name = "SceneEntity");
 	void DestroyEntity(Entity e);
 
 	void SetParent(Entity child, Entity parent);
@@ -22,7 +23,7 @@ public:
 
 	EntityManager& GetEntityManager() { return entityManager; };
 	Registry& GetRegistry() { return registry; };
-	Entity GetRoot() { return rootEntity; };
+	Entity GetRoot() const { return rootEntity; };
 
 	void SetSceneAABB(XMFLOAT3 min, XMFLOAT3 max);
 	XMFLOAT3 GetSceneAABBMin() const;
@@ -34,5 +35,5 @@ private:
 private:
 	EntityManager entityManager;
 	Registry registry;
-	Entity rootEntity = INVALID_ENTITY;
+	Entity rootEntity;
 };

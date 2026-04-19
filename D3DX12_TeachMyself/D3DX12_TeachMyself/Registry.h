@@ -1,8 +1,9 @@
 #pragma once
 #include <memory>
-#include <vector>
 #include "ComponentPool.h"
 #include "View.h"
+#include <unordered_map>
+#include <typeindex>
 
 class Registry
 {
@@ -31,8 +32,8 @@ public:
     {
         for (auto& pool : pools)
         {
-            if (pool && pool->Has(e))
-                pool->Remove(e);
+            if (pool.second && pool.second->Has(e))
+                pool.second->Remove(e);
         }
     }
 
@@ -48,29 +49,44 @@ public:
         return View<T, Rest...>(GetPool<T>(), GetPool<Rest>()...);
     }
 
+    template<typename T>
+    bool Has(Entity e) const
+    {
+        const auto* pool = TryGetPool<T>();
+        return pool && pool->Has(e);
+    }
+
+    template<typename T1, typename T2, typename... Rest>
+    bool Has(Entity e) const
+    {
+        return Has<T1>(e) && Has<T2>(e) && (Has<Rest>(e) && ...);
+    }
+
 private:
+    template<typename T>
+    const ComponentPool<T>* TryGetPool() const
+    {
+        auto it = pools.find(std::type_index(typeid(T)));
+        return (it != pools.end()) ? static_cast<const ComponentPool<T>*>(it->second.get()) : nullptr;
+    }
+
     template<typename T>
     ComponentPool<T>& GetPool()
     {
-        size_t id = GetComponentTypeID<T>();
+        auto type = std::type_index(typeid(T));
 
-        if (id >= pools.size())
-            pools.resize(id + 1);
+        auto it = pools.find(type);
+        if (it == pools.end())
+        {
+            auto ptr = std::make_unique<ComponentPool<T>>();
+            auto* raw = ptr.get();
+            pools.emplace(type, std::move(ptr));
+            return *raw;
+        }
 
-        if (!pools[id])
-            pools[id] = std::make_unique<ComponentPool<T>>();
-
-        return *static_cast<ComponentPool<T>*>(pools[id].get());
-    }
-
-    template<typename T>
-    static size_t GetComponentTypeID()
-    {
-        static size_t id = nextID++;
-        return id;
+        return *static_cast<ComponentPool<T>*>(it->second.get());
     }
 
 private:
-    inline static size_t nextID = 0;
-    std::vector<std::unique_ptr<IComponentPool>> pools;
+    std::unordered_map<std::type_index, std::unique_ptr<IComponentPool>> pools;
 };

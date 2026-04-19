@@ -4,21 +4,28 @@
 #include "TransformComponent.h"
 #include "CameraComponent.h"
 #include "NameComponent.h"
+#include <cassert>
 
-void EntityScene::Initialize()
+EntityScene::EntityScene()
 {
-	rootEntity = entityManager.Create();
+	rootEntity = CreateEntity("Root");
 	registry.Add<TransformComponent>(rootEntity);
 	registry.Add<HierarchyComponent>(rootEntity);
-	registry.Add<NameComponent>(rootEntity, "Root");
 }
 
 Entity EntityScene::CreateEntity(const std::string& name)
 {
 	Entity e = entityManager.Create();
+	registry.Add<NameComponent>(e).name = name;
+	return e;
+}
+
+Entity EntityScene::CreateSceneEntity(const std::string& name)
+{
+	Entity e = entityManager.Create();
 	registry.Add<TransformComponent>(e);
 	registry.Add<HierarchyComponent>(e);
-	registry.Add<NameComponent>(e);
+	registry.Add<NameComponent>(e).name = name;
 
 	if (!(rootEntity == INVALID_ENTITY))
 	{
@@ -47,6 +54,9 @@ void EntityScene::DestroyEntity(Entity e)
 
 void EntityScene::SetParent(Entity child, Entity newParent)
 {
+	assert(registry.Has<HierarchyComponent>(child));
+	assert(registry.Has<HierarchyComponent>(newParent));
+
 	auto& cHier = registry.Get<HierarchyComponent>(child);
 
 	if (!(cHier.parent == INVALID_ENTITY))

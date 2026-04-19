@@ -322,6 +322,15 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
                 }
 
                 Mesh::SubMesh subMesh{};
+
+                std::string subMeshName;
+                if (!node.name.empty())
+                    subMeshName = node.name;
+                else if (!gltfMesh.name.empty())
+                    subMeshName = gltfMesh.name;
+                else
+                    subMeshName = "SubMesh_" + std::to_string(scene.subMeshes.size());
+                subMesh.name = subMeshName;
                 subMesh.indexOffset = indexOffset;
                 subMesh.indexCount = (uint32_t)scene.indices.size() - indexOffset;
                 subMesh.materialIndex = prim.material >= 0 ? prim.material : 0;

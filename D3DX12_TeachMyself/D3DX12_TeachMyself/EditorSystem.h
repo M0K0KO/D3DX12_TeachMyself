@@ -5,6 +5,11 @@
 #include "DescriptorAllocator.h"
 
 
+struct EditorState
+{
+	Entity selected = INVALID_ENTITY;
+};
+
 class EditorSystem : public ISystem
 {
 public:
@@ -19,6 +24,10 @@ public:
 	void Render(CommandContext& ctx);
 
 private:
+	void DrawHierarchy(EntityScene& scene);
+	void DrawHierarchyNode(EntityScene& scene, Entity e);
+
+	void DrawInspector(EntityScene& scene);
 	void DrawProfilerPanel();
 
 private:
@@ -26,7 +35,10 @@ private:
 	HWND m_hwnd = nullptr;
 	bool m_initialized = false;
 
+	EditorState m_state;
 };
+
+
 
 static DescriptorAllocator* s_srvAllocator = nullptr;
 

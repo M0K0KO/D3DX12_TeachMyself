@@ -141,7 +141,7 @@ void Renderer::Render(GraphicsDevice* device, CommandContext& ctx, const RenderS
 	RGResourceHandle ssaoTexture = graph.ImportTexture(m_ssaoTexture, ssaoTextureDesc, RGResourceState::RenderTarget);
 
 	RGResourceDesc ssaoNoiseTextureDesc = { 4, 4, Format::R32G32B32A32_FLOAT, TextureUsage::ShaderResource };
-	RGResourceHandle ssaoNoiseTexture = graph.ImportTexture(m_ssaoTexture, ssaoNoiseTextureDesc, RGResourceState::ShaderResource);
+	RGResourceHandle ssaoNoiseTexture = graph.ImportTexture(m_ssaoNoiseTexture, ssaoNoiseTextureDesc, RGResourceState::ShaderResource);
 
 	RGResourceDesc ssaoTempTextureDesc = { m_width / 2, m_height / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
 	RGResourceHandle ssaoTempTexture = graph.ImportTexture(m_ssaoTempTexture, ssaoTempTextureDesc, RGResourceState::RenderTarget);
@@ -323,6 +323,14 @@ void Renderer::Resize(GraphicsDevice* device)
 	TextureDesc depthDesc = { m_resizeWidth, m_resizeHeight,
 							   Format::D32_FLOAT, TextureUsage::DepthStencil };
 	m_depthTexture = device->CreateTexture(depthDesc, nullptr);
+
+	TextureDesc ssaoTextureDesc = { m_resizeWidth / 2, m_resizeHeight / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
+	m_ssaoTexture = device->CreateTexture(ssaoTextureDesc, nullptr);
+	m_ssaoTempTexture = device->CreateTexture(ssaoTextureDesc, nullptr);
+
+	TextureDesc gtaoTextureDesc = { m_resizeWidth, m_resizeHeight, Format::R8G8B8A8_UNORM, TextureUsage::UnorderedAccess };
+	m_gtaoTexture = device->CreateTexture(gtaoTextureDesc);
+	m_gtaoTempTexture = device->CreateTexture(gtaoTextureDesc);
 
 	m_width = m_resizeWidth;
 	m_height = m_resizeHeight;

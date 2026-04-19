@@ -92,11 +92,9 @@ void Application::Init()
 	TextureHandle defaultNormal = m_device->CreateTexture({ 1, 1, Format::R8G8B8A8_UNORM, TextureUsage::ShaderResource }, normal);
 	TextureHandle defaultMR = m_device->CreateTexture({ 1, 1, Format::R8G8B8A8_UNORM, TextureUsage::ShaderResource }, mr);
 
-	m_ecsScene.Initialize();
-
 	for (auto& subMesh : sponzaScene.subMeshes)
 	{
-		Entity e = m_ecsScene.CreateEntity();
+		Entity e = m_ecsScene.CreateSceneEntity(subMesh.name);
 
 		auto& t = m_ecsScene.GetRegistry().Get<TransformComponent>(e);
 		XMStoreFloat4x4(&t.worldMatrix, XMMatrixIdentity());
@@ -123,7 +121,7 @@ void Application::Init()
 	m_ecsScene.SetSceneAABB(sponzaScene.sceneAABBMin, sponzaScene.sceneAABBMax);
 
 	{
-		Entity e = m_ecsScene.CreateEntity();
+		Entity e = m_ecsScene.CreateSceneEntity("Directional Light");
 		auto& dl = m_ecsScene.GetRegistry().Add<DirectionalLightComponent>(e);
 		dl.direction = { 0.0f, -1.0f, 0.0f };
 		dl.color = { 1,1,1 };
@@ -131,7 +129,7 @@ void Application::Init()
 	}
 
 	{
-		Entity e = m_ecsScene.CreateEntity();
+		Entity e = m_ecsScene.CreateSceneEntity("Point Light");
 		auto& t = m_ecsScene.GetRegistry().Get<TransformComponent>(e);
 		t.position = { 0.0f, 2.0f, 0.0f };
 
@@ -142,7 +140,7 @@ void Application::Init()
 	}
 
 	{
-		Entity e = m_ecsScene.CreateEntity();
+		Entity e = m_ecsScene.CreateSceneEntity("Main Camera");
 		auto& cam = m_ecsScene.GetRegistry().Add<CameraComponent>(e);
 		cam.aspect = float(m_device->GetWidth()) / float(m_device->GetHeight());
 		cam.isMain = true;
