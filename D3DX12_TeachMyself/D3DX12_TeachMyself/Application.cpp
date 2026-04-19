@@ -12,6 +12,8 @@
 #include "PointLightComponent.h"
 #include "CameraComponent.h"
 #include "MeshRendererComponent.h"
+#include "JobSystem.h"
+#include "JobGroup.h"
 
 Application::Application()
 	:
@@ -208,6 +210,7 @@ void Application::Init()
 	}
 
 	m_systemManager = std::make_unique<SystemManager>();
+	m_systemManager->Add<MokoJob::JobSystem>(0);
 	m_systemManager->Add<CameraControllerSystem>();
 	m_systemManager->Add<TransformSystem>();
 

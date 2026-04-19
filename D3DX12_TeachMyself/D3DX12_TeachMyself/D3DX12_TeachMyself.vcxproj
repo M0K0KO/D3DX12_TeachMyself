@@ -251,6 +251,11 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="IComponentPool.h" />
     <ClInclude Include="InputState.h" />
     <ClInclude Include="ISystem.h" />
+    <ClInclude Include="Job.h" />
+    <ClInclude Include="JobGroup.h" />
+    <ClInclude Include="JobHandle.h" />
+    <ClInclude Include="JobQueue.h" />
+    <ClInclude Include="JobSystem.h" />
     <ClInclude Include="json.hpp" />
     <ClInclude Include="Keyboard.h" />
     <ClInclude Include="Mesh.h" />
@@ -278,6 +283,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="UploadHeapRingAllocator.h" />
     <ClInclude Include="View.h" />
     <ClInclude Include="Window.h" />
+    <ClInclude Include="WorkerThread.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\external\imgui\backends\imgui_impl_dx12.cpp" />
@@ -299,6 +305,9 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="EntityScene.cpp" />
     <ClCompile Include="GraphicsDevice_DX12.cpp" />
     <ClCompile Include="InputState.cpp" />
+    <ClCompile Include="JobGroup.cpp" />
+    <ClCompile Include="JobQueue.cpp" />
+    <ClCompile Include="JobSystem.cpp" />
     <ClCompile Include="Keyboard.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Mouse.cpp" />
@@ -311,6 +320,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="TransformSystem.cpp" />
     <ClCompile Include="UploadHeapRingAllocator.cpp" />
     <ClCompile Include="Window.cpp" />
+    <ClCompile Include="WorkerThread.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="debugshaders_PS.hlsl">

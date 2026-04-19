@@ -85,6 +85,12 @@
     <Filter Include="Source Files\ECS\Operations">
       <UniqueIdentifier>{ddd24e55-9e9e-42d8-9217-0536d439b20c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Jobs">
+      <UniqueIdentifier>{48e0607b-f0cc-488c-b716-e8d69b096e04}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Jobs">
+      <UniqueIdentifier>{ed74b4f5-c769-49d6-8ef0-218bce45b889}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -179,6 +185,18 @@
     </ClCompile>
     <ClCompile Include="CameraComponentOperations.cpp">
       <Filter>Source Files\ECS\Operations</Filter>
+    </ClCompile>
+    <ClCompile Include="JobQueue.cpp">
+      <Filter>Source Files\Jobs</Filter>
+    </ClCompile>
+    <ClCompile Include="WorkerThread.cpp">
+      <Filter>Source Files\Jobs</Filter>
+    </ClCompile>
+    <ClCompile Include="JobGroup.cpp">
+      <Filter>Source Files\Jobs</Filter>
+    </ClCompile>
+    <ClCompile Include="JobSystem.cpp">
+      <Filter>Source Files\ECS\Systems</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -346,6 +364,24 @@
     </ClInclude>
     <ClInclude Include="MeshRendererComponent.h">
       <Filter>Header Files\ECS\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Job.h">
+      <Filter>Header Files\Jobs</Filter>
+    </ClInclude>
+    <ClInclude Include="JobQueue.h">
+      <Filter>Header Files\Jobs</Filter>
+    </ClInclude>
+    <ClInclude Include="WorkerThread.h">
+      <Filter>Header Files\Jobs</Filter>
+    </ClInclude>
+    <ClInclude Include="JobHandle.h">
+      <Filter>Header Files\Jobs</Filter>
+    </ClInclude>
+    <ClInclude Include="JobGroup.h">
+      <Filter>Header Files\Jobs</Filter>
+    </ClInclude>
+    <ClInclude Include="JobSystem.h">
+      <Filter>Header Files\ECS\Systems</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
