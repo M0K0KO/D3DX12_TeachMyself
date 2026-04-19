@@ -97,6 +97,31 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
     if (scene.materials.empty())
         scene.materials.push_back({});
 
+    scene.nodes.resize(model.nodes.size());
+    for (size_t i = 0; i < model.nodes.size(); i++)
+    {
+        const auto& gltfNode = model.nodes[i];
+        auto& node = scene.nodes[i];
+        node.name = gltfNode.name.empty() ? ("NodeA_" + std::to_string(i)) : gltfNode.name;
+
+        node.children.reserve(gltfNode.children.size());
+        for (int childIndex : gltfNode.children)
+        {
+            node.children.push_back(childIndex);
+        }
+    }
+
+    for (size_t i = 0; i < scene.nodes.size(); i++)
+    {
+        for (int childIndex : scene.nodes[i].children)
+        {
+            if (childIndex >= 0 && childIndex < static_cast<int>(scene.nodes.size()))
+            {
+                scene.nodes[childIndex].parentIndex = static_cast<int>(i);
+            }
+        }
+    }
+
     std::function<void(int, DirectX::XMMATRIX)> ProcessNode;
 
     ProcessNode = [&](int nodeIndex, DirectX::XMMATRIX parentMatrix) {
@@ -334,10 +359,13 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
                 subMesh.indexOffset = indexOffset;
                 subMesh.indexCount = (uint32_t)scene.indices.size() - indexOffset;
                 subMesh.materialIndex = prim.material >= 0 ? prim.material : 0;
+                subMesh.nodeIndex = nodeIndex;
                 subMesh.aabbMin = primAABBMin;
                 subMesh.aabbMax = primAABBMax;
 
+                const int subMeshIndex = static_cast<int>(scene.subMeshes.size());
                 scene.subMeshes.push_back(subMesh);
+                scene.nodes[nodeIndex].subMeshIndices.push_back(subMeshIndex);
             }
         }
         for (int child : node.children)
@@ -355,7 +383,7 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
     return scene;
 }
 
-const uint8_t* AssetLoader::GetBufferPointer(const tinygltf::Model& model, const const tinygltf::Accessor& acc)
+const uint8_t* AssetLoader::GetBufferPointer(const tinygltf::Model& model, const tinygltf::Accessor& acc)
 {
     const auto& view = model.bufferViews[acc.bufferView];
     const auto& buffer = model.buffers[view.buffer];

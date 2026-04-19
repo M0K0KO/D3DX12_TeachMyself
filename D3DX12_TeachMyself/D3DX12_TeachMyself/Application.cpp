@@ -92,10 +92,40 @@ void Application::Init()
 	TextureHandle defaultNormal = m_device->CreateTexture({ 1, 1, Format::R8G8B8A8_UNORM, TextureUsage::ShaderResource }, normal);
 	TextureHandle defaultMR = m_device->CreateTexture({ 1, 1, Format::R8G8B8A8_UNORM, TextureUsage::ShaderResource }, mr);
 
-	for (auto& subMesh : sponzaScene.subMeshes)
+
+	std::vector<Entity> nodeEntities(sponzaScene.nodes.size(), INVALID_ENTITY);
+	for (size_t nodeIndex = 0; nodeIndex < sponzaScene.nodes.size(); ++nodeIndex)
+	{
+		const auto& node = sponzaScene.nodes[nodeIndex];
+		nodeEntities[nodeIndex] = m_ecsScene.CreateSceneEntity(node.name);
+	}
+
+	for (size_t nodeIndex = 0; nodeIndex < sponzaScene.nodes.size(); ++nodeIndex)
+	{
+		const auto& node = sponzaScene.nodes[nodeIndex];
+		if (node.parentIndex < 0)
+		{
+			continue;
+		}
+
+		Entity childEntity = nodeEntities[nodeIndex];
+		Entity parentEntity = nodeEntities[node.parentIndex];
+		if (childEntity != INVALID_ENTITY && parentEntity != INVALID_ENTITY)
+		{
+			m_ecsScene.SetParent(childEntity, parentEntity);
+		}
+	}
+	for (const auto& subMesh : sponzaScene.subMeshes)
 	{
 		Entity e = m_ecsScene.CreateSceneEntity(subMesh.name);
-
+		if (subMesh.nodeIndex >= 0 && subMesh.nodeIndex < static_cast<int>(nodeEntities.size()))
+		{
+			Entity parentEntity = nodeEntities[subMesh.nodeIndex];
+			if (parentEntity != INVALID_ENTITY)
+			{
+				m_ecsScene.SetParent(e, parentEntity);
+			}
+		}
 		auto& t = m_ecsScene.GetRegistry().Get<TransformComponent>(e);
 		XMStoreFloat4x4(&t.worldMatrix, XMMatrixIdentity());
 

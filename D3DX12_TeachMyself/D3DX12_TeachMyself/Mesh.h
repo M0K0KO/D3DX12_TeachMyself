@@ -28,12 +28,21 @@ namespace Mesh
 		float roughnessFactor = 1.0f;
 	};
 
+	struct Node
+	{
+		std::string name;
+		int parentIndex = -1;
+		std::vector<int> children;
+		std::vector<int> subMeshIndices;
+	};
+
 	struct SubMesh
 	{
 		std::string name;
 		uint32_t indexOffset;
 		uint32_t indexCount;
 		int materialIndex;
+		int nodeIndex = -1;
 		XMFLOAT3 aabbMin = { FLT_MAX, FLT_MAX, FLT_MAX };
 		XMFLOAT3 aabbMax = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
 	};
@@ -55,6 +64,7 @@ namespace Mesh
 		std::vector<uint32_t> indices;
 
 		std::vector<SubMesh> subMeshes;
+		std::vector<Node> nodes;
 		std::vector<Material> materials;
 		std::vector<Texture> textures;
 
