@@ -7,5 +7,5 @@ public:
 	void Update(EntityScene& scene, float dt, const SystemContext& ctx) override;
 
 private:
-	void UpdateRecursive(EntityScene& scene, Entity entity, const XMMATRIX& parentWorld);
+	void UpdateRecursive(EntityScene& scene, Entity entity, const XMMATRIX& parentWorld, bool parentDirty);
 };

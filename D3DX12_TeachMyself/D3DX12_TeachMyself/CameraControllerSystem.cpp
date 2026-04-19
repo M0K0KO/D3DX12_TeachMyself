@@ -1,7 +1,8 @@
 #include "CameraControllerSystem.h"
-#include "components.h"
 #include "MokoMath.h"
 #include <algorithm>
+#include "TransformComponent.h"
+#include "CameraComponent.h"
 
 void CameraControllerSystem::Init(EntityScene& scene)
 {
@@ -45,12 +46,16 @@ void CameraControllerSystem::Update(EntityScene & scene, float dt, const SystemC
 
 		XMVECTOR local = XMLoadFloat3(&localMove);
 		XMMATRIX rot = XMMatrixRotationRollPitchYaw(cam.pitch, cam.yaw, 0.0f);
-		XMVECTOR world = XMVector3Transform(local, rot);
+		XMVECTOR world = XMVector3TransformNormal(local, rot);
 		world = XMVectorScale(world, moveSpeed * dt);
 
-		t.position.x += XMVectorGetX(world);
-		t.position.y += XMVectorGetY(world);
-		t.position.z += XMVectorGetZ(world);
+		auto currentPos = XMLoadFloat3(&t.position);
+		auto resultPos = currentPos + world;
+
+		XMFLOAT3 result;
+		XMStoreFloat3(&result, resultPos);
+
+		Transform::SetPosition(scene.GetRegistry(), e, result);
 		break;
 	}
 }

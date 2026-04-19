@@ -33,7 +33,9 @@ private:
 	EntityScene m_ecsScene;
 	std::unique_ptr<SystemManager> m_systemManager;
 	InputState m_inputState;
+
 	Renderer m_renderer;
+	RenderScene m_renderScene;
 
 	EditorSystem* m_editorSystem;
 

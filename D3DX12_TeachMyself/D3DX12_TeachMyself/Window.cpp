@@ -42,6 +42,8 @@ HINSTANCE Window::WindowClass::GetInstance()
 
 Window::Window(int width, int height, const wchar_t* name) : width(width), height(height)
 {
+	ImGui_ImplWin32_EnableDpiAwareness();
+
 	RECT wr;
 	wr.left = 100;
 	wr.right = width + wr.left;

@@ -1,6 +1,7 @@
 #include "EditorSystem.h"
 #include "GraphicsDevice_DX12.h"
 #include <imgui_impl_win32.h>
+#include "MokoLog.h"
 
 void EditorSystem::Init(EntityScene&)
 {
@@ -39,6 +40,7 @@ void EditorSystem::Update(EntityScene& scene, float dt, const SystemContext& ctx
 	ImGui::NewFrame();
 
 	DrawProfilerPanel();
+	ImGui::ShowMetricsWindow();
 
 	ImGui::Render();
 }
@@ -66,7 +68,7 @@ void EditorSystem::Render(CommandContext& ctx)
 
 	auto rtv = m_device->GetCurrentBackBufferRTV();
 	cmdList->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
-	
+
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList);
 }
 

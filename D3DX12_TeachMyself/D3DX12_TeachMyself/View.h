@@ -10,6 +10,8 @@ public:
         : primary(&primary), rest(&rest...)
     {}
 
+    size_t SizeHint() const { return primary->GetDense().size(); };
+
     class Iterator
     {
     public:

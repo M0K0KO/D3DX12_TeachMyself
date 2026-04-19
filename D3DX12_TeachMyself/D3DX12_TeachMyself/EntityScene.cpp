@@ -1,6 +1,9 @@
 #include "EntityScene.h"
-#include "components.h"
 #include "MokoMath.h"
+#include "HirerarchyComponent.h"
+#include "TransformComponent.h"
+#include "CameraComponent.h"
+#include "NameComponent.h"
 
 void EntityScene::Initialize()
 {
@@ -62,6 +65,8 @@ void EntityScene::SetParent(Entity child, Entity newParent)
 		registry.Get<HierarchyComponent>(pHier.firstChild).prevSibling = child;
 	}
 	pHier.firstChild = child;
+
+	registry.Get<TransformComponent>(child).dirty = true;
 }
 
 void EntityScene::DetachFromParent(Entity e)

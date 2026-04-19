@@ -4,10 +4,14 @@
 #include "MokoTime.h"
 #include "MokoLog.h"
 #include "EntityScene.h"
-#include "components.h"
 #include "MokoMath.h"
 #include "TransformSystem.h"
 #include "CameraControllerSystem.h"
+#include "DirectionalLightComponent.h"
+#include "TransformComponent.h"
+#include "PointLightComponent.h"
+#include "CameraComponent.h"
+#include "MeshRendererComponent.h"
 
 Application::Application()
 	:
@@ -208,7 +212,7 @@ void Application::Render()
 RenderScene Application::ExtractRenderScene()
 {
 	RenderScene rs;
-	rs.renderObjects.reserve(512);
+	rs.renderObjects.reserve(m_ecsScene.GetRegistry().GetView<TransformComponent, MeshRendererComponent>().SizeHint());
 	rs.sceneAABBMax = m_ecsScene.GetSceneAABBMax();
 	rs.sceneAABBMin = m_ecsScene.GetSceneAABBMin();
 
@@ -255,8 +259,8 @@ RenderScene Application::ExtractRenderScene()
 	{
 		if (!cam.isMain) continue;
 		XMFLOAT3 pos = { t.worldMatrix._41, t.worldMatrix._42, t.worldMatrix._43 };
-		XMMATRIX view = CameraMath::GetViewMatrix(pos, cam.pitch, cam.yaw);
-		XMMATRIX proj = CameraMath::GetProjectionMatrix(cam.fovY, cam.aspect, cam.nearZ, cam.farZ);
+		XMMATRIX view = Camera::GetViewMatrix(pos, cam.pitch, cam.yaw);
+		XMMATRIX proj = Camera::GetProjectionMatrix(cam.fovY, cam.aspect, cam.nearZ, cam.farZ);
 
 		XMStoreFloat4x4(&rs.frameData.ViewMatrix, view);
 		XMStoreFloat4x4(&rs.frameData.ProjMatrix, proj);
