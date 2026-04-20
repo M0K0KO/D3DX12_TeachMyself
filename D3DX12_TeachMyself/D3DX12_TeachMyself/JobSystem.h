@@ -105,6 +105,8 @@ namespace MokoJob
 				if (opt.has_value()) finalize(*opt);
 			}
 		}
+
+		void WaitAll();
 	public:
 		int GetWorkerCount() const { return static_cast<int>(m_workers.size()); };
 		int GetCurrentWorkerIndex() const { return tls_workerIndex; };

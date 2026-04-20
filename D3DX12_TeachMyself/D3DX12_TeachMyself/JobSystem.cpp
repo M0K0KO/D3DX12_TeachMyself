@@ -2,6 +2,7 @@
 #include "WorkerThread.h"
 #include "JobGroup.h"
 #include "JobTime.h"
+#include <cassert>
 
 namespace MokoJob
 {
@@ -53,6 +54,8 @@ namespace MokoJob
 
 	void JobSystem::Submit(std::function<void()> func)
 	{
+		assert(!m_initialized && "Submit after Shutdown is not allowed");
+
 		OnJobSubmitted();
 		auto wrapped = [this, orig = std::move(func)]() mutable {
 			orig();
@@ -63,6 +66,8 @@ namespace MokoJob
 
 	JobHandle JobSystem::SubmitTracked(std::function<void()> func)
 	{
+		assert(!m_initialized && "Submit after Shutdown is not allowed");
+
 		OnJobSubmitted();
 		auto counter = std::make_shared<std::atomic<int>>(1);
 		auto counterCopy = counter;
@@ -80,6 +85,8 @@ namespace MokoJob
 
 	void JobSystem::SubmitInternal(std::function<void()> func, std::atomic<int>* counter)
 	{
+		assert(!m_initialized && "Submit after Shutdown is not allowed");
+
 		if (counter) counter->fetch_add(1, std::memory_order_relaxed);
 		OnJobSubmitted();
 		auto wrapped = [this, orig = std::move(func)]() mutable {
@@ -132,6 +139,17 @@ namespace MokoJob
 		group.Wait();
 	}
 
+	void JobSystem::WaitAll()
+	{
+		while (m_submitted.load(std::memory_order_acquire) != m_completed.load(std::memory_order_acquire))
+		{
+			if (!TryExecuteOne())
+			{
+				std::this_thread::yield();
+			}
+		}
+	}
+
 	JobSystemSnapshot JobSystem::GetSnapshot()
 	{
 		const int n = (int)m_workers.size();
@@ -167,9 +185,10 @@ namespace MokoJob
 	void JobSystem::ShutdownInternal()
 	{
 		if (!m_initialized) return;
+		m_initialized = false;
 
+		WaitAll();
 		m_queue.Shutdown();
 		m_workers.clear();
-		m_initialized = false;
 	}
 }
