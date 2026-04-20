@@ -11,6 +11,9 @@
 #include "PointLightComponent.h"
 #include "CameraComponent.h"
 #include "MokoMath.h"
+#include "MokoImGui.h"
+
+using namespace MokoImGui;
 
 void EditorSystem::Init(SystemContext& ctx)
 {
@@ -25,6 +28,29 @@ void EditorSystem::Init(SystemContext& ctx)
 	io.ConfigFlags |= ImGuiConfigFlags_DpiEnableScaleViewports;
 
 	ImGui::StyleColorsDark();
+
+	ImGuiStyle& style = ImGui::GetStyle();
+	style.WindowRounding = 6.0f;       
+	style.FrameRounding = 4.0f;        
+	style.GrabRounding = 4.0f;        
+	style.PopupRounding = 4.0f;        
+
+	style.ItemSpacing = ImVec2(8, 6);
+	style.WindowPadding = ImVec2(10, 10);
+	style.FramePadding = ImVec2(5, 5);
+
+	style.WindowBorderSize = 1.0f;
+	style.ChildBorderSize = 1.0f;
+
+	ImVec4* colors = ImGui::GetStyle().Colors;
+	colors[ImGuiCol_Text] = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
+	colors[ImGuiCol_WindowBg] = ImVec4(0.11f, 0.11f, 0.14f, 1.00f); 
+	colors[ImGuiCol_Header] = ImVec4(0.20f, 0.25f, 0.29f, 0.55f);
+	colors[ImGuiCol_HeaderHovered] = ImVec4(0.26f, 0.59f, 0.98f, 0.80f);
+	colors[ImGuiCol_Button] = ImVec4(0.20f, 0.25f, 0.29f, 1.00f);
+	colors[ImGuiCol_ButtonHovered] = ImVec4(0.28f, 0.56f, 1.00f, 1.00f);
+	colors[ImGuiCol_FrameBg] = ImVec4(0.16f, 0.16f, 0.21f, 1.00f);
+	colors[ImGuiCol_CheckMark] = ImVec4(0.28f, 0.56f, 1.00f, 1.00f);
 
 	assert(ImGui_ImplWin32_Init(m_hwnd));
 
@@ -155,11 +181,60 @@ void EditorSystem::DrawInspector(EntityScene& scene)
 	auto& registry = scene.GetRegistry();
 
 	DrawNameComponent(registry, e);
-	DrawTransformComponent(registry, e);
-	DrawMeshRendererComponent(registry, e);
-	DrawDirectionalLightComponent(registry, e);
-	DrawPointLightComponent(registry, e);
-	DrawCameraComponent(registry, e);
+	ImGui::Separator();
+	ImGui::Dummy(ImVec2(0, 5));
+
+	// Transform
+	DrawComponent<TransformComponent>("Transform", registry, e, [&](auto& t) {
+		bool changed = false;
+		DrawProperty("Position", [&]() { changed |= ImGui::DragFloat3("##P", &t.position.x, 0.01f); });
+
+		DrawProperty("Rotation", [&]() {
+			XMFLOAT3 euler = QuatToEuler(t.rotation);
+			euler.x = XMConvertToDegrees(euler.x); euler.y = XMConvertToDegrees(euler.y); euler.z = XMConvertToDegrees(euler.z);
+			if (ImGui::DragFloat3("##R", &euler.x, 0.5f))
+			{
+				t.rotation = EulerToQuat(XMFLOAT3(XMConvertToRadians(euler.x), XMConvertToRadians(euler.y), XMConvertToRadians(euler.z)));
+				changed = true;
+			}
+			});
+
+		DrawProperty("Scale", [&]() { changed |= ImGui::DragFloat3("##S", &t.scale.x, 0.01f, 0.01f, 100.0f); });
+		if (changed) t.dirty = true;
+		});
+
+	// Mesh Renderer
+	DrawComponent<MeshRendererComponent>("Mesh Renderer", registry, e, [&](auto& mr) {
+		DrawProperty("Visible", [&]() { ImGui::Checkbox("##V", &mr.visible); });
+
+		DrawSection("Material Settings");
+		DrawProperty("Metallic", [&]() { ImGui::SliderFloat("##M", &mr.material.metallicFactor, 0.0f, 1.0f); }, true);
+		DrawProperty("Roughness", [&]() { ImGui::SliderFloat("##R", &mr.material.roughnessFactor, 0.0f, 1.0f); }, true);
+
+		DrawSection("Statistics");
+		DrawProperty("Indices", [&]() { ImGui::Text("%u", mr.indexCount); }, true);
+		});
+
+	// Directional Light
+	DrawComponent<DirectionalLightComponent>("Directional Light", registry, e, [&](auto& dl) {
+		DrawProperty("Color", [&]() { ImGui::ColorEdit3("##C", &dl.color.x); });
+		DrawProperty("Intensity", [&]() { ImGui::DragFloat("##I", &dl.intensity, 0.1f, 0.0f, 100.0f); });
+		});
+
+	// Point Light
+	DrawComponent<PointLightComponent>("Point Light", registry, e, [&](auto& pl) {
+		DrawProperty("Color", [&]() { ImGui::ColorEdit3("##C", &pl.color.x); });
+		DrawProperty("Radius", [&]() { ImGui::DragFloat("##R", &pl.radius, 0.05f, 0.001f, 50.0f); });
+		DrawProperty("Shadow", [&]() { ImGui::Checkbox("##S", &pl.castShadow); });
+		});
+
+	// Camera
+	DrawComponent<CameraComponent>("Camera", registry, e, [&](auto& cam) {
+		DrawProperty("FOV Y", [&]() { ImGui::SliderFloat("##F", &cam.fovY, 0.1f, DirectX::XM_PI); });
+		DrawProperty("Near Z", [&]() { ImGui::InputFloat("##N", &cam.nearZ); });
+		DrawProperty("Far Z", [&]() { ImGui::InputFloat("##FZ", &cam.farZ); });
+		DrawProperty("Main", [&]() { ImGui::Checkbox("##M", &cam.isMain); });
+		});
 
 	ImGui::End();
 }
@@ -175,106 +250,6 @@ void EditorSystem::DrawNameComponent(Registry& registry, Entity e)
 	if (ImGui::InputText("Name", buf, sizeof(buf)))
 	{
 		n.name = buf;
-	}
-}
-
-void EditorSystem::DrawTransformComponent(Registry & registry, Entity e)
-{
-	if (!registry.Has<TransformComponent>(e)) return;
-
-	if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		auto& t = registry.Get<TransformComponent>(e);
-
-		bool changed = false;
-		changed |= ImGui::DragFloat3("Position", &t.position.x, 0.01f);
-
-		XMFLOAT3 euler = QuatToEuler(t.rotation);
-		euler.x = XMConvertToDegrees(euler.x);
-		euler.y = XMConvertToDegrees(euler.y);
-		euler.z = XMConvertToDegrees(euler.z);
-
-		if (ImGui::DragFloat3("Rotation", &euler.x, 0.5f))
-		{
-			euler.x = XMConvertToRadians(euler.x);
-			euler.y = XMConvertToRadians(euler.y);
-			euler.z = XMConvertToRadians(euler.z);
-
-			t.rotation = EulerToQuat(euler);
-			changed = true;
-		}
-
-		changed |= ImGui::DragFloat3("Scale", &t.scale.x, 0.01f, 0.01f, 100.0f);
-
-		if (changed) t.dirty = true;  
-	}
-}
-
-void EditorSystem::DrawMeshRendererComponent(Registry & registry, Entity e)
-{
-	if (!registry.Has<MeshRendererComponent>(e)) return;
-
-	if (ImGui::CollapsingHeader("Mesh Renderer", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		auto& mr = registry.Get<MeshRendererComponent>(e);
-
-		ImGui::Checkbox("Visible", &mr.visible);
-
-		ImGui::Separator();
-		ImGui::Text("Material");
-		ImGui::SliderFloat("Metallic", &mr.material.metallicFactor, 0.0f, 1.0f);
-		ImGui::SliderFloat("Roughness", &mr.material.roughnessFactor, 0.0f, 1.0f);
-		ImGui::SliderFloat("Alpha Cutoff", &mr.material.alphaCutoff, 0.0f, 1.0f);
-
-		ImGui::Text("Index Count: %u", mr.indexCount);
-	}
-}
-
-void EditorSystem::DrawDirectionalLightComponent(Registry & registry, Entity e)
-{
-	if (!registry.Has<DirectionalLightComponent>(e)) return;
-
-	if (ImGui::CollapsingHeader("Directional Light", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		auto& dl = registry.Get<DirectionalLightComponent>(e);
-		ImGui::DragFloat3("Direction", &dl.direction.x, 0.01f, -1.0f, 1.0f);
-		ImGui::ColorEdit3("Color", &dl.color.x);
-		ImGui::DragFloat("Intensity", &dl.intensity, 0.1f, 0.0f, 100.0f);
-		ImGui::DragFloat("Ambient", &dl.ambient, 0.001f, 0.001f, 1.0f);
-	}
-}
-
-void EditorSystem::DrawPointLightComponent(Registry & registry, Entity e)
-{
-	if (!registry.Has<PointLightComponent>(e)) return;
-
-	if (ImGui::CollapsingHeader("Point Light", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		auto& pl = registry.Get<PointLightComponent>(e);
-		ImGui::ColorEdit3("Color", &pl.color.x);
-		ImGui::DragFloat("Intensity", &pl.intensity, 0.1f, 0.0f, 100.0f);
-		ImGui::DragFloat("Radius", &pl.radius, 0.05f, 0.001f, 50.0f);
-		ImGui::Checkbox("Cast Shadow", &pl.castShadow);
-	}
-}
-
-void EditorSystem::DrawCameraComponent(Registry & registry, Entity e)
-{
-	if (!registry.Has<CameraComponent>(e)) return;
-
-	if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		auto& cam = registry.Get<CameraComponent>(e);
-		ImGui::SliderFloat("FOV Y", &cam.fovY, 0.1f, DirectX::XM_PI);
-		ImGui::InputFloat("Aspect", &cam.aspect);
-
-		ImGui::InputFloat("Near Z", &cam.nearZ);
-		ImGui::InputFloat("Far Z", &cam.farZ);
-
-		ImGui::SliderFloat("Pitch", &cam.pitch, -DirectX::XM_PIDIV2, DirectX::XM_PIDIV2);
-		ImGui::SliderFloat("Yaw", &cam.yaw, -DirectX::XM_PI, DirectX::XM_PI);
-
-		ImGui::Checkbox("Main Camera", &cam.isMain);
 	}
 }
 

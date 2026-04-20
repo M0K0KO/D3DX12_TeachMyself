@@ -261,6 +261,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="Keyboard.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="MeshRendererComponent.h" />
+    <ClInclude Include="MokoImGui.h" />
     <ClInclude Include="MokoLog.h" />
     <ClInclude Include="MokoMath.h" />
     <ClInclude Include="MokoTime.h" />

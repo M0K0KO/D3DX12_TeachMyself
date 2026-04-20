@@ -28,12 +28,34 @@ private:
 	void DrawHierarchyNode(EntityScene& scene, Entity e);
 
 	void DrawInspector(EntityScene& scene);
+
+	template<typename T, typename F>
+	void DrawComponent(const char* name, Registry& registry, Entity e, F&& func)
+	{
+		if (!registry.Has<T>(e)) return;
+
+		ImGui::PushID(name);
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 4));
+		bool open = ImGui::CollapsingHeader(name, ImGuiTreeNodeFlags_DefaultOpen);
+		ImGui::PopStyleVar();
+
+		if (open)
+		{
+			if (ImGui::BeginTable("CompTable", 2, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoSavedSettings))
+			{
+				ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+				ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+
+				func(registry.Get<T>(e));
+
+				ImGui::EndTable();
+			}
+		}
+		ImGui::PopID();
+		ImGui::Dummy(ImVec2(0, 5)); 
+	}
+
 	void DrawNameComponent(Registry& registry, Entity e);
-	void DrawTransformComponent(Registry& registry, Entity e);
-	void DrawMeshRendererComponent(Registry& registry, Entity e);
-	void DrawDirectionalLightComponent(Registry& registry, Entity e);
-	void DrawPointLightComponent(Registry& registry, Entity e);
-	void DrawCameraComponent(Registry& registry, Entity e);
 
 	void DrawProfilerPanel();
 	void DrawJobSystemPanel();
