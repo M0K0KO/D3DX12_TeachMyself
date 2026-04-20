@@ -20,9 +20,41 @@ enum class DebugMode
 	PreFilteredEnvrionmentMap,
 	SSAO_ENABLED,
 	SSAO_DISABLED
-};
+};	
 
-class FrameContext;
+struct FrameContext
+{
+	RGResourceHandle backBuffer;
+	RGResourceHandle gbufferAlbedo;
+	RGResourceHandle gbufferNormal;
+	RGResourceHandle gbufferMR;
+	RGResourceHandle depthTexture;
+	RGResourceHandle skyboxTexture;
+	RGResourceHandle irradianceMap;
+	RGResourceHandle prefilteredEnvMap;
+	RGResourceHandle brdfLutTexture;
+	RGResourceHandle shadowMap;
+	std::vector<RGResourceHandle> pointShadowMaps;
+	int pointLightCount = 0;
+	std::vector<PointLightData> pointLights;
+	RGResourceHandle ssaoTexture;
+	RGResourceHandle ssaoNoiseTexture;
+	RGResourceHandle ssaoTempTexture;
+	RGResourceHandle gtaoTexture;
+	RGResourceHandle gtaoTempTexture;
+	RGResourceHandle scenecolor;
+
+	CBHandle perFrameCB;
+	CBHandle lightCB;
+	CBHandle shadowCB;
+	CBHandle pointShadowCB;
+	XMMATRIX LightViewProj[CASCADE_COUNT];
+
+	CBHandle ssaoCB;
+	CBHandle bilateralBlurCB;
+	CBHandle gtaoCB;
+	CBHandle gtaoBilateralBlurCB;
+};
 
 class Renderer
 {
@@ -33,42 +65,9 @@ public:
 
 	void ChangeDebugMode(DebugMode mode) { debugMode = mode; };
 
-	void OnResize(uint32_t width, uint32_t height);
+	void OnViewportResize(uint32_t width, uint32_t height);
 
-public:
-	struct FrameContext
-	{
-		RGResourceHandle backBuffer;
-		RGResourceHandle gbufferAlbedo;
-		RGResourceHandle gbufferNormal;
-		RGResourceHandle gbufferMR;
-		RGResourceHandle depthTexture;
-		RGResourceHandle skyboxTexture;
-		RGResourceHandle irradianceMap;
-		RGResourceHandle prefilteredEnvMap;
-		RGResourceHandle brdfLutTexture;
-		RGResourceHandle shadowMap;
-		std::vector<RGResourceHandle> pointShadowMaps;
-		int pointLightCount = 0;
-		std::vector<PointLightData> pointLights;
-		RGResourceHandle ssaoTexture;
-		RGResourceHandle ssaoNoiseTexture;
-		RGResourceHandle ssaoTempTexture;
-		RGResourceHandle gtaoTexture;
-		RGResourceHandle gtaoTempTexture;
-		RGResourceHandle scenecolor;
-
-		CBHandle perFrameCB;
-		CBHandle lightCB;
-		CBHandle shadowCB;
-		CBHandle pointShadowCB;
-		XMMATRIX LightViewProj[CASCADE_COUNT];
-
-		CBHandle ssaoCB;
-		CBHandle bilateralBlurCB;
-		CBHandle gtaoCB;
-		CBHandle gtaoBilateralBlurCB;
-	};
+	TextureHandle GetSceneColor() const	{ return m_sceneColorTexture; };
 
 private:
 	void ReloadPSO(GraphicsDevice* device);
@@ -88,6 +87,10 @@ private:
 		float farClip,
 		float cascadeSplits[CASCADE_COUNT + 1],
 		XMMATRIX outLightViewProj[CASCADE_COUNT]);
+
+	FrameContext BuildFrameContext(GraphicsDevice* device, CommandContext&ctx, RenderGraph& graph, const RenderScene& scene);
+	void BuildSceneGraph(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
+	void BuildPresentGraph(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc);
 
 	void InitDepthPrePass(GraphicsDevice* device);
 	void InitGBufferPass(GraphicsDevice* device);
@@ -113,7 +116,7 @@ private:
 	void AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
 	void AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
 	void AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
-	void AddPresentPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
+	void AddPresentPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc);
 
 	void AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
 
@@ -121,8 +124,8 @@ private:
 	static constexpr float clearColor[4] = { 0.0f, 0.0f,  0.0f,  0.0f };
 	std::vector<XMFLOAT4> hemisphereSamples;
 
-	uint32_t m_width;
-	uint32_t m_height;
+	uint32_t m_viewportWidth;
+	uint32_t m_viewportHeight;
 
 	ShaderHandle m_fullscreenVS;
 

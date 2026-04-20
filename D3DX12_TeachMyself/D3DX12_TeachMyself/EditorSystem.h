@@ -4,6 +4,7 @@
 #include <imgui_impl_dx12.h>
 #include "DescriptorAllocator.h"
 #include "JobSystem.h"
+#include "Renderer.h"
 
 struct EditorState
 {
@@ -13,8 +14,8 @@ struct EditorState
 class EditorSystem : public ISystem
 {
 public:
-	EditorSystem(GraphicsDevice_DX12* device, HWND hwnd, MokoJob::JobSystem* jobSystem)
-		:m_device(device), m_hwnd(hwnd), m_jobSystem(jobSystem)
+	EditorSystem(GraphicsDevice_DX12* device, Renderer* renderer, HWND hwnd, MokoJob::JobSystem* jobSystem)
+		:m_device(device), m_renderer(renderer),  m_hwnd(hwnd), m_jobSystem(jobSystem)
 	{}
 	void Init(SystemContext& ctx) override;
 	void Update(SystemContext& ctx) override;
@@ -22,8 +23,11 @@ public:
 
 public:
 	void Render(CommandContext& ctx);
+	bool TryGetPendingViewportResize(uint32_t& w, uint32_t h);
 
 private:
+	void DrawViewportPanel();
+
 	void DrawHierarchy(EntityScene& scene);
 	void DrawHierarchyNode(EntityScene& scene, Entity e);
 
@@ -62,11 +66,15 @@ private:
 
 private:
 	GraphicsDevice_DX12* m_device = nullptr;
+	Renderer* m_renderer = nullptr;
 	HWND m_hwnd = nullptr;
 	MokoJob::JobSystem* m_jobSystem;
 	bool m_initialized = false;
 
 	EditorState m_state;
+
+	ImVec2 m_viewportSize = { 0,0 };
+	std::optional<std::pair<uint32_t, uint32_t>> m_pendingViewportResize;
 };
 
 

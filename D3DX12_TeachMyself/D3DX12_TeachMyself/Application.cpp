@@ -71,7 +71,7 @@ void Application::Init()
 	m_systemManager->Add<TransformSystem>();
 
 	auto* dx12 = static_cast<GraphicsDevice_DX12*>(m_device.get());
-	m_editorSystem = m_systemManager->Add<EditorSystem>(dx12, wnd.GetHWND(), m_jobSystem);
+	m_editorSystem = m_systemManager->Add<EditorSystem>(dx12, &m_renderer, wnd.GetHWND(), m_jobSystem);
 
 	SystemContext ctx = {0.0f, &wnd, &m_inputState, &m_ecsScene};
 	m_systemManager->InitAll(ctx);
@@ -234,7 +234,7 @@ void Application::Init()
 		{
 			m_pendingWidth = w;
 			m_pendingHeight = h;
-			m_needsResize = true;
+			m_pendingSwapchainResize = true;
 		}
 	});
 
@@ -243,31 +243,38 @@ void Application::Init()
 
 void Application::Update()
 {
+	if (m_pendingSwapchainResize)
+	{
+		m_device->WaitForGpu();
+		m_device->ResizeSwapChain(m_pendingWidth, m_pendingHeight);
+		m_pendingSwapchainResize = false;
+	}
+
 	m_inputState.Capture(wnd);
 
 	HandleKeyboardEvents();
-	HandleDebugModeInput();
 
 	SystemContext ctx = { .dt = MokoTime::GetDeltaTime(), .window = &wnd, .input = &m_inputState, .scene = &m_ecsScene};
 	m_systemManager->UpdateAll(ctx);
 
+	uint32_t vw = 0, vh = 0;
+	if (m_editorSystem->TryGetPendingViewportResize(vw, vh))
+	{
+		vw = std::max(vw, 1u);
+		vh = std::max(vh, 1u);
+
+		m_device->WaitForGpu();
+		m_renderer.OnViewportResize(vw, vh);
+
+		Entity mainCam = m_ecsScene.GetMainCamera();
+		auto& cam = m_ecsScene.GetRegistry().Get<CameraComponent>(mainCam);
+		cam.aspect = (float)vw / (float)vh;
+	}
 }
 
 void Application::Render()
 {
 	auto& ctx = m_device->BeginFrame();
-
-	if (m_needsResize)
-	{
-		m_device->ResizeSwapChain(m_pendingWidth, m_pendingHeight);
-		m_renderer.OnResize(m_pendingWidth, m_pendingHeight);
-		auto view = m_ecsScene.GetRegistry().GetView<CameraComponent>();
-		for (auto [e, cam] : view)
-		{
-			if (cam.isMain) cam.aspect = float(m_pendingWidth) / float(m_pendingHeight);
-		}
-		m_needsResize = false;
-	}
 
 	auto t0 = std::chrono::high_resolution_clock::now();
 	RenderScene renderScene = ExtractRenderScene();

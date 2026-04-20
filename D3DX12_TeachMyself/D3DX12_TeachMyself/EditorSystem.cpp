@@ -85,6 +85,8 @@ void EditorSystem::Update(SystemContext& ctx)
 	DrawProfilerPanel();
 	DrawJobSystemPanel();
 
+	DrawViewportPanel();
+
 	ImGui::Render();
 }
 
@@ -113,6 +115,35 @@ void EditorSystem::Render(CommandContext& ctx)
 	cmdList->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
 
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList);
+}
+
+bool EditorSystem::TryGetPendingViewportResize(uint32_t& w, uint32_t h)
+{
+	if (!m_pendingViewportResize) return false;
+	std::tie(w, h) = *m_pendingViewportResize;
+	m_pendingViewportResize.reset();
+	return true;
+}
+
+void EditorSystem::DrawViewportPanel()
+{
+	ImGui::Begin("Scene");
+	ImVec2 size = ImGui::GetContentRegionAvail();
+
+	if ((int)size.x != (int)m_viewportSize.x ||
+		(int)size.y != (int)m_viewportSize.y)
+	{
+		if (size.x > 0 && size.y > 0)
+		{
+			m_pendingViewportResize = { (uint32_t)size.x, (uint32_t)size.y };
+			m_viewportSize = size;
+		}
+	}
+
+	auto gpuHandle = m_device->GetSRVHandle(m_renderer->GetSceneColor()).gpu;
+	ImGui::Image((ImTextureID)gpuHandle.ptr, size);
+
+	ImGui::End();
 }
 
 void EditorSystem::DrawHierarchy(EntityScene& scene)

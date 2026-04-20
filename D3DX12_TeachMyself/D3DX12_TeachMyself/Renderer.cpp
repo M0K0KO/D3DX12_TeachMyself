@@ -23,8 +23,8 @@ static inline bool AABBIntersectsSphere(const XMFLOAT3& aabbMin, const XMFLOAT3&
 
 void Renderer::Init(GraphicsDevice* device)
 {
-	m_width = device->GetWidth();
-	m_height = device->GetHeight();
+	m_viewportWidth = 1280;
+	m_viewportHeight = 720;
 
 	ShaderCompiler::Reserve(50);
 
@@ -96,216 +96,19 @@ void Renderer::Render(GraphicsDevice* device, CommandContext& ctx, const RenderS
 		Resize(device);
 
 	RenderGraph graph(device);
-	auto& frameData = renderScene.frameData;
+	FrameContext fc = BuildFrameContext(device, ctx, graph, renderScene);
+	BuildSceneGraph(device, graph, fc, renderScene);
 
-	RGResourceDesc backBufferDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget};
-	RGResourceHandle backBuffer = graph.ImportTexture(device->GetCurrentBackBuffer(), backBufferDesc, RGResourceState::Present);
+	// TO DO : EDITOR
 
-	RGResourceDesc gbufferAlbedoDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
-	RGResourceHandle gbufferAlbedo = graph.ImportTexture(m_gbufferAlbedo, gbufferAlbedoDesc, RGResourceState::RenderTarget);
-
-	RGResourceDesc gbufferNormalDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
-	RGResourceHandle gbufferNormal = graph.ImportTexture(m_gbufferNormal, gbufferNormalDesc, RGResourceState::RenderTarget);
-
-	RGResourceDesc gbufferMRDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
-	RGResourceHandle gbufferMR = graph.ImportTexture(m_gbufferMR, gbufferMRDesc, RGResourceState::RenderTarget);
-
-	RGResourceDesc depthTextrueDesc = { m_width, m_height, Format::R32_TYPELESS, TextureUsage::DepthStencil };
-	RGResourceHandle depthTexture = graph.ImportTexture(m_depthTexture, depthTextrueDesc, RGResourceState::DepthWrite);
-
-	RGResourceDesc cubeMapDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
-	RGResourceHandle cubeMap = graph.ImportTexture(m_cubemapTexture, cubeMapDesc, RGResourceState::ShaderResource);
-
-	RGResourceDesc irradiacneMapDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
-	RGResourceHandle irradiacneMap = graph.ImportTexture(m_irradianceMapTexture, irradiacneMapDesc, RGResourceState::ShaderResource);
-
-	RGResourceDesc prefilteredEnvMapDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
-	RGResourceHandle prefilteredEnvMap= graph.ImportTexture(m_prefilteredEnvMapTexture, prefilteredEnvMapDesc, RGResourceState::ShaderResource);
-
-	RGResourceDesc brdfLUTDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
-	RGResourceHandle brdfLUT = graph.ImportTexture(m_brdfLUTTexture, brdfLUTDesc, RGResourceState::ShaderResource);
-
-	RGResourceDesc shadowMapDesc = { 4096, 4096, Format::R32_TYPELESS, TextureUsage::DepthStencil };
-	RGResourceHandle shadowMap = graph.ImportTexture(m_shadowMapTexture, shadowMapDesc, RGResourceState::DepthWrite);
-
-	std::vector<RGResourceHandle> pointShadowMaps;
-	RGResourceDesc pointShadowMapDesc = { 1024, 1024, Format::R32_TYPELESS, TextureUsage::DepthStencil };
-	const int importedPointLightCount = std::min(MAX_POINT_LIGHTS, frameData.PointLightCount);
-	for (int i = 0; i < importedPointLightCount; i++)
-	{
-		pointShadowMaps.push_back(graph.ImportTexture(m_pointShadowMapTextures[i], pointShadowMapDesc, RGResourceState::DepthWrite));
-	}
-
-	RGResourceDesc ssaoTextureDesc = { m_width / 2, m_height / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
-	RGResourceHandle ssaoTexture = graph.ImportTexture(m_ssaoTexture, ssaoTextureDesc, RGResourceState::RenderTarget);
-
-	RGResourceDesc ssaoNoiseTextureDesc = { 4, 4, Format::R32G32B32A32_FLOAT, TextureUsage::ShaderResource };
-	RGResourceHandle ssaoNoiseTexture = graph.ImportTexture(m_ssaoNoiseTexture, ssaoNoiseTextureDesc, RGResourceState::ShaderResource);
-
-	RGResourceDesc ssaoTempTextureDesc = { m_width / 2, m_height / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
-	RGResourceHandle ssaoTempTexture = graph.ImportTexture(m_ssaoTempTexture, ssaoTempTextureDesc, RGResourceState::RenderTarget);
-
-	RGResourceDesc gtaoTextureDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::UnorderedAccess };
-	RGResourceHandle gtaoTexture = graph.ImportTexture(m_gtaoTexture, gtaoTextureDesc, RGResourceState::UnorderedAccess);
-	
-	RGResourceDesc gtaoTempTextureDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::UnorderedAccess };
-	RGResourceHandle gtaoTempTexture = graph.ImportTexture(m_gtaoTempTexture, gtaoTempTextureDesc, RGResourceState::UnorderedAccess);
-
-	RGResourceDesc sceneColorTextureDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
-	RGResourceHandle sceneColorTexture = graph.ImportTexture(m_sceneColorTexture, sceneColorTextureDesc, RGResourceState::RenderTarget);
-
-	PerFrameCB perFrame;
-	XMMATRIX vp = XMLoadFloat4x4(&frameData.ViewMatrix) * XMLoadFloat4x4(&frameData.ProjMatrix);
-	XMStoreFloat4x4(&perFrame.ViewProj, XMMatrixTranspose(vp));
-	XMMATRIX inverseVP = XMMatrixInverse(nullptr, vp);
-	XMStoreFloat4x4(&perFrame.InvViewProj, inverseVP);
-	perFrame.CameraPos = frameData.CameraPos;
-	XMStoreFloat2(&perFrame.ScreenSize, { static_cast<float>(m_width), static_cast<float>(m_height) });
-	
-
-	LightCB light;
-	light.Direction = frameData.DirectionalLightDir;
-	light.Color = frameData.DirectionalLightColor;
-	light.Intensity = frameData.DirectionalLightIntensity;
-	light.Ambient = { 0.03f, 0.03f, 0.03f };
-
-	light.PointLightCount = importedPointLightCount;
-	for (int i = 0; i < importedPointLightCount; i++)
-	{
-		auto pointLight = frameData.PointLights[i];
-		light.PointLights[i] = { pointLight.Position, pointLight.Radius, pointLight.Color, pointLight.Intensity };
-	}
-
-	XMVECTOR targetPos = XMVectorSet(0, 0, 0, 0); 
-	XMVECTOR lightPos = XMVectorSubtract(targetPos, XMVectorScale(XMLoadFloat3(&frameData.DirectionalLightDir), 50.0f));
-	XMMATRIX lightView = XMMatrixLookAtLH(lightPos, targetPos, XMVectorSet(0, 1, 0, 0));
-	XMMATRIX lightProj = XMMatrixOrthographicLH(100.0f, 100.0f, 1.0f, 300.0f);
-	XMMATRIX lightVP = lightView * lightProj;
-
-
-
-	PointShadowCB pointShadow;
-	const XMFLOAT3 targets[6] = { {1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1} };
-	const XMFLOAT3 ups[6] = { {0,1,0},{0,1,0},{0,0,-1},{0,0,1},{0,1,0},{0,1,0} };
-	for (int lightIdx = 0; lightIdx < importedPointLightCount; lightIdx++)
-	{
-		pointShadow.pointShadowData[lightIdx].LightPos = frameData.PointLights[lightIdx].Position;
-		pointShadow.pointShadowData[lightIdx].LightRadius = frameData.PointLights[lightIdx].Radius;
-
-		XMMATRIX proj = XMMatrixPerspectiveFovLH(XM_PIDIV2, 1.0f, 0.1f, frameData.PointLights[lightIdx].Radius);
-		for (int f = 0; f < 6; f++)
-		{
-			XMVECTOR eye = XMLoadFloat3(&frameData.PointLights[lightIdx].Position);
-			XMVECTOR target = eye + XMLoadFloat3(&targets[f]);
-			XMMATRIX view = XMMatrixLookAtLH(eye, target, XMLoadFloat3(&ups[f]));
-			XMStoreFloat4x4(&pointShadow.pointShadowData[lightIdx].FaceVP[f], XMMatrixTranspose(view * proj));
-		}
-	}
-
-	std::vector<PointLightData> fcPointLights;
-	fcPointLights.reserve(importedPointLightCount);
-	for (int i = 0; i < importedPointLightCount; i++)
-	{
-		fcPointLights.push_back(frameData.PointLights[i]);
-	}
-
-	FrameContext fc = {
-		backBuffer, gbufferAlbedo, gbufferNormal, gbufferMR,
-		depthTexture, cubeMap,
-		irradiacneMap, prefilteredEnvMap, brdfLUT, shadowMap, pointShadowMaps,
-		importedPointLightCount,
-		std::move(fcPointLights),
-		ssaoTexture, ssaoNoiseTexture, ssaoTempTexture, gtaoTexture, gtaoTempTexture,
-		sceneColorTexture,
-		{}, {}, {}, {}, {}, {}
-	};
-
-
-	SSAOCB ssaoCB;
-	XMStoreFloat4x4(&ssaoCB.ViewMatrix, XMMatrixTranspose(XMLoadFloat4x4(&frameData.ViewMatrix)));
-	XMStoreFloat4x4(&ssaoCB.ProjMatrix, XMMatrixTranspose(XMLoadFloat4x4(&frameData.ProjMatrix)));
-	XMStoreFloat4x4(&ssaoCB.InvProjMatrix, XMMatrixTranspose(XMMatrixInverse(nullptr, XMLoadFloat4x4(&frameData.ProjMatrix))));
-	ssaoCB.SampleRadius = 0.7f;        
-	ssaoCB.Bias = 0.04f;        
-	ssaoCB.Power = 2.0f;
-	ssaoCB.KernelSize = 32;
-	ssaoCB.NoiseScale = XMFLOAT2(
-		m_width / 4.0f,
-		m_height / 4.0f
-	);
-
-	for (int i = 0; i < 32; i++)
-	{
-		ssaoCB.Samples[i] = hemisphereSamples[i];
-	}
-
-
-	BilateralBlurCB blurCB;
-	blurCB.DepthSigma = 80;
-	blurCB.NormalSigma = 12;
-	blurCB.TexelSize = { 2.0f / m_width, 2.0f / m_height };
-
-
-	GTAOCB gtaoCB;
-	XMStoreFloat4x4(&gtaoCB.View, XMMatrixTranspose(XMLoadFloat4x4(&frameData.ViewMatrix)));
-	XMStoreFloat4x4(&gtaoCB.InvProj, XMMatrixInverse(nullptr, XMMatrixTranspose(XMLoadFloat4x4(&frameData.ProjMatrix))));
-	XMStoreFloat2(&gtaoCB.InvRes, { 1.0f / m_width, 1.0f / m_height });
-	gtaoCB.Radius = 0.5f;
-	gtaoCB.FalloffStart = gtaoCB.Radius * 0.75f;
-	gtaoCB.FalloffEnd = gtaoCB.Radius;
-	gtaoCB.NumSlices = 2;
-	gtaoCB.NumSteps = 6;
-	gtaoCB.FrameIndex = 0;
-
-
-	float cascadeSplits[CASCADE_COUNT + 1];
-
-	BuildCascadeShadowMatrices(
-		inverseVP,
-		XMLoadFloat3(&frameData.DirectionalLightDir),
-		renderScene.sceneAABBMin, renderScene.sceneAABBMax,
-		0.1f, 100.0f,
-		cascadeSplits,
-		fc.LightViewProj);
-
-	ShadowCB shadow;
-	for (int c = 0; c < CASCADE_COUNT; c++)
-	{
-		XMStoreFloat4x4(&shadow.LightViewProj[c], XMMatrixTranspose(fc.LightViewProj[c]));
-		shadow.cascadeSplits[c] = cascadeSplits[c + 1];
-	}
-
-	fc.perFrameCB = ctx.UpdateConstantBuffer(&perFrame, sizeof(PerFrameCB));
-	fc.lightCB = ctx.UpdateConstantBuffer(&light, sizeof(LightCB));
-	fc.shadowCB = ctx.UpdateConstantBuffer(&shadow, sizeof(ShadowCB));
-	fc.pointShadowCB = ctx.UpdateConstantBuffer(&pointShadow, sizeof(PointShadowCB));
-	fc.ssaoCB = ctx.UpdateConstantBuffer(&ssaoCB, sizeof(SSAOCB));
-	fc.bilateralBlurCB = ctx.UpdateConstantBuffer(&blurCB, sizeof(BilateralBlurCB));
-	fc.gtaoCB = ctx.UpdateConstantBuffer(&gtaoCB, sizeof(GTAOCB));
-
-	AddDepthPrePass(device, graph, fc, renderScene);
-	AddGBufferPass(device, graph, fc, renderScene);
-	AddDirectionalShadowPass(device, graph, fc, renderScene);
-	AddPointShadowPass(device, graph, fc, renderScene);
-	
-	AddSSAOPass(device, graph, fc, renderScene);
-	AddGTAOPass(device, graph, fc, renderScene);
-
-	AddGTAOBilateralBlurPass(device, graph, fc, renderScene);
-	AddPBRLightingPass(device, graph, fc, renderScene);
-	AddSkyboxPass(device, graph, fc, renderScene);
-
-	AddPresentPass(device, graph, fc, renderScene);
-
+	BuildPresentGraph(device, graph, fc);
 	graph.Compile();
 	graph.Execute(ctx);
-	graph.Clear();
 }
 
 void Renderer::Resize(GraphicsDevice* device)
 {
-	TextureDesc gbufferDesc = { m_resizeWidth, m_resizeHeight,
-							 Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	TextureDesc gbufferDesc = { m_resizeWidth, m_resizeHeight, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
 	m_gbufferAlbedo = device->CreateTexture(gbufferDesc, nullptr);
 
 	gbufferDesc.format = Format::R16G16B16A16_FLOAT;
@@ -314,8 +117,7 @@ void Renderer::Resize(GraphicsDevice* device)
 	gbufferDesc.format = Format::R8G8B8A8_UNORM;
 	m_gbufferMR = device->CreateTexture(gbufferDesc, nullptr);
 
-	TextureDesc depthDesc = { m_resizeWidth, m_resizeHeight,
-							   Format::D32_FLOAT, TextureUsage::DepthStencil };
+	TextureDesc depthDesc = { m_resizeWidth, m_resizeHeight, Format::D32_FLOAT, TextureUsage::DepthStencil };
 	m_depthTexture = device->CreateTexture(depthDesc, nullptr);
 
 	TextureDesc ssaoTextureDesc = { m_resizeWidth / 2, m_resizeHeight / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
@@ -326,13 +128,16 @@ void Renderer::Resize(GraphicsDevice* device)
 	m_gtaoTexture = device->CreateTexture(gtaoTextureDesc);
 	m_gtaoTempTexture = device->CreateTexture(gtaoTextureDesc);
 
-	m_width = m_resizeWidth;
-	m_height = m_resizeHeight;
+	TextureDesc sceneColorTextureDesc = { m_resizeWidth, m_resizeHeight, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
+	m_sceneColorTexture = device->CreateTexture(sceneColorTextureDesc);
+
+	m_viewportWidth = m_resizeWidth;
+	m_viewportHeight = m_resizeHeight;
 
 	m_needsResize = false;
 }
 
-void Renderer::OnResize(uint32_t width, uint32_t height)
+void Renderer::OnViewportResize(uint32_t width, uint32_t height)
 {
 	m_resizeWidth = width;
 	m_resizeHeight = height;
@@ -623,7 +428,6 @@ void Renderer::CreateBRDFLUT(GraphicsDevice* device)
 	// BRDF LUT
 }
 
-
 void Renderer::BuildCascadeShadowMatrices(
 	const XMMATRIX& invViewProj,
 	FXMVECTOR lightDir,
@@ -777,6 +581,220 @@ void Renderer::BuildCascadeShadowMatrices(
 	}
 }
 
+
+
+FrameContext Renderer::BuildFrameContext(GraphicsDevice* device, CommandContext& ctx, RenderGraph& graph, const RenderScene& renderScene)
+{
+	auto& frameData = renderScene.frameData;
+
+	RGResourceDesc backBufferDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	RGResourceHandle backBuffer = graph.ImportTexture(device->GetCurrentBackBuffer(), backBufferDesc, RGResourceState::Present);
+
+	RGResourceDesc gbufferAlbedoDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	RGResourceHandle gbufferAlbedo = graph.ImportTexture(m_gbufferAlbedo, gbufferAlbedoDesc, RGResourceState::RenderTarget);
+
+	RGResourceDesc gbufferNormalDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
+	RGResourceHandle gbufferNormal = graph.ImportTexture(m_gbufferNormal, gbufferNormalDesc, RGResourceState::RenderTarget);
+
+	RGResourceDesc gbufferMRDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	RGResourceHandle gbufferMR = graph.ImportTexture(m_gbufferMR, gbufferMRDesc, RGResourceState::RenderTarget);
+
+	RGResourceDesc depthTextrueDesc = { m_viewportWidth, m_viewportHeight, Format::R32_TYPELESS, TextureUsage::DepthStencil };
+	RGResourceHandle depthTexture = graph.ImportTexture(m_depthTexture, depthTextrueDesc, RGResourceState::DepthWrite);
+
+	RGResourceDesc cubeMapDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
+	RGResourceHandle cubeMap = graph.ImportTexture(m_cubemapTexture, cubeMapDesc, RGResourceState::ShaderResource);
+
+	RGResourceDesc irradiacneMapDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
+	RGResourceHandle irradiacneMap = graph.ImportTexture(m_irradianceMapTexture, irradiacneMapDesc, RGResourceState::ShaderResource);
+
+	RGResourceDesc prefilteredEnvMapDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
+	RGResourceHandle prefilteredEnvMap = graph.ImportTexture(m_prefilteredEnvMapTexture, prefilteredEnvMapDesc, RGResourceState::ShaderResource);
+
+	RGResourceDesc brdfLUTDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
+	RGResourceHandle brdfLUT = graph.ImportTexture(m_brdfLUTTexture, brdfLUTDesc, RGResourceState::ShaderResource);
+
+	RGResourceDesc shadowMapDesc = { 4096, 4096, Format::R32_TYPELESS, TextureUsage::DepthStencil };
+	RGResourceHandle shadowMap = graph.ImportTexture(m_shadowMapTexture, shadowMapDesc, RGResourceState::DepthWrite);
+
+	std::vector<RGResourceHandle> pointShadowMaps;
+	RGResourceDesc pointShadowMapDesc = { 1024, 1024, Format::R32_TYPELESS, TextureUsage::DepthStencil };
+	const int importedPointLightCount = std::min(MAX_POINT_LIGHTS, frameData.PointLightCount);
+	for (int i = 0; i < importedPointLightCount; i++)
+	{
+		pointShadowMaps.push_back(graph.ImportTexture(m_pointShadowMapTextures[i], pointShadowMapDesc, RGResourceState::DepthWrite));
+	}
+
+	RGResourceDesc ssaoTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
+	RGResourceHandle ssaoTexture = graph.ImportTexture(m_ssaoTexture, ssaoTextureDesc, RGResourceState::RenderTarget);
+
+	RGResourceDesc ssaoNoiseTextureDesc = { 4, 4, Format::R32G32B32A32_FLOAT, TextureUsage::ShaderResource };
+	RGResourceHandle ssaoNoiseTexture = graph.ImportTexture(m_ssaoNoiseTexture, ssaoNoiseTextureDesc, RGResourceState::ShaderResource);
+
+	RGResourceDesc ssaoTempTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
+	RGResourceHandle ssaoTempTexture = graph.ImportTexture(m_ssaoTempTexture, ssaoTempTextureDesc, RGResourceState::RenderTarget);
+
+	RGResourceDesc gtaoTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM, TextureUsage::UnorderedAccess };
+	RGResourceHandle gtaoTexture = graph.ImportTexture(m_gtaoTexture, gtaoTextureDesc, RGResourceState::UnorderedAccess);
+
+	RGResourceDesc gtaoTempTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM, TextureUsage::UnorderedAccess };
+	RGResourceHandle gtaoTempTexture = graph.ImportTexture(m_gtaoTempTexture, gtaoTempTextureDesc, RGResourceState::UnorderedAccess);
+
+	RGResourceDesc sceneColorTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
+	RGResourceHandle sceneColorTexture = graph.ImportTexture(m_sceneColorTexture, sceneColorTextureDesc, RGResourceState::RenderTarget);
+
+	PerFrameCB perFrame;
+	XMMATRIX vp = XMLoadFloat4x4(&frameData.ViewMatrix) * XMLoadFloat4x4(&frameData.ProjMatrix);
+	XMStoreFloat4x4(&perFrame.ViewProj, XMMatrixTranspose(vp));
+	XMMATRIX inverseVP = XMMatrixInverse(nullptr, vp);
+	XMStoreFloat4x4(&perFrame.InvViewProj, inverseVP);
+	perFrame.CameraPos = frameData.CameraPos;
+	XMStoreFloat2(&perFrame.ScreenSize, { static_cast<float>(m_viewportWidth), static_cast<float>(m_viewportHeight) });
+
+
+	LightCB light;
+	light.Direction = frameData.DirectionalLightDir;
+	light.Color = frameData.DirectionalLightColor;
+	light.Intensity = frameData.DirectionalLightIntensity;
+	light.Ambient = { 0.03f, 0.03f, 0.03f };
+
+	light.PointLightCount = importedPointLightCount;
+	for (int i = 0; i < importedPointLightCount; i++)
+	{
+		auto pointLight = frameData.PointLights[i];
+		light.PointLights[i] = { pointLight.Position, pointLight.Radius, pointLight.Color, pointLight.Intensity };
+	}
+
+	XMVECTOR targetPos = XMVectorSet(0, 0, 0, 0);
+	XMVECTOR lightPos = XMVectorSubtract(targetPos, XMVectorScale(XMLoadFloat3(&frameData.DirectionalLightDir), 50.0f));
+	XMMATRIX lightView = XMMatrixLookAtLH(lightPos, targetPos, XMVectorSet(0, 1, 0, 0));
+	XMMATRIX lightProj = XMMatrixOrthographicLH(100.0f, 100.0f, 1.0f, 300.0f);
+	XMMATRIX lightVP = lightView * lightProj;
+
+
+
+	PointShadowCB pointShadow;
+	const XMFLOAT3 targets[6] = { {1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1} };
+	const XMFLOAT3 ups[6] = { {0,1,0},{0,1,0},{0,0,-1},{0,0,1},{0,1,0},{0,1,0} };
+	for (int lightIdx = 0; lightIdx < importedPointLightCount; lightIdx++)
+	{
+		pointShadow.pointShadowData[lightIdx].LightPos = frameData.PointLights[lightIdx].Position;
+		pointShadow.pointShadowData[lightIdx].LightRadius = frameData.PointLights[lightIdx].Radius;
+
+		XMMATRIX proj = XMMatrixPerspectiveFovLH(XM_PIDIV2, 1.0f, 0.1f, frameData.PointLights[lightIdx].Radius);
+		for (int f = 0; f < 6; f++)
+		{
+			XMVECTOR eye = XMLoadFloat3(&frameData.PointLights[lightIdx].Position);
+			XMVECTOR target = eye + XMLoadFloat3(&targets[f]);
+			XMMATRIX view = XMMatrixLookAtLH(eye, target, XMLoadFloat3(&ups[f]));
+			XMStoreFloat4x4(&pointShadow.pointShadowData[lightIdx].FaceVP[f], XMMatrixTranspose(view * proj));
+		}
+	}
+
+	std::vector<PointLightData> fcPointLights;
+	fcPointLights.reserve(importedPointLightCount);
+	for (int i = 0; i < importedPointLightCount; i++)
+	{
+		fcPointLights.push_back(frameData.PointLights[i]);
+	}
+
+	FrameContext fc = {
+		backBuffer, gbufferAlbedo, gbufferNormal, gbufferMR,
+		depthTexture, cubeMap,
+		irradiacneMap, prefilteredEnvMap, brdfLUT, shadowMap, pointShadowMaps,
+		importedPointLightCount,
+		std::move(fcPointLights),
+		ssaoTexture, ssaoNoiseTexture, ssaoTempTexture, gtaoTexture, gtaoTempTexture,
+		sceneColorTexture,
+		{}, {}, {}, {}, {}, {}
+	};
+
+
+	SSAOCB ssaoCB;
+	XMStoreFloat4x4(&ssaoCB.ViewMatrix, XMMatrixTranspose(XMLoadFloat4x4(&frameData.ViewMatrix)));
+	XMStoreFloat4x4(&ssaoCB.ProjMatrix, XMMatrixTranspose(XMLoadFloat4x4(&frameData.ProjMatrix)));
+	XMStoreFloat4x4(&ssaoCB.InvProjMatrix, XMMatrixTranspose(XMMatrixInverse(nullptr, XMLoadFloat4x4(&frameData.ProjMatrix))));
+	ssaoCB.SampleRadius = 0.7f;
+	ssaoCB.Bias = 0.04f;
+	ssaoCB.Power = 2.0f;
+	ssaoCB.KernelSize = 32;
+	ssaoCB.NoiseScale = XMFLOAT2(
+		m_viewportWidth / 4.0f,
+		m_viewportHeight / 4.0f
+	);
+
+	for (int i = 0; i < 32; i++)
+	{
+		ssaoCB.Samples[i] = hemisphereSamples[i];
+	}
+
+
+	BilateralBlurCB blurCB;
+	blurCB.DepthSigma = 80;
+	blurCB.NormalSigma = 12;
+	blurCB.TexelSize = { 2.0f / m_viewportWidth, 2.0f / m_viewportHeight };
+
+
+	GTAOCB gtaoCB;
+	XMStoreFloat4x4(&gtaoCB.View, XMMatrixTranspose(XMLoadFloat4x4(&frameData.ViewMatrix)));
+	XMStoreFloat4x4(&gtaoCB.InvProj, XMMatrixInverse(nullptr, XMMatrixTranspose(XMLoadFloat4x4(&frameData.ProjMatrix))));
+	XMStoreFloat2(&gtaoCB.InvRes, { 1.0f / m_viewportWidth, 1.0f / m_viewportHeight });
+	gtaoCB.Radius = 0.5f;
+	gtaoCB.FalloffStart = gtaoCB.Radius * 0.75f;
+	gtaoCB.FalloffEnd = gtaoCB.Radius;
+	gtaoCB.NumSlices = 2;
+	gtaoCB.NumSteps = 6;
+	gtaoCB.FrameIndex = 0;
+
+
+	float cascadeSplits[CASCADE_COUNT + 1];
+
+	BuildCascadeShadowMatrices(
+		inverseVP,
+		XMLoadFloat3(&frameData.DirectionalLightDir),
+		renderScene.sceneAABBMin, renderScene.sceneAABBMax,
+		0.1f, 100.0f,
+		cascadeSplits,
+		fc.LightViewProj);
+
+	ShadowCB shadow;
+	for (int c = 0; c < CASCADE_COUNT; c++)
+	{
+		XMStoreFloat4x4(&shadow.LightViewProj[c], XMMatrixTranspose(fc.LightViewProj[c]));
+		shadow.cascadeSplits[c] = cascadeSplits[c + 1];
+	}
+
+	fc.perFrameCB = ctx.UpdateConstantBuffer(&perFrame, sizeof(PerFrameCB));
+	fc.lightCB = ctx.UpdateConstantBuffer(&light, sizeof(LightCB));
+	fc.shadowCB = ctx.UpdateConstantBuffer(&shadow, sizeof(ShadowCB));
+	fc.pointShadowCB = ctx.UpdateConstantBuffer(&pointShadow, sizeof(PointShadowCB));
+	fc.ssaoCB = ctx.UpdateConstantBuffer(&ssaoCB, sizeof(SSAOCB));
+	fc.bilateralBlurCB = ctx.UpdateConstantBuffer(&blurCB, sizeof(BilateralBlurCB));
+	fc.gtaoCB = ctx.UpdateConstantBuffer(&gtaoCB, sizeof(GTAOCB));
+
+	return fc;
+}
+
+void Renderer::BuildSceneGraph(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& renderScene)
+{
+	AddDepthPrePass(device, graph, fc, renderScene);
+	AddGBufferPass(device, graph, fc, renderScene);
+	AddDirectionalShadowPass(device, graph, fc, renderScene);
+	AddPointShadowPass(device, graph, fc, renderScene);
+
+	//AddSSAOPass(device, graph, fc, renderScene);
+	AddGTAOPass(device, graph, fc, renderScene);
+
+	AddGTAOBilateralBlurPass(device, graph, fc, renderScene);
+	AddPBRLightingPass(device, graph, fc, renderScene);
+	AddSkyboxPass(device, graph, fc, renderScene);
+}
+
+void Renderer::BuildPresentGraph(GraphicsDevice * device, RenderGraph & graph, FrameContext & fc)
+{
+	AddPresentPass(device, graph, fc);
+}
+
 void Renderer::InitDepthPrePass(GraphicsDevice* device)
 {
 	m_depthVS = ShaderCompiler::CompileFromFile(
@@ -806,16 +824,16 @@ void Renderer::InitDepthPrePass(GraphicsDevice* device)
 
 	m_depthPrePassPipeline = device->CreatePipeline(m_depthPrePassPipelinDesc);
 
-	TextureDesc depthTextureDesc = { m_width, m_height, Format::D32_FLOAT, TextureUsage::DepthStencil };
+	TextureDesc depthTextureDesc = { m_viewportWidth, m_viewportHeight, Format::D32_FLOAT, TextureUsage::DepthStencil };
 	m_depthTexture = device->CreateTexture(depthTextureDesc, nullptr);
 }
 void Renderer::InitGBufferPass(GraphicsDevice* device)
 {
-	TextureDesc albedoTextureDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	TextureDesc albedoTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
 	m_gbufferAlbedo = device->CreateTexture(albedoTextureDesc, nullptr);
-	TextureDesc normalTextureDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
+	TextureDesc normalTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
 	m_gbufferNormal = device->CreateTexture(normalTextureDesc, nullptr);
-	TextureDesc mrTextureDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	TextureDesc mrTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
 	m_gbufferMR = device->CreateTexture(mrTextureDesc, nullptr);
 
 	RootSignatureDesc gBufferPassRSDesc = {};
@@ -1003,7 +1021,7 @@ void Renderer::InitSSAOPass(GraphicsDevice* device)
 		CullMode::None };
 	m_SSAOPipeline = device->CreatePipeline(m_SSAOPipelineDesc);
 
-	TextureDesc ssaoTextureDesc = { m_width / 2, m_height / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
+	TextureDesc ssaoTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
 	m_ssaoTexture = device->CreateTexture(ssaoTextureDesc, nullptr);
 
 	std::vector<XMFLOAT4> noise(16);
@@ -1050,8 +1068,8 @@ void Renderer::InitGTAOPass(GraphicsDevice* device)
 	m_GTAOComputePipeline = device->CreateComputePipeline(m_GTAOComputePipelineDesc);
 
 	TextureDesc gtaoTextureDesc = {};
-	gtaoTextureDesc.width = m_width;
-	gtaoTextureDesc.height = m_height;
+	gtaoTextureDesc.width = m_viewportWidth;
+	gtaoTextureDesc.height = m_viewportHeight;
 	gtaoTextureDesc.format = Format::R8G8B8A8_UNORM;
 	gtaoTextureDesc.usage = TextureUsage::UnorderedAccess;
 	m_gtaoTexture = device->CreateTexture(gtaoTextureDesc);
@@ -1096,7 +1114,7 @@ void Renderer::InitSSAOBilateralBlurPass(GraphicsDevice* device)
 	m_bilateralBlurPipelineDesc.ps = ShaderCompiler::GetBytecode(m_bilateralBlurPS_Horizontal);
 	m_bilateralBlurPipeline_Horizontal = device->CreatePipeline(m_bilateralBlurPipelineDesc);
 
-	TextureDesc ssaoTempTextureDesc = { m_width / 2, m_height / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
+	TextureDesc ssaoTempTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
 	m_ssaoTempTexture = device->CreateTexture(ssaoTempTextureDesc, nullptr);
 }
 void Renderer::InitGTAOBilateralBlurPass(GraphicsDevice* device)
@@ -1122,8 +1140,8 @@ void Renderer::InitGTAOBilateralBlurPass(GraphicsDevice* device)
 	m_bilateralBlurComputePipeline = device->CreateComputePipeline(m_bilateralBlurComputePipelineDesc);
 
 	TextureDesc gtaoTempTextureDesc = {};
-	gtaoTempTextureDesc.width = m_width;
-	gtaoTempTextureDesc.height = m_height;
+	gtaoTempTextureDesc.width = m_viewportWidth;
+	gtaoTempTextureDesc.height = m_viewportHeight;
 	gtaoTempTextureDesc.format = Format::R8G8B8A8_UNORM;
 	gtaoTempTextureDesc.usage = TextureUsage::UnorderedAccess;
 	m_gtaoTempTexture = device->CreateTexture(gtaoTempTextureDesc);
@@ -1215,7 +1233,7 @@ void Renderer::InitPresentPass(GraphicsDevice* device)
 	presentPSODesc.cullMode = CullMode::None;
 	m_presentPipeline = device->CreatePipeline(presentPSODesc);
 
-	TextureDesc sceneColorTextureDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
+	TextureDesc sceneColorTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
 	m_sceneColorTexture = device->CreateTexture(sceneColorTextureDesc, nullptr);
 }
 void Renderer::InitDebugPass(GraphicsDevice* device)
@@ -1274,8 +1292,8 @@ void Renderer::AddDepthPrePass(GraphicsDevice* device, RenderGraph& graph, Frame
 				passCtx.ClearDepthStencil(m_depthTexture, 1.0f);
 				passCtx.SetRenderTarget(0, {}, m_depthTexture);
 				passCtx.SetPipeline(m_depthPrePassPipeline);
-				passCtx.SetViewport(0, 0, (float)m_width, (float)m_height);
-				passCtx.SetScissorRect(0, 0, (LONG)m_width, (LONG)m_height);
+				passCtx.SetViewport(0, 0, (float)m_viewportWidth, (float)m_viewportHeight);
+				passCtx.SetScissorRect(0, 0, (LONG)m_viewportWidth, (LONG)m_viewportHeight);
 
 				passCtx.BindConstantBuffer(0, fc.perFrameCB);
 
@@ -1313,8 +1331,8 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 				passCtx.SetRenderTarget(3, renderTargets, m_depthTexture);
 
 				passCtx.SetPipeline(m_gBufferOpaquePassPipeline);
-				passCtx.SetViewport(0, 0, (float)m_width, (float)m_height);
-				passCtx.SetScissorRect(0, 0, (LONG)m_width, (LONG)m_height);
+				passCtx.SetViewport(0, 0, (float)m_viewportWidth, (float)m_viewportHeight);
+				passCtx.SetScissorRect(0, 0, (LONG)m_viewportWidth, (LONG)m_viewportHeight);
 
 				passCtx.BindConstantBuffer(0, fc.perFrameCB);
 				for (const auto& obj : scene.renderObjects)
@@ -1536,8 +1554,8 @@ void Renderer::AddSSAOPass(GraphicsDevice* device, RenderGraph& graph, FrameCont
 				passCtx.ClearRenderTarget(m_ssaoTexture, clearColor);
 				passCtx.SetRenderTarget(1, &m_ssaoTexture, {});
 				passCtx.SetPipeline(m_SSAOPipeline);
-				passCtx.SetViewport(0, 0, (float)(m_width / 2), (float)(m_height / 2));
-				passCtx.SetScissorRect(0, 0, (LONG)(m_width / 2), (LONG)(m_height / 2));
+				passCtx.SetViewport(0, 0, (float)(m_viewportWidth / 2), (float)(m_viewportHeight / 2));
+				passCtx.SetScissorRect(0, 0, (LONG)(m_viewportWidth / 2), (LONG)(m_viewportHeight / 2));
 
 				passCtx.BindConstantBuffer(0, fc.perFrameCB);
 				passCtx.BindConstantBuffer(1, fc.ssaoCB);
@@ -1568,7 +1586,7 @@ void Renderer::AddGTAOPass(GraphicsDevice* device, RenderGraph& graph, FrameCont
 				passCtx.SetComputeDescriptorTable(1, device->GetUAVHandle(m_gtaoTexture));
 				passCtx.SetComputeDescriptorTable(2, device->GetSRVHandle(m_depthTexture));
 				passCtx.SetComputeDescriptorTable(3, device->GetSRVHandle(m_gbufferNormal));
-				passCtx.Dispatch((m_width + 7) / 8, (m_height + 7) / 8, 1);
+				passCtx.Dispatch((m_viewportWidth + 7) / 8, (m_viewportHeight + 7) / 8, 1);
 			}
 		}
 	);
@@ -1589,8 +1607,8 @@ void Renderer::AddSSAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 				passCtx.ClearRenderTarget(m_ssaoTempTexture, clearColor);
 				passCtx.SetRenderTarget(1, &m_ssaoTempTexture, {});
 				passCtx.SetPipeline(m_bilateralBlurPipeline_Horizontal);
-				passCtx.SetViewport(0, 0, (float)(m_width / 2), (float)(m_height / 2));
-				passCtx.SetScissorRect(0, 0, (LONG)(m_width / 2), (LONG)(m_height / 2));
+				passCtx.SetViewport(0, 0, (float)(m_viewportWidth / 2), (float)(m_viewportHeight / 2));
+				passCtx.SetScissorRect(0, 0, (LONG)(m_viewportWidth / 2), (LONG)(m_viewportHeight / 2));
 
 				passCtx.BindConstantBuffer(0, fc.bilateralBlurCB);
 
@@ -1617,8 +1635,8 @@ void Renderer::AddSSAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 				passCtx.ClearRenderTarget(m_ssaoTexture, clearColor);
 				passCtx.SetRenderTarget(1, &m_ssaoTexture, {});
 				passCtx.SetPipeline(m_bilateralBlurPipeline_Vertical);
-				passCtx.SetViewport(0, 0, (float)(m_width / 2), (float)(m_height / 2));
-				passCtx.SetScissorRect(0, 0, (LONG)(m_width / 2), (LONG)(m_height / 2));
+				passCtx.SetViewport(0, 0, (float)(m_viewportWidth / 2), (float)(m_viewportHeight / 2));
+				passCtx.SetScissorRect(0, 0, (LONG)(m_viewportWidth / 2), (LONG)(m_viewportHeight / 2));
 
 				passCtx.BindConstantBuffer(0, fc.bilateralBlurCB);
 
@@ -1646,7 +1664,7 @@ void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 			{
 				passCtx.SetComputePipeline(m_bilateralBlurComputePipeline);
 
-				GTAOBilateralBlurCB cb{ {1.0f / m_width, 1.0f / m_height}, {1,0}, 0.1f, 32.0f, 6 };
+				GTAOBilateralBlurCB cb{ {1.0f / m_viewportWidth, 1.0f / m_viewportHeight}, {1,0}, 0.1f, 32.0f, 6 };
 				fc.gtaoBilateralBlurCB = passCtx.UpdateConstantBuffer(&cb, sizeof(GTAOBilateralBlurCB));
 				passCtx.BindComputeConstantBuffer(0, fc.gtaoBilateralBlurCB);
 
@@ -1654,7 +1672,7 @@ void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 				passCtx.SetComputeDescriptorTable(2, device->GetSRVHandle(m_depthTexture));
 				passCtx.SetComputeDescriptorTable(3, device->GetSRVHandle(m_gbufferNormal));
 				passCtx.SetComputeDescriptorTable(4, device->GetUAVHandle(m_gtaoTempTexture));
-				passCtx.Dispatch((m_width + 7) / 8, (m_height + 7) / 8, 1);
+				passCtx.Dispatch((m_viewportWidth + 7) / 8, (m_viewportHeight + 7) / 8, 1);
 			}
 		}
 	);
@@ -1672,7 +1690,7 @@ void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 			{
 				passCtx.SetComputePipeline(m_bilateralBlurComputePipeline);
 
-				GTAOBilateralBlurCB cb{ {1.0f / m_width, 1.0f / m_height}, {0,1}, 0.1f, 32.0f, 6 };
+				GTAOBilateralBlurCB cb{ {1.0f / m_viewportWidth, 1.0f / m_viewportHeight}, {0,1}, 0.1f, 32.0f, 6 };
 				fc.gtaoBilateralBlurCB = passCtx.UpdateConstantBuffer(&cb, sizeof(GTAOBilateralBlurCB));
 				passCtx.BindComputeConstantBuffer(0, fc.gtaoBilateralBlurCB);
 
@@ -1680,7 +1698,7 @@ void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 				passCtx.SetComputeDescriptorTable(2, device->GetSRVHandle(m_depthTexture));
 				passCtx.SetComputeDescriptorTable(3, device->GetSRVHandle(m_gbufferNormal));
 				passCtx.SetComputeDescriptorTable(4, device->GetUAVHandle(m_gtaoTexture));
-				passCtx.Dispatch((m_width + 7) / 8, (m_height + 7) / 8, 1);
+				passCtx.Dispatch((m_viewportWidth + 7) / 8, (m_viewportHeight + 7) / 8, 1);
 			}
 		}
 	);
@@ -1714,8 +1732,8 @@ void Renderer::AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, Fr
 				passCtx.ClearRenderTarget(m_sceneColorTexture, clearColor);
 				passCtx.SetRenderTarget(1, &m_sceneColorTexture, {});
 				passCtx.SetPipeline(m_PBRlightingPassPipeline);
-				passCtx.SetViewport(0, 0, (float)m_width, (float)m_height);
-				passCtx.SetScissorRect(0, 0, (LONG)m_width, (LONG)m_height);
+				passCtx.SetViewport(0, 0, (float)m_viewportWidth, (float)m_viewportHeight);
+				passCtx.SetScissorRect(0, 0, (LONG)m_viewportWidth, (LONG)m_viewportHeight);
 
 				passCtx.BindConstantBuffer(0, fc.perFrameCB);
 				passCtx.BindConstantBuffer(1, fc.lightCB);
@@ -1753,8 +1771,8 @@ void Renderer::AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameCo
 
 			passCtx.SetRenderTarget(1, &m_sceneColorTexture, m_depthTexture);
 			passCtx.SetPipeline(m_skyboxPipeline);
-			passCtx.SetViewport(0, 0, (float)m_width, (float)m_height);
-			passCtx.SetScissorRect(0, 0, (LONG)m_width, (LONG)m_height);
+			passCtx.SetViewport(0, 0, (float)m_viewportWidth, (float)m_viewportHeight);
+			passCtx.SetScissorRect(0, 0, (LONG)m_viewportWidth, (LONG)m_viewportHeight);
 
 			passCtx.BindConstantBuffer(0, fc.perFrameCB);
 
@@ -1766,7 +1784,7 @@ void Renderer::AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameCo
 		}
 	);
 }
-void Renderer::AddPresentPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene)
+void Renderer::AddPresentPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc)
 {
 	graph.AddPass(
 		"PresentPass",
@@ -1777,8 +1795,8 @@ void Renderer::AddPresentPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 		[this, &fc, device](CommandContext& passCtx) {
 			passCtx.SetRenderTarget(1, device->GetCurrentBackBufferPtr(), {});
 			passCtx.SetPipeline(m_presentPipeline);
-			passCtx.SetViewport(0, 0, (float)m_width, (float)m_height);
-			passCtx.SetScissorRect(0, 0, (LONG)m_width, (LONG)m_height);
+			passCtx.SetViewport(0, 0, (float)m_viewportWidth, (float)m_viewportHeight);
+			passCtx.SetScissorRect(0, 0, (LONG)m_viewportWidth, (LONG)m_viewportHeight);
 			passCtx.BindTexture(0, m_sceneColorTexture); 
 			passCtx.Draw(3, 0);  
 		}
@@ -1836,8 +1854,8 @@ void Renderer::AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameCon
 				passCtx.SetPipeline(m_debugPipeline);
 				passCtx.BindTexture(0, m_prefilteredEnvMapTexture);
 			}
-			passCtx.SetViewport(0, 0, (float)m_width, (float)m_height);
-			passCtx.SetScissorRect(0, 0, (LONG)m_width, (LONG)m_height);
+			passCtx.SetViewport(0, 0, (float)m_viewportWidth, (float)m_viewportHeight);
+			passCtx.SetScissorRect(0, 0, (LONG)m_viewportWidth, (LONG)m_viewportHeight);
 
 			passCtx.Draw(3, 0);
 		}

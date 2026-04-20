@@ -41,9 +41,9 @@ private:
 	MokoJob::JobSystem* m_jobSystem;
 	EditorSystem* m_editorSystem;
 
+	bool m_pendingSwapchainResize = false;
 	uint32_t m_pendingWidth = 0;
 	uint32_t m_pendingHeight = 0;
-	bool m_needsResize = false;
 
 	bool m_initialized = false;
 };

@@ -49,9 +49,10 @@ public:
 	uint32_t GetWidth() override;
 	uint32_t GetHeight() override;
 
-public:
 	float GetTimestampMs(uint32_t passIndex) override;
-	void WaitForGpu();
+	void WaitForGpu() override;
+
+public:
 	const ComPtr<ID3D12Resource> GetTextureResource(TextureHandle handle);
 
 	DescriptorAllocator& GetCbvSrvUavAllocator() { return m_cbvSrvUavAllocator; }

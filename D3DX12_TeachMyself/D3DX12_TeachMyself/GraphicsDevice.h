@@ -38,5 +38,8 @@ public:
 	virtual uint32_t GetWidth() = 0;
 	virtual uint32_t GetHeight() = 0;
 
+	virtual void WaitForGpu() = 0;
+
 	virtual float GetTimestampMs(uint32_t passIndex) = 0;
+
 };
