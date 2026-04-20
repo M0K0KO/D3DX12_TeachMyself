@@ -49,4 +49,10 @@ namespace MokoJob
 		}
 		m_cv.notify_all();
 	}
+
+	uint64_t JobQueue::Size()
+	{
+		std::lock_guard lk(m_mutex);
+		return static_cast<uint64_t>(m_queue.size());
+	}
 }

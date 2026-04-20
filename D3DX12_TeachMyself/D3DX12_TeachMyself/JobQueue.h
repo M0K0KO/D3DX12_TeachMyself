@@ -18,7 +18,7 @@ namespace MokoJob
 
 		void Shutdown();
 
-		uint64_t Size() { return m_queue.size(); };
+		uint64_t Size();
 
 	private:
 		std::queue<Job> m_queue;
