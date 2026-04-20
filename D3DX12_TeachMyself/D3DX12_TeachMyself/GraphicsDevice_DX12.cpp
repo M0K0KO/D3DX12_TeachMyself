@@ -10,6 +10,22 @@ void GraphicsDevice_DX12::ReserveResources()
 	m_pipelines.reserve(256);
 }
 
+void GraphicsDevice_DX12::EnqueueResourceRelease(ComPtr<ID3D12Resource>&& resource, uint64_t fenceValue)
+{
+	if (!resource)
+		return;
+
+	m_pendingResourceReleases.push_back({ std::move(resource), fenceValue });
+}
+
+void GraphicsDevice_DX12::ProcessCompletedResourceReleases(uint64_t completedFenceValue)
+{
+	while (!m_pendingResourceReleases.empty() && m_pendingResourceReleases.front().fenceValue <= completedFenceValue)
+	{
+		m_pendingResourceReleases.pop_front();
+	}
+}
+
 void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uint32_t height)
 {
 	m_width = width;
@@ -229,6 +245,7 @@ CommandContext& GraphicsDevice_DX12::BeginFrame()
 	m_commandList->SetDescriptorHeaps(1, ppHeaps);
 
 	uploadHeapAllocator->ReleaseCompleted();
+	ProcessCompletedResourceReleases(m_fence->GetCompletedValue());
 	m_profiler.BeginFrame(m_frameIndex);
 
 	return m_commandContext;
@@ -251,6 +268,7 @@ void GraphicsDevice_DX12::EndFrame()
 void GraphicsDevice_DX12::Shutdown()
 {
 	WaitForGpu();
+	ProcessCompletedResourceReleases(UINT64_MAX);
 	CloseHandle(m_fenceEvent);
 }
 
@@ -962,7 +980,9 @@ void GraphicsDevice_DX12::DestroyTexture(TextureHandle handle)
 		if (dsv.IsValid()) m_dsvAllocator.FreeByCpuHandle(dsv.cpu);
 	}
 
-	tex->resource.Reset();
+	ComPtr<ID3D12Resource> resourceToRelease;
+	resourceToRelease.Swap(tex->resource);
+	EnqueueResourceRelease(std::move(resourceToRelease), m_nextFenceValue);
 }
 
 void GraphicsDevice_DX12::BeginTextureUpload()

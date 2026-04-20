@@ -93,6 +93,8 @@ private:
 	TextureHandle CreateUAVCubemapTexture(const CubemapTextureDesc& desc);
 
 	void ReserveResources();
+	void EnqueueResourceRelease(ComPtr<ID3D12Resource>&& resource, uint64_t fenceValue);
+	void ProcessCompletedResourceReleases(uint64_t completedFenceValue);
 	
 	void MoveToNextFrame();
 
@@ -159,6 +161,13 @@ private:
 	std::vector<InternalBuffer> m_buffers;
 	std::vector<InternalTexture> m_textures;
 	std::vector<InternalPipeline> m_pipelines;
+
+	struct PendingResourceRelease
+	{
+		ComPtr<ID3D12Resource> resource;
+		uint64_t fenceValue = 0;
+	};
+	std::deque<PendingResourceRelease> m_pendingResourceReleases;
 
 	TextureHandle m_backBufferHandles[FRAMECOUNT];
 
