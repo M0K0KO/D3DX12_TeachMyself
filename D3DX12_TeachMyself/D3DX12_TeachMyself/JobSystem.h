@@ -43,9 +43,9 @@ namespace MokoJob
 		explicit JobSystem(int workerCount = 0);
 		~JobSystem() override;
 
-		void Init(EntityScene& scene) override;
-		void Update(EntityScene& scene, float dt, const SystemContext& ctx) override {}
-		void Shutdown(EntityScene& scene) override;
+		void Init(SystemContext& ctx) override;
+		void Update(SystemContext& ctx) override {}
+		void Shutdown(SystemContext& ctx) override;
 
 		void	  Submit(std::function<void()> func);
 		JobHandle SubmitTracked(std::function<void()> func);

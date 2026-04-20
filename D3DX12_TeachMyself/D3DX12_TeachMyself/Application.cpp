@@ -24,7 +24,8 @@ Application::Application()
 
 Application::~Application()
 {
-	m_systemManager->ShutdownAll(m_ecsScene);
+	SystemContext ctx = { .dt = MokoTime::GetDeltaTime(), .window = &wnd, .input = &m_inputState, .scene = &m_ecsScene };
+	m_systemManager->ShutdownAll(ctx);
 }
 
 int Application::Run()
@@ -72,7 +73,8 @@ void Application::Init()
 	auto* dx12 = static_cast<GraphicsDevice_DX12*>(m_device.get());
 	m_editorSystem = m_systemManager->Add<EditorSystem>(dx12, wnd.GetHWND(), m_jobSystem);
 
-	m_systemManager->InitAll(m_ecsScene);
+	SystemContext ctx = {0.0f, &wnd, &m_inputState, &m_ecsScene};
+	m_systemManager->InitAll(ctx);
 
 	AssetLoader loader;
 
@@ -246,8 +248,8 @@ void Application::Update()
 	HandleKeyboardEvents();
 	HandleDebugModeInput();
 
-	SystemContext ctx = { .window = &wnd, .input = &m_inputState };
-	m_systemManager->UpdateAll(m_ecsScene, MokoTime::GetDeltaTime(), ctx);
+	SystemContext ctx = { .dt = MokoTime::GetDeltaTime(), .window = &wnd, .input = &m_inputState, .scene = &m_ecsScene};
+	m_systemManager->UpdateAll(ctx);
 
 }
 

@@ -20,7 +20,7 @@ namespace MokoJob
 		ShutdownInternal();
 	}
 
-	void JobSystem::Init(EntityScene& scene)
+	void JobSystem::Init(SystemContext& ctx)
 	{
 		int count = m_requestedCount;
 		if (count <= 0)
@@ -47,7 +47,7 @@ namespace MokoJob
 		m_initialized = true;
 	}
 
-	void JobSystem::Shutdown(EntityScene & scene)
+	void JobSystem::Shutdown(SystemContext& ctx)
 	{
 		ShutdownInternal();
 	}

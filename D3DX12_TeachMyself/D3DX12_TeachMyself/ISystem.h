@@ -5,8 +5,10 @@
 
 struct SystemContext
 {
+	const float dt;
 	Window* window;
 	const InputState* input;
+	EntityScene* scene;
 };
 
 
@@ -14,7 +16,7 @@ class ISystem
 {
 public:
 	virtual ~ISystem() = default;
-	virtual void Init(EntityScene& scene) {}
-	virtual void Update(EntityScene& scene, float dt, const SystemContext& ctx) = 0;
-	virtual void Shutdown(EntityScene& scene) {}
+	virtual void Init(SystemContext& scene) {}
+	virtual void Update(SystemContext& ctx) = 0;
+	virtual void Shutdown(SystemContext& scene) {}
 };

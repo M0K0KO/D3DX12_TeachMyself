@@ -12,7 +12,7 @@
 #include "CameraComponent.h"
 #include "MokoMath.h"
 
-void EditorSystem::Init(EntityScene&)
+void EditorSystem::Init(SystemContext& ctx)
 {
 	s_srvAllocator = &m_device->GetCbvSrvUavAllocator();
 
@@ -42,7 +42,7 @@ void EditorSystem::Init(EntityScene&)
 	m_initialized = true;
 }
 
-void EditorSystem::Update(EntityScene& scene, float dt, const SystemContext& ctx)
+void EditorSystem::Update(SystemContext& ctx)
 {
 	if (!m_initialized) return;
 
@@ -50,12 +50,11 @@ void EditorSystem::Update(EntityScene& scene, float dt, const SystemContext& ctx
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 
-	//ImGui::DockSpaceOverViewport();
 	ImGuiDockNodeFlags dockFlags = ImGuiDockNodeFlags_PassthruCentralNode;
 	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), dockFlags);
 
-	DrawHierarchy(scene);
-	DrawInspector(scene);
+	DrawHierarchy(*ctx.scene);
+	DrawInspector(*ctx.scene);
 
 	DrawProfilerPanel();
 	DrawJobSystemPanel();
@@ -63,7 +62,7 @@ void EditorSystem::Update(EntityScene& scene, float dt, const SystemContext& ctx
 	ImGui::Render();
 }
 
-void EditorSystem::Shutdown(EntityScene & scene)
+void EditorSystem::Shutdown(SystemContext& ctx)
 {
 	if (!m_initialized) return;
 

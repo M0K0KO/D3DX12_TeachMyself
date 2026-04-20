@@ -1,25 +1,25 @@
 #include "SystemManager.h"
 
-void SystemManager::InitAll(EntityScene& scene)
+void SystemManager::InitAll(SystemContext& ctx)
 {
 	for (auto& sys : systems)
 	{
-		sys->Init(scene);
+		sys->Init(ctx);
 	}
 }
 
-void SystemManager::UpdateAll(EntityScene& scene, float dt, const SystemContext& ctx)
+void SystemManager::UpdateAll(SystemContext& ctx)
 {
 	for (auto& sys : systems)
 	{
-		sys->Update(scene, dt, ctx);
+		sys->Update(ctx);
 	}
 }
 
-void SystemManager::ShutdownAll(EntityScene & scene)
+void SystemManager::ShutdownAll(SystemContext& ctx)
 {
 	for (auto it = systems.rbegin(); it != systems.rend(); it++)
 	{
-		(*it)->Shutdown(scene);
+		(*it)->Shutdown(ctx);
 	}
 }

@@ -4,15 +4,16 @@
 #include "TransformComponent.h"
 #include "CameraComponent.h"
 
-void CameraControllerSystem::Init(EntityScene& scene)
+void CameraControllerSystem::Init(SystemContext& ctx)
 {
-	cameraEntity = scene.GetMainCamera();
+	cameraEntity = ctx.scene->GetMainCamera();
 }
 
-void CameraControllerSystem::Update(EntityScene & scene, float dt, const SystemContext& ctx)
+void CameraControllerSystem::Update(SystemContext& ctx)
 {
 	auto wnd = ctx.window;
 	auto input = ctx.input;
+	auto scene = ctx.scene;
 
 	// Gather input
 	XMFLOAT3 localMove = { 0, 0, 0 };
@@ -35,7 +36,7 @@ void CameraControllerSystem::Update(EntityScene & scene, float dt, const SystemC
 		while (wnd->mouse.ReadRawDelta()) {}
 	}
 
-	auto view = scene.GetRegistry().GetView<TransformComponent, CameraComponent>();
+	auto view = scene->GetRegistry().GetView<TransformComponent, CameraComponent>();
 	for (auto [e, t, cam] : view)
 	{
 		if (!cam.isMain) continue;
@@ -47,7 +48,7 @@ void CameraControllerSystem::Update(EntityScene & scene, float dt, const SystemC
 		XMVECTOR local = XMLoadFloat3(&localMove);
 		XMMATRIX rot = XMMatrixRotationRollPitchYaw(cam.pitch, cam.yaw, 0.0f);
 		XMVECTOR world = XMVector3TransformNormal(local, rot);
-		world = XMVectorScale(world, moveSpeed * dt);
+		world = XMVectorScale(world, moveSpeed * ctx.dt);
 
 		auto currentPos = XMLoadFloat3(&t.position);
 		auto resultPos = currentPos + world;
@@ -55,7 +56,7 @@ void CameraControllerSystem::Update(EntityScene & scene, float dt, const SystemC
 		XMFLOAT3 result;
 		XMStoreFloat3(&result, resultPos);
 
-		Transform::SetPosition(scene.GetRegistry(), e, result);
+		Transform::SetPosition(scene->GetRegistry(), e, result);
 		break;
 	}
 }

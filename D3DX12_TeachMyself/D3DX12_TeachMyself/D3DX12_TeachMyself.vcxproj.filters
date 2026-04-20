@@ -317,9 +317,6 @@
     <ClInclude Include="RenderScene.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ISystem.h">
-      <Filter>Header Files\ECS</Filter>
-    </ClInclude>
     <ClInclude Include="SystemManager.h">
       <Filter>Header Files\ECS</Filter>
     </ClInclude>
@@ -391,6 +388,9 @@
     </ClInclude>
     <ClInclude Include="JobTime.h">
       <Filter>Header Files\Jobs</Filter>
+    </ClInclude>
+    <ClInclude Include="ISystem.h">
+      <Filter>Header Files\ECS\Systems</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

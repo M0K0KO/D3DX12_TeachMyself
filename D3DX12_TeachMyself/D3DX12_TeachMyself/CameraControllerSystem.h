@@ -4,9 +4,8 @@
 class CameraControllerSystem : public ISystem
 {
 public:
-    void Init(EntityScene& scene) override;
-    void Update(EntityScene& scene, float dt,
-        const SystemContext& ctx) override;
+    void Init(SystemContext& ctx) override;
+    void Update(SystemContext& ctx) override;
 
 private:
     Entity cameraEntity = INVALID_ENTITY;

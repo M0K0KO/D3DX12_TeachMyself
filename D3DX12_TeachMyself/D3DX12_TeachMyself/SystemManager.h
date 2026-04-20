@@ -16,7 +16,7 @@ public:
 		return ptr;
 	}
 
-	void InitAll(EntityScene& scene);
-	void UpdateAll(EntityScene& scene, float dt, const SystemContext& ctx);
-	void ShutdownAll(EntityScene& scene);
+	void InitAll(SystemContext& ctx);
+	void UpdateAll(SystemContext& ctx);
+	void ShutdownAll(SystemContext& ctx);
 };

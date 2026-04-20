@@ -16,9 +16,9 @@ public:
 	EditorSystem(GraphicsDevice_DX12* device, HWND hwnd, MokoJob::JobSystem* jobSystem)
 		:m_device(device), m_hwnd(hwnd), m_jobSystem(jobSystem)
 	{}
-	void Init(EntityScene&) override;
-	void Update(EntityScene& scene, float dt, const SystemContext& ctx) override;
-	void Shutdown(EntityScene& scene) override;
+	void Init(SystemContext& ctx) override;
+	void Update(SystemContext& ctx) override;
+	void Shutdown(SystemContext& ctx) override;
 
 public:
 	void Render(CommandContext& ctx);
