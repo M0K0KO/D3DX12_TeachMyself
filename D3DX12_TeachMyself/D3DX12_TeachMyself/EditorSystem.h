@@ -23,7 +23,7 @@ public:
 
 public:
 	void Render(CommandContext& ctx);
-	bool TryGetPendingViewportResize(uint32_t& w, uint32_t h);
+	bool TryGetPendingViewportResize(uint32_t& w, uint32_t& h);
 
 private:
 	void DrawViewportPanel();

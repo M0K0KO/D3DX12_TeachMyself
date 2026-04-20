@@ -117,7 +117,7 @@ void EditorSystem::Render(CommandContext& ctx)
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList);
 }
 
-bool EditorSystem::TryGetPendingViewportResize(uint32_t& w, uint32_t h)
+bool EditorSystem::TryGetPendingViewportResize(uint32_t& w, uint32_t& h)
 {
 	if (!m_pendingViewportResize) return false;
 	std::tie(w, h) = *m_pendingViewportResize;

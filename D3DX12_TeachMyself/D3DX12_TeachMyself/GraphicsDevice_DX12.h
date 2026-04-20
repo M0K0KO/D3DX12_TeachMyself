@@ -34,6 +34,8 @@ public:
 	DescriptorHandle GetSRVHandle(TextureHandle handle) override;
 	DescriptorHandle GetUAVHandle(TextureHandle handle, uint32_t mip = 0) override;
 
+	void DestroyTexture(TextureHandle handle) override;
+
 	void BeginTextureUpload() override;
 	TextureHandle LoadTexture(const std::wstring& path) override;
 	void FlushTextureUploads() override;

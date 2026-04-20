@@ -942,6 +942,29 @@ DescriptorHandle GraphicsDevice_DX12::GetUAVHandle(TextureHandle handle, uint32_
 	return tex.uav;
 }
 
+void GraphicsDevice_DX12::DestroyTexture(TextureHandle handle)
+{
+	if (!handle.IsValid()) return;
+
+	InternalTexture* tex = &m_textures[handle.id];
+	if (!tex) return;
+
+	if (tex->srv.IsValid()) m_cbvSrvUavAllocator.FreeByCpuHandle(tex->srv.cpu);
+	if (tex->rtv.IsValid()) m_rtvAllocator.FreeByCpuHandle(tex->rtv.cpu);
+	if (tex->dsv.IsValid()) m_dsvAllocator.FreeByCpuHandle(tex->dsv.cpu);
+
+	for (auto& uav : tex->uavMips)
+	{
+		if (uav.IsValid()) m_cbvSrvUavAllocator.FreeByCpuHandle(uav.cpu);
+	}
+	for (auto& dsv : tex->faceDsvs)
+	{
+		if (dsv.IsValid()) m_dsvAllocator.FreeByCpuHandle(dsv.cpu);
+	}
+
+	tex->resource.Reset();
+}
+
 void GraphicsDevice_DX12::BeginTextureUpload()
 {
 	HR_CHECK(m_commandAllocators[m_frameIndex]->Reset());

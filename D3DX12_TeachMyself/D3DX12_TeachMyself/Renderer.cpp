@@ -108,6 +108,16 @@ void Renderer::Render(GraphicsDevice* device, CommandContext& ctx, const RenderS
 
 void Renderer::Resize(GraphicsDevice* device)
 {
+	if (m_gbufferAlbedo.IsValid()) device->DestroyTexture(m_gbufferAlbedo);
+	if (m_gbufferNormal.IsValid()) device->DestroyTexture(m_gbufferNormal);
+	if (m_gbufferMR.IsValid()) device->DestroyTexture(m_gbufferMR);
+	if (m_depthTexture.IsValid()) device->DestroyTexture(m_depthTexture);
+	if (m_ssaoTexture.IsValid()) device->DestroyTexture(m_ssaoTexture);
+	if (m_ssaoTempTexture.IsValid()) device->DestroyTexture(m_ssaoTempTexture);
+	if (m_gtaoTexture.IsValid()) device->DestroyTexture(m_gtaoTexture);
+	if (m_gtaoTempTexture.IsValid()) device->DestroyTexture(m_gtaoTempTexture);
+	if (m_sceneColorTexture.IsValid()) device->DestroyTexture(m_sceneColorTexture);
+
 	TextureDesc gbufferDesc = { m_resizeWidth, m_resizeHeight, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
 	m_gbufferAlbedo = device->CreateTexture(gbufferDesc, nullptr);
 
