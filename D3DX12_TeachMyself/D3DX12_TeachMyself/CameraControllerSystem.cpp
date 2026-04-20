@@ -46,6 +46,11 @@ void CameraControllerSystem::Update(SystemContext& ctx)
 			-PI * 0.5f * 0.995f, PI * 0.5f * 0.995f);
 
 		XMVECTOR local = XMLoadFloat3(&localMove);
+		XMVECTOR lenSq = XMVector3LengthSq(local);
+		if (XMVectorGetX(lenSq) > 0.0f)
+		{
+			local = XMVector3Normalize(local);
+		}
 		XMMATRIX rot = XMMatrixRotationRollPitchYaw(cam.pitch, cam.yaw, 0.0f);
 		XMVECTOR world = XMVector3TransformNormal(local, rot);
 		world = XMVectorScale(world, moveSpeed * ctx.dt);

@@ -229,6 +229,12 @@ void GraphicsDevice_DX12::ExecuteImmediate(std::function<void(CommandContext&)> 
 CommandContext& GraphicsDevice_DX12::BeginFrame()
 {
 	uint64_t pendingFence = m_nextFenceValue;
+
+	const uint64_t completedFence = m_fence->GetCompletedValue();
+	m_cbvSrvUavAllocator.FinishFrame(completedFence);
+	m_rtvAllocator.FinishFrame(completedFence);
+	m_dsvAllocator.FinishFrame(completedFence);
+
 	m_cbvSrvUavAllocator.SetCurrentFence(pendingFence);
 	m_rtvAllocator.SetCurrentFence(pendingFence);
 	m_dsvAllocator.SetCurrentFence(pendingFence);
