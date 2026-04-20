@@ -460,6 +460,7 @@
     <FxCompile Include="shaders_BilateralBlur_CS.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="shaders_Present_PS.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <None Include="DirectXTex\DirectXTex.inl">

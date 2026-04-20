@@ -44,6 +44,7 @@ void Renderer::Init(GraphicsDevice* device)
 	InitGTAOBilateralBlurPass(device);
 	InitPBRLightingPass(device);
 	InitSkyboxPass(device);
+	InitPresentPass(device);
 	InitDebugPass(device);
 
 
@@ -150,6 +151,9 @@ void Renderer::Render(GraphicsDevice* device, CommandContext& ctx, const RenderS
 	RGResourceDesc gtaoTempTextureDesc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::UnorderedAccess };
 	RGResourceHandle gtaoTempTexture = graph.ImportTexture(m_gtaoTempTexture, gtaoTempTextureDesc, RGResourceState::UnorderedAccess);
 
+	RGResourceDesc sceneColorTextureDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
+	RGResourceHandle sceneColorTexture = graph.ImportTexture(m_sceneColorTexture, sceneColorTextureDesc, RGResourceState::RenderTarget);
+
 	PerFrameCB perFrame;
 	XMMATRIX vp = XMLoadFloat4x4(&frameData.ViewMatrix) * XMLoadFloat4x4(&frameData.ProjMatrix);
 	XMStoreFloat4x4(&perFrame.ViewProj, XMMatrixTranspose(vp));
@@ -212,6 +216,7 @@ void Renderer::Render(GraphicsDevice* device, CommandContext& ctx, const RenderS
 		importedPointLightCount,
 		std::move(fcPointLights),
 		ssaoTexture, ssaoNoiseTexture, ssaoTempTexture, gtaoTexture, gtaoTempTexture,
+		sceneColorTexture,
 		{}, {}, {}, {}, {}, {}
 	};
 
@@ -282,24 +287,15 @@ void Renderer::Render(GraphicsDevice* device, CommandContext& ctx, const RenderS
 	AddGBufferPass(device, graph, fc, renderScene);
 	AddDirectionalShadowPass(device, graph, fc, renderScene);
 	AddPointShadowPass(device, graph, fc, renderScene);
-
 	
 	AddSSAOPass(device, graph, fc, renderScene);
 	AddGTAOPass(device, graph, fc, renderScene);
 
-	//AddSSAOBilateralBlurPass(device, graph, fc, renderScene);
 	AddGTAOBilateralBlurPass(device, graph, fc, renderScene);
-
-	if (debugMode == DebugMode::PBR_Enabled)
-	{
-		AddPBRLightingPass(device, graph, fc, renderScene);
-	}
-	else
-	{
-		AddDebugPass(device, graph, fc, renderScene);
-	}
-
+	AddPBRLightingPass(device, graph, fc, renderScene);
 	AddSkyboxPass(device, graph, fc, renderScene);
+
+	AddPresentPass(device, graph, fc, renderScene);
 
 	graph.Compile();
 	graph.Execute(ctx);
@@ -1181,7 +1177,6 @@ void Renderer::InitSkyboxPass(GraphicsDevice* device)
 	skyboxPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
 	skyboxPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Clamp, 0, ShaderVisibility::Pixel });
 
-
 	m_skyboxPS = ShaderCompiler::CompileFromFile(
 		L"shaders_Skybox_PS.hlsl", "main", "ps_5_0"
 	);
@@ -1197,6 +1192,31 @@ void Renderer::InitSkyboxPass(GraphicsDevice* device)
 	skyboxPSODesc.depthFunc = ComparisonFunc::LessEqual;
 	skyboxPSODesc.cullMode = CullMode::None;
 	m_skyboxPipeline = device->CreatePipeline(skyboxPSODesc);
+}
+void Renderer::InitPresentPass(GraphicsDevice* device)
+{
+	RootSignatureDesc presentPassRSDesc = {};
+	presentPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
+	presentPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Clamp, 0, ShaderVisibility::Pixel });
+
+	m_presentPS = ShaderCompiler::CompileFromFile(
+		L"shaders_Present_PS.hlsl", "main", "ps_5_0"
+	);
+
+	PipelineDesc presentPSODesc = {};
+	presentPSODesc.rootSignatureDesc = presentPassRSDesc;
+	presentPSODesc.vs = ShaderCompiler::GetBytecode(m_fullscreenVS);
+	presentPSODesc.ps = ShaderCompiler::GetBytecode(m_presentPS);
+	presentPSODesc.rtvFormats = { Format::R8G8B8A8_UNORM };
+	presentPSODesc.dsvFormat = Format::D32_FLOAT;
+	presentPSODesc.depthEnable = false;
+	presentPSODesc.depthWrite = false;
+	presentPSODesc.depthFunc = ComparisonFunc::LessEqual;
+	presentPSODesc.cullMode = CullMode::None;
+	m_presentPipeline = device->CreatePipeline(presentPSODesc);
+
+	TextureDesc sceneColorTextureDesc = { m_width, m_height, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
+	m_sceneColorTexture = device->CreateTexture(sceneColorTextureDesc, nullptr);
 }
 void Renderer::InitDebugPass(GraphicsDevice* device)
 {
@@ -1686,13 +1706,13 @@ void Renderer::AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, Fr
 				builder.Read(resource, RGResourceState::ShaderResource);
 			}
 
-			builder.Write(fc.backBuffer, RGResourceState::RenderTarget);
+			builder.Write(fc.scenecolor, RGResourceState::RenderTarget);
 		},
 		[this, &fc, device](CommandContext& passCtx) {
 			passCtx.BeginTimestamp(PassID::PBRLightingPass);
 			{
-				passCtx.ClearRenderTarget(device->GetCurrentBackBuffer(), clearColor);
-				passCtx.SetRenderTarget(1, device->GetCurrentBackBufferPtr(), {});
+				passCtx.ClearRenderTarget(m_sceneColorTexture, clearColor);
+				passCtx.SetRenderTarget(1, &m_sceneColorTexture, {});
 				passCtx.SetPipeline(m_PBRlightingPassPipeline);
 				passCtx.SetViewport(0, 0, (float)m_width, (float)m_height);
 				passCtx.SetScissorRect(0, 0, (LONG)m_width, (LONG)m_height);
@@ -1726,12 +1746,12 @@ void Renderer::AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameCo
 		[&](RGBuilder& builder) {
 			builder.Read(fc.depthTexture, RGResourceState::DepthRead);
 			builder.Read(fc.skyboxTexture, RGResourceState::ShaderResource);
-			builder.Write(fc.backBuffer, RGResourceState::RenderTarget);
+			builder.Write(fc.scenecolor, RGResourceState::RenderTarget);
 		},
 		[this, &fc, device](CommandContext& passCtx) {
 			passCtx.BeginTimestamp(PassID::SkyboxPass);
 
-			passCtx.SetRenderTarget(1, device->GetCurrentBackBufferPtr(), m_depthTexture);
+			passCtx.SetRenderTarget(1, &m_sceneColorTexture, m_depthTexture);
 			passCtx.SetPipeline(m_skyboxPipeline);
 			passCtx.SetViewport(0, 0, (float)m_width, (float)m_height);
 			passCtx.SetScissorRect(0, 0, (LONG)m_width, (LONG)m_height);
@@ -1743,6 +1763,24 @@ void Renderer::AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameCo
 			passCtx.Draw(3, 0);
 
 			passCtx.EndTimestamp(PassID::SkyboxPass);
+		}
+	);
+}
+void Renderer::AddPresentPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene)
+{
+	graph.AddPass(
+		"PresentPass",
+		[&](RGBuilder& builder) {
+			builder.Read(fc.scenecolor, RGResourceState::ShaderResource);
+			builder.Write(fc.backBuffer, RGResourceState::RenderTarget);
+		},
+		[this, &fc, device](CommandContext& passCtx) {
+			passCtx.SetRenderTarget(1, device->GetCurrentBackBufferPtr(), {});
+			passCtx.SetPipeline(m_presentPipeline);
+			passCtx.SetViewport(0, 0, (float)m_width, (float)m_height);
+			passCtx.SetScissorRect(0, 0, (LONG)m_width, (LONG)m_height);
+			passCtx.BindTexture(0, m_sceneColorTexture); 
+			passCtx.Draw(3, 0);  
 		}
 	);
 }

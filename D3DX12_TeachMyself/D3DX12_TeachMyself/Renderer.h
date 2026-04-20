@@ -56,6 +56,7 @@ public:
 		RGResourceHandle ssaoTempTexture;
 		RGResourceHandle gtaoTexture;
 		RGResourceHandle gtaoTempTexture;
+		RGResourceHandle scenecolor;
 
 		CBHandle perFrameCB;
 		CBHandle lightCB;
@@ -98,6 +99,8 @@ private:
 	void InitGTAOBilateralBlurPass(GraphicsDevice* device);
 	void InitPBRLightingPass(GraphicsDevice* device);
 	void InitSkyboxPass(GraphicsDevice* device);
+	void InitPresentPass(GraphicsDevice* device);
+
 	void InitDebugPass(GraphicsDevice* device);
 
 	void AddDepthPrePass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
@@ -110,6 +113,8 @@ private:
 	void AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
 	void AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
 	void AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
+	void AddPresentPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
+
 	void AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
 
 private:
@@ -187,6 +192,11 @@ private:
 	ComputePipelineDesc m_bilateralBlurComputePipelineDesc;
 	PipelineHandle m_bilateralBlurComputePipeline;
 
+	ShaderHandle m_presentPS;
+	PipelineHandle m_presentPipeline;
+
+
+
 	BufferHandle m_perFrameCB;
 	BufferHandle m_perObjectCB;
 	BufferHandle m_lightingDataCB;
@@ -218,6 +228,8 @@ private:
 
 	TextureHandle m_gtaoTexture;
 	TextureHandle m_gtaoTempTexture;
+
+	TextureHandle m_sceneColorTexture;
 
 	struct PerFrameCB
 	{

@@ -357,9 +357,6 @@ float4 main(PSInput input) : SV_TARGET
     float3 ambient = (diffuseIBL + specularIBL) * ao;
     float3 color = ambient + totalLighting;
 
-    color = color / (color + 1.0); // Reinhard tonemap
-    
-    
     return float4(color, 1.0);
     
     //return float4(1.0 - shadow, 1.0 - shadow, 1.0 - shadow, 1.0f);

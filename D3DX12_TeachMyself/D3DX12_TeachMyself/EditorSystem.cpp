@@ -225,6 +225,7 @@ void EditorSystem::DrawInspector(EntityScene& scene)
 	DrawComponent<PointLightComponent>("Point Light", registry, e, [&](auto& pl) {
 		DrawProperty("Color", [&]() { ImGui::ColorEdit3("##C", &pl.color.x); });
 		DrawProperty("Radius", [&]() { ImGui::DragFloat("##R", &pl.radius, 0.05f, 0.001f, 50.0f); });
+		DrawProperty("Intensity", [&]() { ImGui::DragFloat("##I", &pl.intensity, 0.05f, 0.001f, 50.0f); });
 		DrawProperty("Shadow", [&]() { ImGui::Checkbox("##S", &pl.castShadow); });
 		});
 
