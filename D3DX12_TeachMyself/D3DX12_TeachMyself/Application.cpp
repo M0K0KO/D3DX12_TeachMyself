@@ -292,12 +292,12 @@ RenderScene Application::ExtractRenderScene()
 	{
 		if (!mr.visible) continue;
 		RenderObject obj;
+		XMStoreFloat4x4(&obj.world, XMMatrixTranspose(XMLoadFloat4x4(&t.worldMatrix)));
 		obj.vertexBuffer = mr.vertexBuffer;
 		obj.indexBuffer = mr.indexBuffer;
 		obj.indexOffset = mr.indexOffset;
 		obj.indexCount = mr.indexCount;
 		obj.material = mr.material;
-		obj.world = t.worldMatrix;
 		obj.aabbMin = mr.aabbMin;
 		obj.aabbMax = mr.aabbMax;
 		rs.renderObjects.push_back(obj);
