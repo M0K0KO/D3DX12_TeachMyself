@@ -2,7 +2,7 @@
 #include "WorkerThread.h"
 #include "JobGroup.h"
 #include "JobTime.h"
-#include <cassert>
+#include "MokoAssert.h"
 
 namespace MokoJob
 {
@@ -54,7 +54,7 @@ namespace MokoJob
 
 	void JobSystem::Submit(std::function<void()> func)
 	{
-		assert(!m_initialized && "Submit after Shutdown is not allowed");
+		MOKO_ASSERT(!m_initialized && "Submit after Shutdown is not allowed");
 
 		OnJobSubmitted();
 		auto wrapped = [this, orig = std::move(func)]() mutable {
@@ -66,7 +66,7 @@ namespace MokoJob
 
 	JobHandle JobSystem::SubmitTracked(std::function<void()> func)
 	{
-		assert(!m_initialized && "Submit after Shutdown is not allowed");
+		MOKO_ASSERT(!m_initialized && "Submit after Shutdown is not allowed");
 
 		OnJobSubmitted();
 		auto counter = std::make_shared<std::atomic<int>>(1);
@@ -85,7 +85,7 @@ namespace MokoJob
 
 	void JobSystem::SubmitInternal(std::function<void()> func, std::atomic<int>* counter)
 	{
-		assert(!m_initialized && "Submit after Shutdown is not allowed");
+		MOKO_ASSERT(!m_initialized && "Submit after Shutdown is not allowed");
 
 		if (counter) counter->fetch_add(1, std::memory_order_relaxed);
 		OnJobSubmitted();

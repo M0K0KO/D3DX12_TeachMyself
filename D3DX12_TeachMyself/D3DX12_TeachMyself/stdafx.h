@@ -16,3 +16,4 @@
 #include <vector>
 #include <wrl.h>
 #include <shellapi.h>
+#include "MokoAssert.h"

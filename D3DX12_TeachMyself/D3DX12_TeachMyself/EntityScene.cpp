@@ -4,7 +4,7 @@
 #include "TransformComponent.h"
 #include "CameraComponent.h"
 #include "NameComponent.h"
-#include <cassert>
+#include "MokoAssert.h"
 
 EntityScene::EntityScene()
 {
@@ -54,8 +54,8 @@ void EntityScene::DestroyEntity(Entity e)
 
 void EntityScene::SetParent(Entity child, Entity newParent)
 {
-	assert(registry.Has<HierarchyComponent>(child));
-	assert(registry.Has<HierarchyComponent>(newParent));
+	MOKO_ASSERT(registry.Has<HierarchyComponent>(child));
+	MOKO_ASSERT(registry.Has<HierarchyComponent>(newParent));
 
 	auto& cHier = registry.Get<HierarchyComponent>(child);
 

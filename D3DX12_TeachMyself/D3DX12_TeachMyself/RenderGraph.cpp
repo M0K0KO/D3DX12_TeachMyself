@@ -2,7 +2,7 @@
 #include "GraphicsDevice.h"
 #include "CommandContext.h"
 #include <debugapi.h>
-#include "MokoLog.h"
+#include "MokoLogger.h"
 
 void RGBuilder::Read(RGResourceHandle handle, RGResourceState state)
 {
@@ -271,9 +271,9 @@ void RenderGraph::DebugPrintPasses() const
 	{
 		const auto& pass = m_passes[i];
 
-		LOG_INFO("  [%u] %-12s | refCount: %u | culled: %s\n",
+		MOKOLOG_INFO("  [{}] {:<12} | refCount: {} | culled: {}",
 			i,
-			pass.name.c_str(),
+			pass.name,
 			pass.refCount,
 			pass.culled ? "YES" : "no");
 	}
@@ -281,20 +281,20 @@ void RenderGraph::DebugPrintPasses() const
 
 void RenderGraph::DebugPrintBarriers() const
 {
-	LOG_INFO("=== Barriers ===\n");
+	MOKOLOG_INFO("=== Barriers ===");
 	for (auto& pass : m_passes)
 	{
 		if (pass.culled) continue;
 		for (auto& b : pass.barrierInfos)
 		{
-			LOG_INFO("  [%s] res[%u]: %d -> %d\n",
-				pass.name.c_str(), b.handle.index,
-				(int)b.before, (int)b.after);
+			MOKOLOG_INFO("  [{}] res[{}]: {} -> {}",
+				pass.name, b.handle.index,
+				static_cast<int>(b.before), static_cast<int>(b.after));
 		}
 	}
 	for (auto& b : m_epilogueBarriers)
 	{
-		LOG_INFO("  [Epilogue] res[%u]: %d -> %d\n",
-			b.handle.index, (int)b.before, (int)b.after);
+		MOKOLOG_INFO("  [Epilogue] res[{}]: {} -> {}",
+			b.handle.index, static_cast<int>(b.before), static_cast<int>(b.after));
 	}
 }

@@ -1,5 +1,5 @@
 #include "EntityManager.h"
-#include <assert.h>
+#include "MokoAssert.h"
 
 Entity EntityManager::Create()
 {
@@ -22,7 +22,7 @@ Entity EntityManager::Create()
 
 void EntityManager::Destroy(Entity e)
 {
-    assert(IsValid(e));
+    MOKO_ASSERT(IsValid(e));
 
     generations[e.index]++;
     freeIndices.push_back(e.index);

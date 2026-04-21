@@ -4,10 +4,11 @@
 #include "GPUTimestampProfiler.h"
 #include <chrono>
 #include "AssetLoader.h"
-#include "MokoLog.h"
+#include "MokoLogger.h"
 #include "MokoTime.h"
 #include <random>
 #include <imgui_impl_dx12.h>
+#include "MokoAssert.h"
 
 static inline float PointAABBDistanceSq(const XMFLOAT3& p, const XMFLOAT3& aabbMin, const XMFLOAT3& aabbMax)
 {
@@ -235,7 +236,7 @@ void Renderer::ReloadPSO(GraphicsDevice* device)
 		m_GTAOComputePipeline = device->CreateComputePipeline(m_GTAOComputePipelineDesc);
 	}
 
-	// ∏∂¡ˆ∏∑ø° «— π¯∏∏ clear
+	// ÎßàÏßÄÎßâÏóê Ìïú Î≤àÎßå clear
 	if (dirtyDepthVS)        ShaderCompiler::ClearDirty(m_depthVS);
 
 	if (dirtyGBufferVS)      ShaderCompiler::ClearDirty(m_gBufferVS);
@@ -1213,7 +1214,7 @@ void Renderer::InitSkyboxPass(GraphicsDevice* device)
 	skyboxPSODesc.rootSignatureDesc = skyboxPassRSDesc;
 	skyboxPSODesc.vs = ShaderCompiler::GetBytecode(m_fullscreenVS);
 	skyboxPSODesc.ps = ShaderCompiler::GetBytecode(m_skyboxPS);
-	skyboxPSODesc.rtvFormats = { Format::R8G8B8A8_UNORM }; // ≥™¡ﬂø° HDR RT∑Œ ±≥√º
+	skyboxPSODesc.rtvFormats = { Format::R8G8B8A8_UNORM }; // ÎÇòÏ§ëÏóê HDR RTÎ°ú ÍµêÏ≤¥
 	skyboxPSODesc.dsvFormat = Format::D32_FLOAT;
 	skyboxPSODesc.depthEnable = true;
 	skyboxPSODesc.depthWrite = false;
@@ -1365,8 +1366,8 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 						passCtx.BindTexture(3, obj.material.normal);
 						passCtx.BindTexture(4, obj.material.metallicRoughness);
 
-						assert(obj.indexBuffer.IsValid());
-						assert(obj.vertexBuffer.IsValid());
+						MOKO_ASSERT(obj.indexBuffer.IsValid());
+						MOKO_ASSERT(obj.vertexBuffer.IsValid());
 						passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
 					}
 				}

@@ -1,6 +1,7 @@
 #include "UploadHeapRingAllocator.h"
 #include "HRException.h"
-#include "MokoLog.h"
+#include "MokoLogger.h"
+#include "MokoAssert.h"
 
 UploadHeapRingAllocator::UploadHeapRingAllocator(ID3D12Device* device, ID3D12Fence* fence)
 	:
@@ -42,13 +43,13 @@ void UploadHeapRingAllocator::ReleaseCompleted()
 UploadAllocation UploadHeapRingAllocator::Allocate(size_t size)
 {
 	UINT aligned = AlignUp(static_cast<UINT>(size), kAlignment);
-	assert(aligned <= kCapacity && "Ring Buffer Allocation exceeds total capacity");
+	MOKO_ASSERT(aligned <= kCapacity && "Ring Buffer Allocation exceeds total capacity");
 
 	UINT offset = static_cast<UINT>(m_virtualHead % kCapacity);
 
 	if (offset + aligned > kCapacity)
 	{
-		LOG_WARN("[RingBuffer] WRAP-AROUND! offset=%u aligned=%u padding=%u\n",
+		MOKOLOG_WARN("[RingBuffer] WRAP-AROUND! offset={} aligned={} padding={}",
 			offset, aligned, kCapacity - offset);
 		m_virtualHead += (kCapacity - offset);
 		offset = 0;
@@ -58,12 +59,12 @@ UploadAllocation UploadHeapRingAllocator::Allocate(size_t size)
 	{
 		if (m_frameQueue.empty())
 		{
-			LOG_WARN("[RingBuffer] STALL with empty queue - forcing tail advance\n");
+			MOKOLOG_WARN("[RingBuffer] STALL with empty queue - forcing tail advance");
 			m_virtualTail = m_virtualHead;
 			break;
 		}
 
-		LOG_WARN("[RingBuffer] STALL! Waiting for GPU. vHead=%llu vTail=%llu inFlight=%llu\n",
+		MOKOLOG_WARN("[RingBuffer] STALL! Waiting for GPU. vHead={} vTail={} inFlight={}",
 			m_virtualHead, m_virtualTail, m_virtualHead - m_virtualTail);
 		WaitForFront();
 	}

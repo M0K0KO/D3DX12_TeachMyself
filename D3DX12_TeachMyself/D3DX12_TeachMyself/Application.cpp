@@ -2,7 +2,7 @@
 #include "AssetLoader.h"
 #include "TextureLoader.h"
 #include "MokoTime.h"
-#include "MokoLog.h"
+#include "MokoLogger.h"
 #include "EntityScene.h"
 #include "MokoMath.h"
 #include "TransformSystem.h"
@@ -43,7 +43,7 @@ int Application::Run()
 		float dt = MokoTime::GetDeltaTime();
 		float fps = 1.0f / dt;
 
-		LOG_INFO(" FPS: %.1f | Frame: %.2f ms\n", fps, dt * 1000.0f);
+		MOKOLOG_INFO("FPS: {:.1f} | Frame: {:.2f} ms", fps, dt * 1000.0f);
 
 		auto t0 = MokoTime::Now();
 
@@ -53,7 +53,7 @@ int Application::Run()
 
 		Render();
 
-		LOG_INFO("[CPU Time] Update: %.3f ms | Render: %.3f ms\n", MokoTime::ElapsedMS(t0, t1), MokoTime::ElapsedMS(t1));
+		MOKOLOG_INFO("[CPU Time] Update: {:.3f} ms | Render: {:.3f} ms", MokoTime::ElapsedMS(t0, t1), MokoTime::ElapsedMS(t1));
 	}
 }
 
@@ -289,7 +289,7 @@ void Application::Render()
 	RenderScene renderScene = ExtractRenderScene();
 	auto t1 = std::chrono::high_resolution_clock::now();
 	double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
-	LOG_INFO("ExtractRenderScene: %.3f ms", ms);
+	MOKOLOG_INFO("ExtractRenderScene: {:.3f} ms", ms);
 
 	m_renderer.Render(m_device.get(), ctx, renderScene);
 	m_editorSystem->Render(ctx);
