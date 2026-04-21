@@ -28,7 +28,7 @@ public:
 	bool TryGetPendingViewportResize(uint32_t& w, uint32_t& h);
 
 private:
-	void DrawViewportPanel();
+	void DrawViewportPanel(EntityScene& scene);
 
 	void DrawHierarchy(EntityScene& scene);
 	void DrawHierarchyNode(EntityScene& scene, Entity e);
@@ -66,6 +66,8 @@ private:
 	void DrawProfilerPanel();
 	void DrawJobSystemPanel();
 
+	void ManipulateSelectedEntity(EntityScene& scene);
+
 private:
 	GraphicsDevice_DX12* m_device = nullptr;
 	Renderer* m_renderer = nullptr;
@@ -78,6 +80,9 @@ private:
 
 	ImVec2 m_viewportSize = { 0,0 };
 	std::optional<std::pair<uint32_t, uint32_t>> m_pendingViewportResize;
+
+	ImGuizmo::OPERATION m_gizmoOp = ImGuizmo::TRANSLATE;
+	ImGuizmo::MODE      m_gizmoMode = ImGuizmo::WORLD;
 };
 
 

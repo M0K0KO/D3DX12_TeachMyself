@@ -97,6 +97,12 @@
     <Filter Include="Source Files\MokoLogger">
       <UniqueIdentifier>{ecfbad5f-2cdf-4ef3-ac87-f57826b2a3cd}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\imguizmo">
+      <UniqueIdentifier>{46ae8c20-ba77-47e8-ba6e-664de5d58e27}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\imguizmo">
+      <UniqueIdentifier>{29cc9d71-e7aa-4c62-a3a5-b188ef5291d8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -218,6 +224,9 @@
     </ClCompile>
     <ClCompile Include="ConsoleSystem.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\external\imguizmo\ImGuizmo.cpp">
+      <Filter>Source Files\imguizmo</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -427,6 +436,9 @@
     </ClInclude>
     <ClInclude Include="MokoLoggerHelper.h">
       <Filter>Header Files\MokoLogger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\external\imguizmo\ImGuizmo.h">
+      <Filter>Header Files\imguizmo</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

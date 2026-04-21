@@ -21,6 +21,7 @@ struct TransformComponent
 namespace Transform
 {
 	void SetPosition(Registry& reg, Entity e, const XMFLOAT3& v);
-	void SetRotation(Registry& reg, Entity e, const XMFLOAT4& q);
+	void SetRotation(Registry& reg, Entity e, const XMFLOAT3& euler);
+	void SetRotation(Registry& reg, Entity e, const XMFLOAT4& quat);
 	void SetScale(Registry& reg, Entity e, const XMFLOAT3& s);
 }

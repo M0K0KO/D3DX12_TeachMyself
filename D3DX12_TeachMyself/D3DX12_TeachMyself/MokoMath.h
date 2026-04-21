@@ -113,3 +113,28 @@ inline XMFLOAT4 EulerToQuat(const XMFLOAT3& euler)
 	return result;
 }
 
+inline XMMATRIX BuildView(const XMFLOAT3& position, float pitch, float yaw)
+{
+	const float cp = cosf(pitch);
+	const float sp = sinf(pitch);
+	const float cy = cosf(yaw);
+	const float sy = sinf(yaw);
+
+	XMVECTOR forward = XMVectorSet(
+		sy * cp,
+		sp,
+		cy * cp,
+		0.0f
+	);
+
+	XMVECTOR eye = XMLoadFloat3(&position);
+	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+	return XMMatrixLookToLH(eye, XMVector3Normalize(forward), up);
+}
+
+inline XMMATRIX BuildProj(float fovY, float aspect, float nearZ, float farZ)
+{
+	return XMMatrixPerspectiveFovLH(fovY, aspect, nearZ, farZ);
+}
+

@@ -1,5 +1,6 @@
 #include "TransformComponent.h"
 #include "Registry.h"
+#include "MokoMath.h"
 
 namespace Transform
 {
@@ -7,6 +8,12 @@ namespace Transform
 	{
 		auto& t = reg.Get<TransformComponent>(e);
 		t.position = v;
+		t.dirty = true;
+	}
+	void SetRotation(Registry& reg, Entity e, const XMFLOAT3& euler)
+	{
+		auto& t = reg.Get<TransformComponent>(e);
+		t.rotation = EulerToQuat(euler);
 		t.dirty = true;
 	}
 	void SetRotation(Registry& reg, Entity e, const XMFLOAT4& q)

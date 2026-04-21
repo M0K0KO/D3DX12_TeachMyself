@@ -76,6 +76,7 @@ void EditorSystem::Update(SystemContext& ctx)
 	ImGui_ImplDX12_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
+	ImGuizmo::BeginFrame();
 
 	ImGuiDockNodeFlags dockFlags = ImGuiDockNodeFlags_PassthruCentralNode;
 	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), dockFlags);
@@ -86,7 +87,7 @@ void EditorSystem::Update(SystemContext& ctx)
 	DrawProfilerPanel();
 	DrawJobSystemPanel();
 
-	DrawViewportPanel();
+	DrawViewportPanel(*ctx.scene);
 
 	m_consoleSystem->DrawUI();
 
@@ -128,9 +129,33 @@ bool EditorSystem::TryGetPendingViewportResize(uint32_t& w, uint32_t& h)
 	return true;
 }
 
-void EditorSystem::DrawViewportPanel()
+void EditorSystem::DrawViewportPanel(EntityScene& scene)
 {
-	ImGui::Begin("Scene");
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+	ImGui::Begin("Viewport");
+	ImGui::PopStyleVar();
+
+	{
+		ImGui::BeginChild("ViewportToolbar", ImVec2(0, 28), false,
+			ImGuiWindowFlags_NoScrollbar);
+
+		ImGuiIO& io = ImGui::GetIO();
+		if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && !io.WantTextInput)
+		{
+			if (ImGui::IsKeyPressed(ImGuiKey_W)) m_gizmoOp = ImGuizmo::TRANSLATE;
+			if (ImGui::IsKeyPressed(ImGuiKey_E)) m_gizmoOp = ImGuizmo::ROTATE;
+			if (ImGui::IsKeyPressed(ImGuiKey_R)) m_gizmoOp = ImGuizmo::SCALE;
+		}
+
+		int mode = (int)m_gizmoMode;
+		ImGui::RadioButton("World", &mode, ImGuizmo::WORLD); ImGui::SameLine();
+		ImGui::RadioButton("Local", &mode, ImGuizmo::LOCAL);
+		m_gizmoMode = (ImGuizmo::MODE)mode;
+
+		ImGui::EndChild();
+	}
+
+	ImVec2 pos = ImGui::GetCursorScreenPos();
 	ImVec2 size = ImGui::GetContentRegionAvail();
 
 	if ((int)size.x != (int)m_viewportSize.x ||
@@ -145,6 +170,12 @@ void EditorSystem::DrawViewportPanel()
 
 	auto gpuHandle = m_device->GetSRVHandle(m_renderer->GetSceneColor()).gpu;
 	ImGui::Image((ImTextureID)gpuHandle.ptr, size);
+
+	ImGuizmo::SetOrthographic(false);
+	ImGuizmo::SetDrawlist();
+	ImGuizmo::SetRect(pos.x, pos.y, size.x, size.y);
+
+	ManipulateSelectedEntity(scene);
 
 	ImGui::End();
 }
@@ -339,4 +370,59 @@ void EditorSystem::DrawJobSystemPanel()
 	}
 
 	ImGui::End();
+}
+
+void EditorSystem::ManipulateSelectedEntity(EntityScene& scene)
+{
+	if (m_state.selected == INVALID_ENTITY) return;
+
+	auto& reg = scene.GetRegistry();
+	TransformComponent* tf = &reg.Get<TransformComponent>(m_state.selected);
+	if (!tf) return;
+
+	Entity camEntity = scene.GetMainCamera();
+	if (camEntity == INVALID_ENTITY) return;
+	TransformComponent* camTf = &reg.Get<TransformComponent>(camEntity);
+	CameraComponent* camCp = &reg.Get<CameraComponent>(camEntity);
+	if (!camTf || !camCp) return;
+
+	XMMATRIX view = BuildView(camTf->position, camCp->pitch, camCp->yaw);
+	XMMATRIX proj = BuildProj(camCp->fovY, camCp->aspect, camCp->nearZ, camCp->farZ);
+
+	XMFLOAT4X4 viewF, projF, worldF;
+	XMStoreFloat4x4(&viewF, view);
+	XMStoreFloat4x4(&projF, proj);
+	XMStoreFloat4x4(&worldF, XMLoadFloat4x4(&tf->worldMatrix));
+
+	ImGuizmo::Manipulate(
+		(const float*)&viewF, (const float*)&projF,
+		m_gizmoOp, m_gizmoMode,
+		(float*)&worldF);
+
+	if (ImGuizmo::IsUsing()) return;
+
+	XMMATRIX newWorld = XMLoadFloat4x4(&worldF);
+	XMMATRIX newLocal = newWorld;
+
+	HierarchyComponent* hier = &reg.Get<HierarchyComponent>(m_state.selected);
+	if (hier && hier->parent != INVALID_ENTITY)
+	{
+		TransformComponent* parentTf = &reg.Get<TransformComponent>(hier->parent);
+		if (parentTf)
+		{
+			XMVECTOR det;
+			XMMATRIX invParent = XMMatrixInverse(&det, XMLoadFloat4x4(&parentTf->worldMatrix));
+			newLocal = newWorld * invParent;
+		}
+	}
+
+	XMFLOAT4X4 localF;
+	XMStoreFloat4x4(&localF, newLocal);
+
+	float t[3], r[3], s[3];
+	ImGuizmo::DecomposeMatrixToComponents((const float*)&localF, t, r, s);
+
+	Transform::SetPosition(reg, m_state.selected, { t[0], t[1], t[2] });
+	Transform::SetRotation(reg, m_state.selected, { r[0], r[1], r[2] });
+	Transform::SetScale(reg, m_state.selected, { s[0], s[1], s[2] });
 }

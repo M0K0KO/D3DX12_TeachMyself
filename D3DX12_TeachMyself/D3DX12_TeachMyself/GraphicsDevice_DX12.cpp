@@ -324,8 +324,8 @@ TextureHandle GraphicsDevice_DX12::CreateRTTexture(const TextureDesc& desc)
 	D3D12_RESOURCE_DESC textureDesc = {};
 	textureDesc.MipLevels = 1;
 	textureDesc.Format = DX12Helpers::ToDXGIFormat(desc.format);
-	textureDesc.Width = desc.width;
-	textureDesc.Height = desc.height;
+	textureDesc.Width = std::max(desc.width, 1u);
+	textureDesc.Height = std::max(desc.height, 1u);
 	textureDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 	textureDesc.DepthOrArraySize = 1;
 	textureDesc.SampleDesc.Count = 1;
