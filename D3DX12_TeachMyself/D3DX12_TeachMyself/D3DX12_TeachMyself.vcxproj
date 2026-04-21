@@ -232,7 +232,10 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="CommandContext.h" />
     <ClInclude Include="CommandContext_DX12.h" />
     <ClInclude Include="ComponentPool.h" />
+    <ClInclude Include="ConsoleSink.h" />
+    <ClInclude Include="ConsoleSystem.h" />
     <ClInclude Include="d3dx12.h" />
+    <ClInclude Include="DebugOutputSink.h" />
     <ClInclude Include="DescriptorAllocator.h" />
     <ClInclude Include="DescriptorHandle.h" />
     <ClInclude Include="DirectionalLightComponent.h" />
@@ -263,6 +266,8 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="MeshRendererComponent.h" />
     <ClInclude Include="MokoImGui.h" />
     <ClInclude Include="MokoLog.h" />
+    <ClInclude Include="MokoLogger.h" />
+    <ClInclude Include="MokoLoggerHelper.h" />
     <ClInclude Include="MokoMath.h" />
     <ClInclude Include="MokoTime.h" />
     <ClInclude Include="Mouse.h" />
@@ -301,6 +306,9 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="CameraComponentOperations.cpp" />
     <ClCompile Include="CameraControllerSystem.cpp" />
     <ClCompile Include="CommandContext_DX12.cpp" />
+    <ClCompile Include="ConsoleSink.cpp" />
+    <ClCompile Include="ConsoleSystem.cpp" />
+    <ClCompile Include="DebugOutputSink.cpp" />
     <ClCompile Include="DescriptorAllocator.cpp" />
     <ClCompile Include="DX12Helpers.cpp" />
     <ClCompile Include="EditorSystem.cpp" />
@@ -314,6 +322,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="JobSystem.cpp" />
     <ClCompile Include="Keyboard.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="MokoLogger.cpp" />
     <ClCompile Include="Mouse.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="RenderGraph.cpp" />

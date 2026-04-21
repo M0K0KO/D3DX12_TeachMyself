@@ -91,6 +91,12 @@
     <Filter Include="Source Files\Jobs">
       <UniqueIdentifier>{ed74b4f5-c769-49d6-8ef0-218bce45b889}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\MokoLogger">
+      <UniqueIdentifier>{fbc83c55-4491-4630-b29d-0e28aba3c0ad}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\MokoLogger">
+      <UniqueIdentifier>{ecfbad5f-2cdf-4ef3-ac87-f57826b2a3cd}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -200,6 +206,18 @@
     </ClCompile>
     <ClCompile Include="JobHandle.cpp">
       <Filter>Source Files\Jobs</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugOutputSink.cpp">
+      <Filter>Source Files\MokoLogger</Filter>
+    </ClCompile>
+    <ClCompile Include="ConsoleSink.cpp">
+      <Filter>Source Files\MokoLogger</Filter>
+    </ClCompile>
+    <ClCompile Include="MokoLogger.cpp">
+      <Filter>Source Files\MokoLogger</Filter>
+    </ClCompile>
+    <ClCompile Include="ConsoleSystem.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -394,6 +412,21 @@
     </ClInclude>
     <ClInclude Include="MokoImGui.h">
       <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="MokoLogger.h">
+      <Filter>Header Files\MokoLogger</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugOutputSink.h">
+      <Filter>Header Files\MokoLogger</Filter>
+    </ClInclude>
+    <ClInclude Include="ConsoleSink.h">
+      <Filter>Header Files\MokoLogger</Filter>
+    </ClInclude>
+    <ClInclude Include="ConsoleSystem.h">
+      <Filter>Header Files\ECS\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="MokoLoggerHelper.h">
+      <Filter>Header Files\MokoLogger</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

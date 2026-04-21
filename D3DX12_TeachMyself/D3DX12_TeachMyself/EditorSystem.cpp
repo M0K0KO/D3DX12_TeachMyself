@@ -87,6 +87,8 @@ void EditorSystem::Update(SystemContext& ctx)
 
 	DrawViewportPanel();
 
+	m_consoleSystem->DrawUI();
+
 	ImGui::Render();
 }
 
@@ -249,6 +251,7 @@ void EditorSystem::DrawInspector(EntityScene& scene)
 	// Directional Light
 	DrawComponent<DirectionalLightComponent>("Directional Light", registry, e, [&](auto& dl) {
 		DrawProperty("Color", [&]() { ImGui::ColorEdit3("##C", &dl.color.x); });
+		DrawProperty("Direction", [&]() {ImGui::DragFloat3("##D", &dl.direction.x, 0.001f, -1.0f, 1.0f); });
 		DrawProperty("Intensity", [&]() { ImGui::DragFloat("##I", &dl.intensity, 0.1f, 0.0f, 100.0f); });
 		});
 

@@ -14,6 +14,7 @@
 #include "MeshRendererComponent.h"
 #include "JobSystem.h"
 #include "JobGroup.h"
+#include "ConsoleSystem.h"
 
 Application::Application()
 	:
@@ -69,9 +70,12 @@ void Application::Init()
 
 	m_systemManager->Add<CameraControllerSystem>();
 	m_systemManager->Add<TransformSystem>();
+	
+	auto* consoleSystem = m_systemManager->Add<ConsoleSystem>();
 
 	auto* dx12 = static_cast<GraphicsDevice_DX12*>(m_device.get());
-	m_editorSystem = m_systemManager->Add<EditorSystem>(dx12, &m_renderer, wnd.GetHWND(), m_jobSystem);
+	m_editorSystem = m_systemManager->Add<EditorSystem>(dx12, &m_renderer, wnd.GetHWND(), m_jobSystem, consoleSystem);
+
 
 	SystemContext ctx = {0.0f, &wnd, &m_inputState, &m_ecsScene};
 	m_systemManager->InitAll(ctx);
@@ -239,6 +243,11 @@ void Application::Init()
 	});
 
 	m_initialized = true;
+
+	MOKOLOG_INFO("Application Initialized");
+	MOKOLOG_TRACE("Application Initialized");
+	MOKOLOG_WARN("Application Initialized");
+	MOKOLOG_ERROR("Application Initialized");
 }
 
 void Application::Update()

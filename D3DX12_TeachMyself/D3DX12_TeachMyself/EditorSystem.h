@@ -4,6 +4,7 @@
 #include <imgui_impl_dx12.h>
 #include "DescriptorAllocator.h"
 #include "JobSystem.h"
+#include "ConsoleSystem.h"
 #include "Renderer.h"
 
 struct EditorState
@@ -14,8 +15,8 @@ struct EditorState
 class EditorSystem : public ISystem
 {
 public:
-	EditorSystem(GraphicsDevice_DX12* device, Renderer* renderer, HWND hwnd, MokoJob::JobSystem* jobSystem)
-		:m_device(device), m_renderer(renderer),  m_hwnd(hwnd), m_jobSystem(jobSystem)
+	EditorSystem(GraphicsDevice_DX12* device, Renderer* renderer, HWND hwnd, MokoJob::JobSystem* jobSystem, ConsoleSystem* consoleSystem)
+		: m_device(device), m_renderer(renderer), m_hwnd(hwnd), m_jobSystem(jobSystem), m_consoleSystem(consoleSystem)
 	{}
 	void Init(SystemContext& ctx) override;
 	void Update(SystemContext& ctx) override;
@@ -69,6 +70,7 @@ private:
 	Renderer* m_renderer = nullptr;
 	HWND m_hwnd = nullptr;
 	MokoJob::JobSystem* m_jobSystem;
+	ConsoleSystem* m_consoleSystem;
 	bool m_initialized = false;
 
 	EditorState m_state;
