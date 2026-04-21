@@ -515,6 +515,7 @@ void Renderer::BuildCascadeShadowMatrices(
 				XMVectorSubtract(
 					XMLoadFloat3(&sceneAABBMax),
 					XMLoadFloat3(&sceneAABBMin))));
+		sceneDiagonal = std::max(0.1f, sceneDiagonal);
 
 		XMMATRIX lightView = XMMatrixLookAtLH(
 			XMVectorSubtract(center, XMVectorScale(lightDir, sceneDiagonal)),

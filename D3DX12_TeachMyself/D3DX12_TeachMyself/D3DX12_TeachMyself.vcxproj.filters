@@ -234,6 +234,9 @@
     <ClCompile Include="MokoLoggerHelper.cpp">
       <Filter>Source Files\MokoLogger</Filter>
     </ClCompile>
+    <ClCompile Include="MokoPath.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -447,6 +450,9 @@
       <Filter>Header Files\imguizmo</Filter>
     </ClInclude>
     <ClInclude Include="SceneFactory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MokoPath.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

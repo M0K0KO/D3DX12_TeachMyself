@@ -270,6 +270,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="MokoLogger.h" />
     <ClInclude Include="MokoLoggerHelper.h" />
     <ClInclude Include="MokoMath.h" />
+    <ClInclude Include="MokoPath.h" />
     <ClInclude Include="MokoTime.h" />
     <ClInclude Include="Mouse.h" />
     <ClInclude Include="NameComponent.h" />
@@ -327,6 +328,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MokoLogger.cpp" />
     <ClCompile Include="MokoLoggerHelper.cpp" />
+    <ClCompile Include="MokoPath.cpp" />
     <ClCompile Include="Mouse.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="RenderGraph.cpp" />

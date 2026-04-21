@@ -7,6 +7,7 @@
 #include "ConsoleSystem.h"
 #include "Renderer.h"
 #include <ImGuizmo.h>
+#include <filesystem>
 
 struct EditorState
 {
@@ -16,9 +17,7 @@ struct EditorState
 class EditorSystem : public ISystem
 {
 public:
-	EditorSystem(GraphicsDevice_DX12* device, Renderer* renderer, HWND hwnd, MokoJob::JobSystem* jobSystem, ConsoleSystem* consoleSystem)
-		: m_device(device), m_renderer(renderer), m_hwnd(hwnd), m_jobSystem(jobSystem), m_consoleSystem(consoleSystem)
-	{}
+	EditorSystem(GraphicsDevice_DX12* device, Renderer* renderer, HWND hwnd, MokoJob::JobSystem* jobSystem, ConsoleSystem* consoleSystem);
 	void Init(SystemContext& ctx) override;
 	void Update(SystemContext& ctx) override;
 	void Shutdown(SystemContext& ctx) override;
@@ -66,7 +65,12 @@ private:
 	void DrawProfilerPanel();
 	void DrawJobSystemPanel();
 
+	void DrawContentBrowserPanel(EntityScene& scene);
+	void DrawBreadCrumb();
+	void DrawDirectoryContents(EntityScene& scene);
+
 	void ManipulateSelectedEntity(EntityScene& scene);
+	void HandleFileOpen(EntityScene& scene, std::filesystem::path path);
 
 private:
 	GraphicsDevice_DX12* m_device = nullptr;
@@ -75,6 +79,8 @@ private:
 	MokoJob::JobSystem* m_jobSystem;
 	ConsoleSystem* m_consoleSystem;
 	bool m_initialized = false;
+	std::filesystem::path m_assetRoot;
+	std::filesystem::path m_currentDirectory;
 
 	EditorState m_state;
 

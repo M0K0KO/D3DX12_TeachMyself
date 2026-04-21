@@ -13,8 +13,17 @@
 #include "MokoMath.h"
 #include "MokoImGui.h"
 #include "MokoAssert.h"
+#include "MokoPath.h"
+#include "SceneFactory.h"
 
 using namespace MokoImGui;
+
+EditorSystem::EditorSystem(GraphicsDevice_DX12* device, Renderer* renderer, HWND hwnd, MokoJob::JobSystem* jobSystem, ConsoleSystem* consoleSystem)
+	: m_device(device), m_renderer(renderer), m_hwnd(hwnd), m_jobSystem(jobSystem), m_consoleSystem(consoleSystem)
+{
+	m_assetRoot = MokoPath::GetAssetRoot();
+	m_currentDirectory = "";
+}
 
 void EditorSystem::Init(SystemContext& ctx)
 {
@@ -88,6 +97,8 @@ void EditorSystem::Update(SystemContext& ctx)
 	DrawJobSystemPanel();
 
 	DrawViewportPanel(*ctx.scene);
+
+	DrawContentBrowserPanel(*ctx.scene);
 
 	m_consoleSystem->DrawUI();
 
@@ -372,6 +383,80 @@ void EditorSystem::DrawJobSystemPanel()
 	ImGui::End();
 }
 
+void EditorSystem::DrawContentBrowserPanel(EntityScene& scene)
+{
+	if (ImGui::Begin("Content Browser"))
+	{
+		DrawBreadCrumb();
+		ImGui::Separator();
+		DrawDirectoryContents(scene);
+	}
+	ImGui::End();  // 항상 호출
+}
+
+void EditorSystem::DrawBreadCrumb()
+{
+	if (ImGui::Button("Assets"))
+	{
+		m_currentDirectory.clear();
+	}
+
+	std::filesystem::path accum;
+	for (const auto& segment : m_currentDirectory)
+	{
+		accum /= segment;
+		ImGui::SameLine();
+		ImGui::TextUnformatted(">");
+		ImGui::SameLine();
+		if (ImGui::Button(segment.string().c_str()))
+		{
+			m_currentDirectory = accum;
+			break;
+		}
+	}
+}
+
+void EditorSystem::DrawDirectoryContents(EntityScene & scene)
+{
+	std::filesystem::path fullPath = m_assetRoot / m_currentDirectory;
+
+	std::error_code ec;
+	if (!std::filesystem::exists(fullPath, ec))
+	{
+		ImGui::TextDisabled("(invalid path)");
+		return;
+	}
+
+	std::vector<std::filesystem::directory_entry> dirs, files;
+	for (const auto& entry : std::filesystem::directory_iterator(fullPath, ec))
+	{
+		if (entry.is_directory(ec)) dirs.push_back(entry);
+		else files.push_back(entry);
+	}
+	
+
+	for (const auto& e : dirs)
+	{
+		std::string label = "[D] " + e.path().filename().string();
+		ImGui::Selectable(label.c_str());
+		if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+		{
+			m_currentDirectory /= e.path().filename();
+			return;
+		}
+	}
+
+	for (const auto& e : files)
+	{
+		std::string label = e.path().filename().string();
+		ImGui::Selectable(label.c_str());
+		if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+		{
+			HandleFileOpen(scene, e.path());
+		}
+	}
+}
+
 void EditorSystem::ManipulateSelectedEntity(EntityScene& scene)
 {
 	if (m_state.selected == INVALID_ENTITY) return;
@@ -429,4 +514,17 @@ void EditorSystem::ManipulateSelectedEntity(EntityScene& scene)
 
 	XMStoreFloat4x4(&tf->localMatrix, newLocal);
 	XMStoreFloat4x4(&tf->worldMatrix, newWorld);
+}
+
+void EditorSystem::HandleFileOpen(EntityScene& scene, std::filesystem::path path)
+{
+	if (MokoPath::IsLoadableGLTF(path))
+	{
+		SceneFactory::LoadGLTFToScene(scene, *m_device, path);
+	}
+	else
+	{
+		auto ext = path.extension().string();
+		MOKOLOG_ERROR("Unsupported file type : {}", ext);
+	}
 }
