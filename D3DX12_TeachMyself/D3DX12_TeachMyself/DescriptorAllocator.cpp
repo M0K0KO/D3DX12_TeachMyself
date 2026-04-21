@@ -1,5 +1,6 @@
 #include "DescriptorAllocator.h"
 #include "HRException.h"
+#include "MokoAssert.h"
 
 void DescriptorAllocator::Init(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t capacity, bool shaderVisible)
 {
@@ -35,7 +36,7 @@ DescriptorHandle DescriptorAllocator::Allocate()
 	}
 	else
 	{
-		assert(m_nextFreshIndex < m_capacity && "DescriptorAllocator out of space");
+		MOKO_ASSERT(m_nextFreshIndex < m_capacity && "DescriptorAllocator out of space");
 		index = m_nextFreshIndex++;
 	}
 
@@ -61,7 +62,7 @@ void DescriptorAllocator::Free(const DescriptorHandle& handle)
 
 void DescriptorAllocator::FreeByCpuHandle(D3D12_CPU_DESCRIPTOR_HANDLE cpu)
 {
-	assert(cpu.ptr >= m_cpuStart.ptr &&
+	MOKO_ASSERT(cpu.ptr >= m_cpuStart.ptr &&
 		cpu.ptr < m_cpuStart.ptr + m_capacity * m_incrementSize);
 
 	uint32_t index = static_cast<uint32_t>((cpu.ptr - m_cpuStart.ptr) / m_incrementSize);

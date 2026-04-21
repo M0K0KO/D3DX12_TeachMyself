@@ -1,7 +1,7 @@
 #include "EditorSystem.h"
 #include "GraphicsDevice_DX12.h"
 #include <imgui_impl_win32.h>
-#include "MokoLog.h"
+#include "MokoLogger.h"
 #include "HirerarchyComponent.h"
 #include <numbers>
 #include "NameComponent.h"
@@ -12,6 +12,7 @@
 #include "CameraComponent.h"
 #include "MokoMath.h"
 #include "MokoImGui.h"
+#include "MokoAssert.h"
 
 using namespace MokoImGui;
 
@@ -52,7 +53,7 @@ void EditorSystem::Init(SystemContext& ctx)
 	colors[ImGuiCol_FrameBg] = ImVec4(0.16f, 0.16f, 0.21f, 1.00f);
 	colors[ImGuiCol_CheckMark] = ImVec4(0.28f, 0.56f, 1.00f, 1.00f);
 
-	assert(ImGui_ImplWin32_Init(m_hwnd));
+	MOKO_ASSERT(ImGui_ImplWin32_Init(m_hwnd));
 
 	ImGui_ImplDX12_InitInfo info = {};
 	info.Device = m_device->GetDevicePtr();
@@ -63,7 +64,7 @@ void EditorSystem::Init(SystemContext& ctx)
 	info.SrvDescriptorAllocFn = ImGuiAllocCallback;
 	info.SrvDescriptorFreeFn = ImGuiFreeCallback;
 
-	assert(ImGui_ImplDX12_Init(&info));
+	MOKO_ASSERT(ImGui_ImplDX12_Init(&info));
 
 	m_initialized = true;
 }
@@ -108,7 +109,7 @@ void EditorSystem::Shutdown(SystemContext& ctx)
 
 void EditorSystem::Render(CommandContext& ctx)
 {
-	assert(m_initialized && "Not Initialized Yet");
+	MOKO_ASSERT(m_initialized && "Not Initialized Yet");
 
 	auto& dx12Ctx = static_cast<CommandContext_DX12&>(ctx);
 	auto* cmdList = reinterpret_cast<ID3D12GraphicsCommandList*>(dx12Ctx.GetNativeHandle());

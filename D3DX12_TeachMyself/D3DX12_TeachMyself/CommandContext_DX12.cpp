@@ -1,8 +1,8 @@
 #include "stdafx.h"
 #include "CommandContext_DX12.h"
 #include "GraphicsDevice_DX12.h"
-#include "MokoLog.h"
-#include <cassert>
+#include "MokoLogger.h"
+#include "MokoAssert.h"
 
 void CommandContext_DX12::Init(GraphicsDevice_DX12* pDevice, ID3D12GraphicsCommandList* pCommandList)
 {
@@ -30,9 +30,9 @@ void CommandContext_DX12::SetScissorRect(long left, long top, long right, long b
 
 void CommandContext_DX12::SetPipeline(PipelineHandle handle)
 {
-	assert(handle.IsValid() && handle.id < m_pDevice->m_pipelines.size());
+	MOKO_ASSERT(handle.IsValid() && handle.id < m_pDevice->m_pipelines.size());
 	auto& internalPSO = m_pDevice->m_pipelines[handle.id];
-	assert(internalPSO.pso.Get() && "SetPipeline: PSO is null!");
+	MOKO_ASSERT(internalPSO.pso.Get() && "SetPipeline: PSO is null!");
 
 	m_commandList->SetPipelineState(internalPSO.pso.Get());
 	if (m_currentRootSignature != internalPSO.rootSignature.Get())
@@ -120,13 +120,13 @@ void CommandContext_DX12::BindUav(uint32_t slot, TextureHandle handle, uint32_t 
 	const auto& texture = m_pDevice->m_textures[handle.id];
 	if (!texture.uavMips.empty())
 	{
-		assert(mip < texture.uavMips.size() && "BindUav: mip out of range");
+		MOKO_ASSERT(mip < texture.uavMips.size() && "BindUav: mip out of range");
 		m_commandList->SetGraphicsRootDescriptorTable(slot, texture.uavMips[mip].gpu);
 	}
 	else
 	{
-		assert(texture.uav.IsValid() && "BindUav: texture has no UAV");
-		assert(mip == 0 && "BindUav: non-mip UAV, mip must be 0");
+		MOKO_ASSERT(texture.uav.IsValid() && "BindUav: texture has no UAV");
+		MOKO_ASSERT(mip == 0 && "BindUav: non-mip UAV, mip must be 0");
 		m_commandList->SetGraphicsRootDescriptorTable(slot, texture.uav.gpu);
 	}
 }
@@ -136,13 +136,13 @@ void CommandContext_DX12::BindComputeUav(uint32_t slot, TextureHandle handle, ui
 	const auto& texture = m_pDevice->m_textures[handle.id];
 	if (!texture.uavMips.empty())
 	{
-		assert(mip < texture.uavMips.size() && "BindUav: mip out of range");
+		MOKO_ASSERT(mip < texture.uavMips.size() && "BindUav: mip out of range");
 		m_commandList->SetComputeRootDescriptorTable(slot, texture.uavMips[mip].gpu);
 	}
 	else
 	{
-		assert(texture.uav.IsValid() && "BindUav: texture has no UAV");
-		assert(mip == 0 && "BindUav: non-mip UAV, mip must be 0");
+		MOKO_ASSERT(texture.uav.IsValid() && "BindUav: texture has no UAV");
+		MOKO_ASSERT(mip == 0 && "BindUav: non-mip UAV, mip must be 0");
 		m_commandList->SetComputeRootDescriptorTable(slot, texture.uav.gpu);
 	}
 }
@@ -197,7 +197,7 @@ void CommandContext_DX12::SetRenderTarget(UINT numRT, TextureHandle* renderTarge
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT] = {};
 	for (UINT i = 0; i < numRT; i++)
 	{
-		assert(renderTargets[i].IsValid() && "SetRenderTarget: invalid RT handle");
+		MOKO_ASSERT(renderTargets[i].IsValid() && "SetRenderTarget: invalid RT handle");
 		rtvHandles[i] = m_pDevice->m_textures[renderTargets[i].id].rtv.cpu;
 	}
 

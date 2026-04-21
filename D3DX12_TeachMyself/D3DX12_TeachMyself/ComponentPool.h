@@ -1,6 +1,6 @@
 #pragma once
 #include <vector>
-#include <assert.h>
+#include "MokoAssert.h"
 #include "Entity.h"
 #include "IComponentPool.h"
 
@@ -11,7 +11,7 @@ public:
     template<typename... Args>
     void Add(Entity e, Args&&... args)
     {
-        assert(!Has(e));
+        MOKO_ASSERT(!Has(e));
 
         size_t index = dense.size();
 
@@ -26,7 +26,7 @@ public:
 
     void Remove(Entity e) override
     {
-        assert(Has(e));
+        MOKO_ASSERT(Has(e));
 
         size_t index = sparse[e.index];
         size_t lastIndex = dense.size() - 1;
@@ -53,7 +53,7 @@ public:
 
     T& Get(Entity e)
     {
-        assert(Has(e));
+        MOKO_ASSERT(Has(e));
         return dense[sparse[e.index]];
     }
 

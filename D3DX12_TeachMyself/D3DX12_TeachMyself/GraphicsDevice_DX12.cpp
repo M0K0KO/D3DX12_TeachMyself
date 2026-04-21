@@ -2,6 +2,7 @@
 #include "GraphicsDevice_DX12.h"
 #include "Renderer.h"
 #include "DX12Helpers.h"
+#include "MokoAssert.h"
 
 void GraphicsDevice_DX12::ReserveResources()
 {
@@ -957,12 +958,12 @@ DescriptorHandle GraphicsDevice_DX12::GetUAVHandle(TextureHandle handle, uint32_
 
 	if (!tex.uavMips.empty())
 	{
-		assert(mip < tex.uavMips.size() && "GetUAVHandle: mip out of range");
+		MOKO_ASSERT(mip < tex.uavMips.size() && "GetUAVHandle: mip out of range");
 		return tex.uavMips[mip];
 	}
 
-	assert(tex.uav.IsValid() && "GetUAVHandle: texture has no UAV");
-	assert(mip == 0 && "GetUAVHandle: non-mip UAV requested with mip > 0");
+	MOKO_ASSERT(tex.uav.IsValid() && "GetUAVHandle: texture has no UAV");
+	MOKO_ASSERT(mip == 0 && "GetUAVHandle: non-mip UAV requested with mip > 0");
 	return tex.uav;
 }
 
