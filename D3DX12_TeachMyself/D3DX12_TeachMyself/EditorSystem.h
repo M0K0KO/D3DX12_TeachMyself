@@ -6,6 +6,7 @@
 #include "JobSystem.h"
 #include "ConsoleSystem.h"
 #include "Renderer.h"
+#include <ImGuizmo.h>
 
 struct EditorState
 {

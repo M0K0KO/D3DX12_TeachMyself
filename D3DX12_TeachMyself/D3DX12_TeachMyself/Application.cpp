@@ -25,6 +25,7 @@ Application::Application()
 
 Application::~Application()
 {
+	m_device->WaitForGpu();
 	SystemContext ctx = { .dt = MokoTime::GetDeltaTime(), .window = &wnd, .input = &m_inputState, .scene = &m_ecsScene };
 	m_systemManager->ShutdownAll(ctx);
 }
@@ -40,20 +41,8 @@ int Application::Run()
 
 		MokoTime::Tick();
 
-		float dt = MokoTime::GetDeltaTime();
-		float fps = 1.0f / dt;
-
-		MOKOLOG_INFO("FPS: {:.1f} | Frame: {:.2f} ms", fps, dt * 1000.0f);
-
-		auto t0 = MokoTime::Now();
-
 		Update();
-
-		auto t1 = MokoTime::Now();
-
 		Render();
-
-		MOKOLOG_INFO("[CPU Time] Update: {:.3f} ms | Render: {:.3f} ms", MokoTime::ElapsedMS(t0, t1), MokoTime::ElapsedMS(t1));
 	}
 }
 
@@ -285,11 +274,14 @@ void Application::Render()
 {
 	auto& ctx = m_device->BeginFrame();
 
+	/*
 	auto t0 = std::chrono::high_resolution_clock::now();
 	RenderScene renderScene = ExtractRenderScene();
 	auto t1 = std::chrono::high_resolution_clock::now();
 	double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
 	MOKOLOG_INFO("ExtractRenderScene: {:.3f} ms", ms);
+	*/
+	RenderScene renderScene = ExtractRenderScene();
 
 	m_renderer.Render(m_device.get(), ctx, renderScene);
 	m_editorSystem->Render(ctx);
