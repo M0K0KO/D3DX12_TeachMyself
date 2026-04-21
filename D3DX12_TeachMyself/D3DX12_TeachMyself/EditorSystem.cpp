@@ -386,12 +386,13 @@ void EditorSystem::ManipulateSelectedEntity(EntityScene& scene)
 	CameraComponent* camCp = &reg.Get<CameraComponent>(camEntity);
 	if (!camTf || !camCp) return;
 
-	XMMATRIX view = BuildView(camTf->position, camCp->pitch, camCp->yaw);
-	XMMATRIX proj = BuildProj(camCp->fovY, camCp->aspect, camCp->nearZ, camCp->farZ);
+	XMMATRIX view = Camera::GetViewMatrix(camTf->position, camCp->pitch, camCp->yaw);
+	XMMATRIX proj = Camera::GetProjectionMatrix(camCp->fovY, camCp->aspect, camCp->nearZ, camCp->farZ);
 
 	XMFLOAT4X4 viewF, projF, worldF;
 	XMStoreFloat4x4(&viewF, view);
 	XMStoreFloat4x4(&projF, proj);
+
 	XMStoreFloat4x4(&worldF, XMLoadFloat4x4(&tf->worldMatrix));
 
 	ImGuizmo::Manipulate(
@@ -399,7 +400,7 @@ void EditorSystem::ManipulateSelectedEntity(EntityScene& scene)
 		m_gizmoOp, m_gizmoMode,
 		(float*)&worldF);
 
-	if (ImGuizmo::IsUsing()) return;
+	if (!ImGuizmo::IsUsing()) return;
 
 	XMMATRIX newWorld = XMLoadFloat4x4(&worldF);
 	XMMATRIX newLocal = newWorld;
@@ -423,6 +424,9 @@ void EditorSystem::ManipulateSelectedEntity(EntityScene& scene)
 	ImGuizmo::DecomposeMatrixToComponents((const float*)&localF, t, r, s);
 
 	Transform::SetPosition(reg, m_state.selected, { t[0], t[1], t[2] });
-	Transform::SetRotation(reg, m_state.selected, { r[0], r[1], r[2] });
+	Transform::SetRotation(reg, m_state.selected, { DegToRad(r[0]), DegToRad(r[1]), DegToRad(r[2]) });
 	Transform::SetScale(reg, m_state.selected, { s[0], s[1], s[2] });
+
+	XMStoreFloat4x4(&tf->localMatrix, newLocal);
+	XMStoreFloat4x4(&tf->worldMatrix, newWorld);
 }
