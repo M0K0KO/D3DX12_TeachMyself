@@ -15,6 +15,7 @@
 #include "JobSystem.h"
 #include "JobGroup.h"
 #include "ConsoleSystem.h"
+#include "SceneFactory.h"
 
 Application::Application()
 	:
@@ -69,6 +70,9 @@ void Application::Init()
 	SystemContext ctx = {0.0f, &wnd, &m_inputState, &m_ecsScene};
 	m_systemManager->InitAll(ctx);
 
+	SceneFactory::LoadGLTFToScene(m_ecsScene, *m_device.get(), "../Model/Sponza/Sponza.gltf");
+
+	/*
 	AssetLoader loader;
 
 	//auto sponzaScene = loader.LoadGLTFParallel("../Model/Sponza/Sponza.gltf", *m_jobSystem);
@@ -189,6 +193,7 @@ void Application::Init()
 		sponzaScene.sceneAABBMax.z * wrapperScale
 	};
 	m_ecsScene.SetSceneAABB(scaledMin, scaledMax);
+	*/
 
 	{
 		Entity e = m_ecsScene.CreateSceneEntity("Directional Light");
@@ -234,9 +239,6 @@ void Application::Init()
 	m_initialized = true;
 
 	MOKOLOG_INFO("Application Initialized");
-	MOKOLOG_TRACE("Application Initialized");
-	MOKOLOG_WARN("Application Initialized");
-	MOKOLOG_ERROR("Application Initialized");
 }
 
 void Application::Update()

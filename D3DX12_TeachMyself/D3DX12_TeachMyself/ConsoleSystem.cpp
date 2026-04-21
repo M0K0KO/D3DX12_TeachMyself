@@ -1,4 +1,5 @@
 #include "ConsoleSystem.h"
+#include "MokoLoggerHelper.h"
 
 void ConsoleSystem::Init(SystemContext& ctx)
 {
@@ -32,16 +33,44 @@ void ConsoleSystem::DrawUI()
     ImGui::Separator();
     ImGui::BeginChild("ScrollRegion", {}, false, ImGuiWindowFlags_HorizontalScrollbar);
 
-    for (const auto& e : m_displayCache)
-    {
-        if (!PassesLevelFilter(e.level)) continue;
-        if (m_filterBuf[0] && e.message.find(m_filterBuf) == std::string::npos) continue;
+    ImGuiTableFlags flags =
+        ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV;
 
-        ImVec4 color = ColorForLevel(e.level);
-        ImGui::PushStyleColor(ImGuiCol_Text, color);
-        ImGui::TextUnformatted(e.message.c_str());
-        ImGui::PopStyleColor();
+    ImGui::PushStyleColor(ImGuiCol_TableHeaderBg, ImVec4(0.18f, 0.18f, 0.18f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_TableBorderStrong, ImVec4(0.55f, 0.55f, 0.55f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_TableBorderLight, ImVec4(0.35f, 0.35f, 0.35f, 1.0f));
+
+    if (ImGui::BeginTable("ConsoleTable", 3, flags))
+    {
+        ImGui::TableSetupColumn("Time", ImGuiTableColumnFlags_WidthFixed, 150.0f);
+        ImGui::TableSetupColumn("Level", ImGuiTableColumnFlags_WidthFixed, 65.0f);
+        ImGui::TableSetupColumn("Message", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableHeadersRow();
+
+        for (const auto& e : m_displayCache)
+        {
+            if (!PassesLevelFilter(e.level)) continue;
+            if (m_filterBuf[0] && e.message.find(m_filterBuf) == std::string::npos) continue;
+
+            ImVec4 color = ColorForLevel(e.level);
+
+            ImGui::TableNextRow();
+
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextUnformatted(FormatTimestamp(e.timestamp).c_str());
+
+            ImGui::TableSetColumnIndex(1);
+            ImGui::PushStyleColor(ImGuiCol_Text, color);
+            ImGui::TextUnformatted(ToString(e.level));
+            ImGui::PopStyleColor();
+
+            ImGui::TableSetColumnIndex(2);
+            ImGui::TextUnformatted(e.message.c_str());
+        }
+
+        ImGui::EndTable();
     }
+    ImGui::PopStyleColor(3);
 
     if (m_autoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f)
         ImGui::SetScrollHereY(1.0f);

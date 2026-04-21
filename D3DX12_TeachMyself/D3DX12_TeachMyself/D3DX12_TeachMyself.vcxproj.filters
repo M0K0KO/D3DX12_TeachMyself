@@ -228,6 +228,12 @@
     <ClCompile Include="..\..\external\imguizmo\ImGuizmo.cpp">
       <Filter>Source Files\imguizmo</Filter>
     </ClCompile>
+    <ClCompile Include="SceneFactory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MokoLoggerHelper.cpp">
+      <Filter>Source Files\MokoLogger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -439,6 +445,9 @@
     </ClInclude>
     <ClInclude Include="..\..\external\imguizmo\ImGuizmo.h">
       <Filter>Header Files\imguizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="SceneFactory.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

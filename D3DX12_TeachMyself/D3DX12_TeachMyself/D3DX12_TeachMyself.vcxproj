@@ -279,6 +279,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="RenderGraph.h" />
     <ClInclude Include="RenderScene.h" />
     <ClInclude Include="RHITypes.h" />
+    <ClInclude Include="SceneFactory.h" />
     <ClInclude Include="ShaderCompiler.h" />
     <ClInclude Include="SpinWait.h" />
     <ClInclude Include="stb_image.h" />
@@ -325,9 +326,11 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="Keyboard.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MokoLogger.cpp" />
+    <ClCompile Include="MokoLoggerHelper.cpp" />
     <ClCompile Include="Mouse.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="RenderGraph.cpp" />
+    <ClCompile Include="SceneFactory.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="SystemManager.cpp" />
     <ClCompile Include="TextureLoader.cpp" />
