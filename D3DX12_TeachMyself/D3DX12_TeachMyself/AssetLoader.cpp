@@ -7,6 +7,62 @@
 #include "AssetLoader.h"
 #include "DirectXTex/DirectXTex.h"
 #include "JobSystem.h"
+#include <algorithm>
+#include <cctype>
+#include <cstdint>
+
+namespace
+{
+    float ReadAccessorScalarAsFloat(const uint8_t* src, int componentType, bool normalized)
+    {
+        switch (componentType)
+        {
+        case TINYGLTF_COMPONENT_TYPE_FLOAT:
+            return *reinterpret_cast<const float*>(src);
+
+        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
+        {
+            const uint8_t v = *src;
+            return normalized ? (static_cast<float>(v) / 255.0f) : static_cast<float>(v);
+        }
+
+        case TINYGLTF_COMPONENT_TYPE_BYTE:
+        {
+            const int8_t v = *reinterpret_cast<const int8_t*>(src);
+            if (!normalized)
+                return static_cast<float>(v);
+
+            const float f = static_cast<float>(v) / 127.0f;
+            return std::max(-1.0f, f);
+        }
+
+        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+        {
+            const uint16_t v = *reinterpret_cast<const uint16_t*>(src);
+            return normalized ? (static_cast<float>(v) / 65535.0f) : static_cast<float>(v);
+        }
+
+        case TINYGLTF_COMPONENT_TYPE_SHORT:
+        {
+            const int16_t v = *reinterpret_cast<const int16_t*>(src);
+            if (!normalized)
+                return static_cast<float>(v);
+
+            const float f = static_cast<float>(v) / 32767.0f;
+            return std::max(-1.0f, f);
+        }
+
+        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
+        {
+            const uint32_t v = *reinterpret_cast<const uint32_t*>(src);
+            return normalized ? (static_cast<float>(v) / 4294967295.0f) : static_cast<float>(v);
+        }
+
+        default:
+            return 0.0f;
+        }
+    }
+}
 
 Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
 {
@@ -14,7 +70,10 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
     tinygltf::TinyGLTF loader;
     std::string err, warn;
 
-    bool ok = path.ends_with(".glb")
+    std::string ext = std::filesystem::path(path).extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+    bool ok = (ext == ".glb")
         ? loader.LoadBinaryFromFile(&model, &err, &warn, path)
         : loader.LoadASCIIFromFile(&model, &err, &warn, path);
 
@@ -47,6 +106,7 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
             scene.textures[i].width = img.width;
             scene.textures[i].height = img.height;
             scene.textures[i].channels = img.component;
+            scene.textures[i].bytesPerChannel = std::max(1, img.bits / 8);
             scene.textures[i].data = img.image;
         }
     }
@@ -202,6 +262,7 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
                 const auto& posView = model.bufferViews[posAcc.bufferView];
                 const uint8_t* posBase = GetBufferPointer(model, posAcc);
                 size_t posStride = posAcc.ByteStride(posView);
+                const size_t posCompSize = tinygltf::GetComponentSizeInBytes(posAcc.componentType);
 
                 size_t vertexCount = posAcc.count;
                 scene.vertices.resize(vertexOffset + vertexCount);
@@ -211,11 +272,14 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
 
                 for (size_t i = 0; i < vertexCount; ++i)
                 {
-                    const float* p = reinterpret_cast<const float*>(posBase + i * posStride);
+                    const uint8_t* pSrc = posBase + i * posStride;
+                    const float px = ReadAccessorScalarAsFloat(pSrc + (0 * posCompSize), posAcc.componentType, posAcc.normalized);
+                    const float py = ReadAccessorScalarAsFloat(pSrc + (1 * posCompSize), posAcc.componentType, posAcc.normalized);
+                    const float pz = ReadAccessorScalarAsFloat(pSrc + (2 * posCompSize), posAcc.componentType, posAcc.normalized);
 
-                    scene.vertices[vertexOffset + i].position = { p[0], p[1], p[2] };
+                    scene.vertices[vertexOffset + i].position = { px, py, pz };
 
-                    XMVECTOR localPos = XMVectorSet(p[0], p[1], p[2], 1.0f);
+                    XMVECTOR localPos = XMVectorSet(px, py, pz, 1.0f);
                     XMVECTOR worldPos = XMVector3TransformCoord(localPos, world);
                     XMFLOAT3 wp; XMStoreFloat3(&wp, worldPos);
 
@@ -244,10 +308,15 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
                     const uint8_t* base = GetBufferPointer(model, acc);
                     size_t stride = acc.ByteStride(view);
 
+                    const size_t compSize = tinygltf::GetComponentSizeInBytes(acc.componentType);
                     for (size_t i = 0; i < vertexCount; ++i)
                     {
-                        const float* n = reinterpret_cast<const float*>(base + i * stride);
-                        scene.vertices[vertexOffset + i].normal = { n[0], n[1], n[2] };
+                        const uint8_t* src = base + i * stride;
+                        scene.vertices[vertexOffset + i].normal = {
+                            ReadAccessorScalarAsFloat(src + (0 * compSize), acc.componentType, acc.normalized),
+                            ReadAccessorScalarAsFloat(src + (1 * compSize), acc.componentType, acc.normalized),
+                            ReadAccessorScalarAsFloat(src + (2 * compSize), acc.componentType, acc.normalized)
+                        };
                     }
                 }
 
@@ -261,10 +330,16 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
                     const uint8_t* base = GetBufferPointer(model, acc);
                     size_t stride = acc.ByteStride(view);
 
+                    const size_t compSize = tinygltf::GetComponentSizeInBytes(acc.componentType);
                     for (size_t i = 0; i < vertexCount; ++i)
                     {
-                        const float* t = reinterpret_cast<const float*>(base + i * stride);
-                        scene.vertices[vertexOffset + i].tangent = { t[0], t[1], t[2], t[3] };
+                        const uint8_t* src = base + i * stride;
+                        scene.vertices[vertexOffset + i].tangent = {
+                            ReadAccessorScalarAsFloat(src + (0 * compSize), acc.componentType, acc.normalized),
+                            ReadAccessorScalarAsFloat(src + (1 * compSize), acc.componentType, acc.normalized),
+                            ReadAccessorScalarAsFloat(src + (2 * compSize), acc.componentType, acc.normalized),
+                            ReadAccessorScalarAsFloat(src + (3 * compSize), acc.componentType, acc.normalized)
+                        };
                     }
                 }
 
@@ -278,12 +353,14 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
                     const uint8_t* base = GetBufferPointer(model, acc);
                     size_t stride = acc.ByteStride(view);
 
+                    const size_t compSize = tinygltf::GetComponentSizeInBytes(acc.componentType);
                     for (size_t i = 0; i < vertexCount; ++i)
                     {
-                        const float* uv = reinterpret_cast<const float*>(base + i * stride);
+                        const uint8_t* src = base + i * stride;
 
                         scene.vertices[vertexOffset + i].uv = {
-                            uv[0], uv[1]
+                            ReadAccessorScalarAsFloat(src + (0 * compSize), acc.componentType, acc.normalized),
+                            ReadAccessorScalarAsFloat(src + (1 * compSize), acc.componentType, acc.normalized)
                         };
                     }
                 }
@@ -408,7 +485,10 @@ Mesh::Scene AssetLoader::LoadGLTFParallel(const std::string& path, MokoJob::JobS
     tinygltf::TinyGLTF loader;
     std::string err, warn;
 
-    bool ok = path.ends_with(".glb")
+    std::string ext = std::filesystem::path(path).extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+    bool ok = (ext == ".glb")
         ? loader.LoadBinaryFromFile(&model, &err, &warn, path)
         : loader.LoadASCIIFromFile(&model, &err, &warn, path);
 
@@ -438,6 +518,7 @@ Mesh::Scene AssetLoader::LoadGLTFParallel(const std::string& path, MokoJob::JobS
             scene.textures[i].width = img.width;
             scene.textures[i].height = img.height;
             scene.textures[i].channels = img.component;
+            scene.textures[i].bytesPerChannel = std::max(1, img.bits / 8);
             scene.textures[i].data = img.image;
         }
     }
@@ -642,16 +723,20 @@ Mesh::Scene AssetLoader::LoadGLTFParallel(const std::string& path, MokoJob::JobS
         const auto& posView = model.bufferViews[posAcc.bufferView];
         const uint8_t* posBase = GetBufferPointer(model, posAcc);
         size_t posStride = posAcc.ByteStride(posView);
+        const size_t posCompSize = tinygltf::GetComponentSizeInBytes(posAcc.componentType);
 
         DirectX::XMFLOAT3 aMin = { FLT_MAX,  FLT_MAX,  FLT_MAX };
         DirectX::XMFLOAT3 aMax = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
 
         for (uint32_t i = 0; i < vCount; ++i)
         {
-            const float* p = reinterpret_cast<const float*>(posBase + i * posStride);
-            scene.vertices[vOff + i].position = { p[0], p[1], p[2] };
+            const uint8_t* pSrc = posBase + i * posStride;
+            const float px = ReadAccessorScalarAsFloat(pSrc + (0 * posCompSize), posAcc.componentType, posAcc.normalized);
+            const float py = ReadAccessorScalarAsFloat(pSrc + (1 * posCompSize), posAcc.componentType, posAcc.normalized);
+            const float pz = ReadAccessorScalarAsFloat(pSrc + (2 * posCompSize), posAcc.componentType, posAcc.normalized);
+            scene.vertices[vOff + i].position = { px, py, pz };
 
-            XMVECTOR localPos = XMVectorSet(p[0], p[1], p[2], 1.0f);
+            XMVECTOR localPos = XMVectorSet(px, py, pz, 1.0f);
             XMVECTOR worldPos = XMVector3TransformCoord(localPos, job.world);
             XMFLOAT3 wp; XMStoreFloat3(&wp, worldPos);
 
@@ -668,10 +753,16 @@ Mesh::Scene AssetLoader::LoadGLTFParallel(const std::string& path, MokoJob::JobS
             const auto& view = model.bufferViews[acc.bufferView];
             const uint8_t* base = GetBufferPointer(model, acc);
             size_t stride = acc.ByteStride(view);
+            const size_t compSize = tinygltf::GetComponentSizeInBytes(acc.componentType);
+
             for (uint32_t i = 0; i < vCount; ++i)
             {
-                const float* n = reinterpret_cast<const float*>(base + i * stride);
-                scene.vertices[vOff + i].normal = { n[0], n[1], n[2] };
+                const uint8_t* src = base + i * stride;
+                scene.vertices[vOff + i].normal = {
+                    ReadAccessorScalarAsFloat(src + (0 * compSize), acc.componentType, acc.normalized),
+                    ReadAccessorScalarAsFloat(src + (1 * compSize), acc.componentType, acc.normalized),
+                    ReadAccessorScalarAsFloat(src + (2 * compSize), acc.componentType, acc.normalized)
+                };
             }
         }
 
@@ -683,10 +774,17 @@ Mesh::Scene AssetLoader::LoadGLTFParallel(const std::string& path, MokoJob::JobS
             const auto& view = model.bufferViews[acc.bufferView];
             const uint8_t* base = GetBufferPointer(model, acc);
             size_t stride = acc.ByteStride(view);
+            const size_t compSize = tinygltf::GetComponentSizeInBytes(acc.componentType);
+
             for (uint32_t i = 0; i < vCount; ++i)
             {
-                const float* t = reinterpret_cast<const float*>(base + i * stride);
-                scene.vertices[vOff + i].tangent = { t[0], t[1], t[2], t[3] };
+                const uint8_t* src = base + i * stride;
+                scene.vertices[vOff + i].tangent = {
+                    ReadAccessorScalarAsFloat(src + (0 * compSize), acc.componentType, acc.normalized),
+                    ReadAccessorScalarAsFloat(src + (1 * compSize), acc.componentType, acc.normalized),
+                    ReadAccessorScalarAsFloat(src + (2 * compSize), acc.componentType, acc.normalized),
+                    ReadAccessorScalarAsFloat(src + (3 * compSize), acc.componentType, acc.normalized)
+                };
             }
         }
 
@@ -698,10 +796,15 @@ Mesh::Scene AssetLoader::LoadGLTFParallel(const std::string& path, MokoJob::JobS
             const auto& view = model.bufferViews[acc.bufferView];
             const uint8_t* base = GetBufferPointer(model, acc);
             size_t stride = acc.ByteStride(view);
+            const size_t compSize = tinygltf::GetComponentSizeInBytes(acc.componentType);
+
             for (uint32_t i = 0; i < vCount; ++i)
             {
-                const float* uv = reinterpret_cast<const float*>(base + i * stride);
-                scene.vertices[vOff + i].uv = { uv[0], uv[1] };
+                const uint8_t* src = base + i * stride;
+                scene.vertices[vOff + i].uv = {
+                    ReadAccessorScalarAsFloat(src + (0 * compSize), acc.componentType, acc.normalized),
+                    ReadAccessorScalarAsFloat(src + (1 * compSize), acc.componentType, acc.normalized)
+                };
             }
         }
 

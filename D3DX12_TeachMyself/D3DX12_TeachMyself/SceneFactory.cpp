@@ -11,6 +11,70 @@
 
 namespace SceneFactory
 {
+    namespace
+    {
+        TextureHandle CreateTextureFromEmbedded(const Mesh::Texture& tex, GraphicsDevice& device)
+        {
+            if (!tex.embedded || tex.width <= 0 || tex.height <= 0 || tex.data.empty())
+                return {};
+
+            const size_t pixelCount = static_cast<size_t>(tex.width) * static_cast<size_t>(tex.height);
+            if (pixelCount == 0)
+                return {};
+            if (tex.channels <= 0 || tex.channels > 4)
+                return {};
+            if (tex.bytesPerChannel <= 0)
+                return {};
+
+            constexpr int dstChannels = 4;
+            std::vector<uint8_t> rgba(pixelCount * dstChannels);
+            const size_t srcStride = static_cast<size_t>(tex.channels) * static_cast<size_t>(tex.bytesPerChannel);
+            const size_t expectedSize = pixelCount * srcStride;
+            if (tex.data.size() < expectedSize)
+                return {};
+
+            auto readAsUNorm8 = [&](const uint8_t* srcChannel) -> uint8_t {
+                if (tex.bytesPerChannel == 1)
+                    return srcChannel[0];
+
+                if (tex.bytesPerChannel == 2)
+                {
+                    const uint16_t v16 = static_cast<uint16_t>(srcChannel[0]) |
+                        (static_cast<uint16_t>(srcChannel[1]) << 8);
+                    return static_cast<uint8_t>(v16 >> 8);
+                }
+
+                return srcChannel[0];
+                };
+
+            for (size_t i = 0; i < pixelCount; ++i)
+            {
+                const uint8_t* src = tex.data.data() + (i * srcStride);
+                const size_t dstBase = i * dstChannels;
+
+                const uint8_t r = readAsUNorm8(src + (0 * tex.bytesPerChannel));
+                const uint8_t g = (tex.channels >= 2) ? readAsUNorm8(src + (1 * tex.bytesPerChannel)) : r;
+                const uint8_t b = (tex.channels >= 3) ? readAsUNorm8(src + (2 * tex.bytesPerChannel)) : r;
+                const uint8_t a = (tex.channels >= 4) ? readAsUNorm8(src + (3 * tex.bytesPerChannel)) : 255;
+
+                rgba[dstBase + 0] = r;
+                rgba[dstBase + 1] = g;
+                rgba[dstBase + 2] = b;
+                rgba[dstBase + 3] = a;
+            }
+
+            TextureDesc desc = {
+                static_cast<uint32_t>(tex.width),
+                static_cast<uint32_t>(tex.height),
+                Format::R8G8B8A8_UNORM,
+                TextureUsage::ShaderResource
+            };
+
+            return device.CreateTexture(desc, rgba.data());
+        }
+    }
+
+
 	Entity CreateEmpty(EntityScene& scene, const std::string& name, Entity parent)
 	{
 		Entity e = scene.CreateSceneEntity(name);
@@ -190,19 +254,44 @@ namespace SceneFactory
                     TextureHandle handle{};
                     try
                     {
-                        handle = device.LoadTexture(tex.path);
-                        if (!handle.IsValid())
+                        if (tex.embedded)
                         {
-                            MOKOLOG_WARN("Texture load failed [{}] in scene [{}]. Fallback will be used.", MokoPath::ToString(tex.path), path.string());
+                            handle = CreateTextureFromEmbedded(tex, device);
+                            if (!handle.IsValid())
+                            {
+                                MOKOLOG_WARN("Embedded texture load failed (idx={}) in scene [{}]. Fallback will be used.", i, path.string());
+                            }
+                        }
+                        else
+                        {
+                            handle = device.LoadTexture(tex.path);
+                            if (!handle.IsValid())
+                            {
+                                MOKOLOG_WARN("Texture load failed [{}] in scene [{}]. Fallback will be used.", MokoPath::ToString(tex.path), path.string());
+                            }
                         }
                     }
                     catch (const std::exception& e)
                     {
-                        MOKOLOG_WARN("Exception while loading texture [{}] in scene [{}]: {}", MokoPath::ToString(tex.path), path.string(), e.what());
+                        if (tex.embedded)
+                        {
+                            MOKOLOG_WARN("Exception while loading embedded texture (idx={}) in scene [{}]: {}", i, path.string(), e.what());
+                        }
+                        else
+                        {
+                            MOKOLOG_WARN("Exception while loading texture [{}] in scene [{}]: {}", MokoPath::ToString(tex.path), path.string(), e.what());
+                        }
                     }
                     catch (...)
                     {
-                        MOKOLOG_WARN("Unknown exception while loading texture [{}] in scene [{}].", MokoPath::ToString(tex.path), path.string());
+                        if (tex.embedded)
+                        {
+                            MOKOLOG_WARN("Unknown exception while loading embedded texture (idx={}) in scene [{}].", i, path.string());
+                        }
+                        else
+                        {
+                            MOKOLOG_WARN("Unknown exception while loading texture [{}] in scene [{}].", MokoPath::ToString(tex.path), path.string());
+                        }
                     }
 
                     gpuTextures.push_back(handle);

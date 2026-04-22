@@ -58,6 +58,7 @@ namespace Mesh
 		int width = 0;
 		int height = 0;
 		int channels = 0;
+		int bytesPerChannel = 1;
 		std::vector<unsigned char> data;
 	};
 
