@@ -273,8 +273,8 @@ void Renderer::CreateCubeMap(GraphicsDevice* device)
 
 	AssetLoader loader;
 	int w, h, ch;
-	//float* hdrData = loader.LoadHDR("../citrus_orchard_puresky_4k.hdr", w, h, ch, 4);
-	float* hdrData = loader.LoadHDR("../venice_sunset_4k.hdr", w, h, ch, 4);
+	float* hdrData = loader.LoadHDR("../citrus_orchard_puresky_4k.hdr", w, h, ch, 4);
+	//float* hdrData = loader.LoadHDR("../venice_sunset_4k.hdr", w, h, ch, 4);
 	//float* hdrData = loader.LoadHDR("../qwantani_dusk_2_puresky_4k.hdr", w, h, ch, 4);
 
 	TextureDesc equirectDesc = {};
@@ -632,7 +632,7 @@ FrameContext Renderer::BuildFrameContext(GraphicsDevice* device, CommandContext&
 	std::vector<RGResourceHandle> pointShadowMaps;
 	RGResourceDesc pointShadowMapDesc = { 1024, 1024, Format::R32_TYPELESS, TextureUsage::DepthStencil };
 	const int importedPointLightCount = std::min(MAX_POINT_LIGHTS, frameData.PointLightCount);
-	for (int i = 0; i < importedPointLightCount; i++)
+	for (int i = 0; i < MAX_POINT_LIGHTS; i++)
 	{
 		pointShadowMaps.push_back(graph.ImportTexture(m_pointShadowMapTextures[i], pointShadowMapDesc, RGResourceState::DepthWrite));
 	}
@@ -751,7 +751,7 @@ FrameContext Renderer::BuildFrameContext(GraphicsDevice* device, CommandContext&
 	XMStoreFloat4x4(&gtaoCB.View, XMMatrixTranspose(XMLoadFloat4x4(&frameData.ViewMatrix)));
 	XMStoreFloat4x4(&gtaoCB.InvProj, XMMatrixInverse(nullptr, XMMatrixTranspose(XMLoadFloat4x4(&frameData.ProjMatrix))));
 	XMStoreFloat2(&gtaoCB.InvRes, { 1.0f / m_viewportWidth, 1.0f / m_viewportHeight });
-	gtaoCB.Radius = 0.5f;
+	gtaoCB.Radius = 0.05f;
 	gtaoCB.FalloffStart = gtaoCB.Radius * 0.75f;
 	gtaoCB.FalloffEnd = gtaoCB.Radius;
 	gtaoCB.NumSlices = 2;
@@ -1194,7 +1194,7 @@ void Renderer::InitPBRLightingPass(GraphicsDevice* device)
 	m_PBRlightingPassPipelineDesc = {
 		PBRlightingPassRSDesc,
 		ShaderCompiler::GetBytecode(m_fullscreenVS), ShaderCompiler::GetBytecode(m_PBRlightingPS), vertexAttributes,
-		{ Format::R8G8B8A8_UNORM },
+		{ Format::R16G16B16A16_FLOAT },
 		Format::UNKNOWN,
 		false, false, ComparisonFunc::Equal,
 		CullMode::None };
@@ -1215,7 +1215,7 @@ void Renderer::InitSkyboxPass(GraphicsDevice* device)
 	skyboxPSODesc.rootSignatureDesc = skyboxPassRSDesc;
 	skyboxPSODesc.vs = ShaderCompiler::GetBytecode(m_fullscreenVS);
 	skyboxPSODesc.ps = ShaderCompiler::GetBytecode(m_skyboxPS);
-	skyboxPSODesc.rtvFormats = { Format::R8G8B8A8_UNORM }; // 나중에 HDR RT로 교체
+	skyboxPSODesc.rtvFormats = { Format::R16G16B16A16_FLOAT }; 
 	skyboxPSODesc.dsvFormat = Format::D32_FLOAT;
 	skyboxPSODesc.depthEnable = true;
 	skyboxPSODesc.depthWrite = false;

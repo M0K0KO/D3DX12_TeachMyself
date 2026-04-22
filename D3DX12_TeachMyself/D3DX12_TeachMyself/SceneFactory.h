@@ -7,5 +7,11 @@
 
 namespace SceneFactory
 {
+	Entity CreateEmpty(EntityScene&, const std::string& name, Entity parent = INVALID_ENTITY);
+	Entity CreateCube(EntityScene&, const std::string& name = "Cube", Entity parent = INVALID_ENTITY);
+	Entity CreateSphere(EntityScene&, const std::string& name = "Sphere", Entity parent = INVALID_ENTITY);
+	Entity CreateDirLight(EntityScene&, const std::string& name = "Directional Light", Entity parent = INVALID_ENTITY);
+	Entity CreatePointLight(EntityScene&, const std::string& name = "Point Light", Entity parent = INVALID_ENTITY);
+
 	Entity LoadGLTFToScene(EntityScene& ecsScene, GraphicsDevice& device, const std::filesystem::path& path, Entity parent = INVALID_ENTITY);
 };

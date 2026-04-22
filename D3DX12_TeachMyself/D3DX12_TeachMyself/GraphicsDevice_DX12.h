@@ -34,6 +34,7 @@ public:
 	DescriptorHandle GetSRVHandle(TextureHandle handle) override;
 	DescriptorHandle GetUAVHandle(TextureHandle handle, uint32_t mip = 0) override;
 
+	void DestroyBuffer(BufferHandle handle) override;
 	void DestroyTexture(TextureHandle handle) override;
 
 	void BeginTextureUpload() override;
@@ -133,7 +134,6 @@ private:
 		ComPtr<ID3D12Resource> resource;
 		ComPtr<ID3D12Resource> frameResources[FRAMECOUNT];
 		UINT8* mappedPointers[FRAMECOUNT] = {};
-		uint32_t heapSlot = UINT32_MAX;
 		BufferDesc desc;
 	};
 

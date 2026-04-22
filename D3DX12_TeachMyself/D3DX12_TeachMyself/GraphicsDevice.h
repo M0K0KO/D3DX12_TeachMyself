@@ -23,6 +23,7 @@ public:
 	virtual DescriptorHandle GetSRVHandle(TextureHandle handle) = 0;
 	virtual DescriptorHandle GetUAVHandle(TextureHandle handle, uint32_t mip = 0) = 0;
 
+	virtual void DestroyBuffer(BufferHandle handle) = 0;
 	virtual void DestroyTexture(TextureHandle handle) = 0;
 
 	virtual void BeginTextureUpload() = 0;

@@ -103,6 +103,9 @@
     <Filter Include="Source Files\imguizmo">
       <UniqueIdentifier>{29cc9d71-e7aa-4c62-a3a5-b188ef5291d8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Built-in">
+      <UniqueIdentifier>{d67b9c45-7f68-4459-aca9-2cf699222d9c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -159,9 +162,6 @@
     <ClCompile Include="TransformSystem.cpp">
       <Filter>Source Files\ECS\Systems</Filter>
     </ClCompile>
-    <ClCompile Include="CameraControllerSystem.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="InputState.cpp">
       <Filter>Source Files\ECS</Filter>
     </ClCompile>
@@ -188,9 +188,6 @@
     </ClCompile>
     <ClCompile Include="..\..\external\imgui\imgui_widgets.cpp">
       <Filter>Source Files\imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="EditorSystem.cpp">
-      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="TransformComponentOperations.cpp">
       <Filter>Source Files\ECS\Operations</Filter>
@@ -222,9 +219,6 @@
     <ClCompile Include="MokoLogger.cpp">
       <Filter>Source Files\MokoLogger</Filter>
     </ClCompile>
-    <ClCompile Include="ConsoleSystem.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\external\imguizmo\ImGuizmo.cpp">
       <Filter>Source Files\imguizmo</Filter>
     </ClCompile>
@@ -236,6 +230,18 @@
     </ClCompile>
     <ClCompile Include="MokoPath.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="BuiltinAssets.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ConsoleSystem.cpp">
+      <Filter>Source Files\ECS\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="CameraControllerSystem.cpp">
+      <Filter>Source Files\ECS\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorSystem.cpp">
+      <Filter>Source Files\ECS\Systems</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -454,6 +460,9 @@
     </ClInclude>
     <ClInclude Include="MokoPath.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BuiltinAssets.h">
+      <Filter>Header Files\Built-in</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

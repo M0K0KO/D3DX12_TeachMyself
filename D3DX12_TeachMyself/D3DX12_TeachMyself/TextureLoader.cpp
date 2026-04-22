@@ -79,7 +79,10 @@ DDSTextureHandle TextureLoader::LoadDDS(
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     cmdList->ResourceBarrier(1, &barrier);
 
-    m_pendingUploads.push_back(uploadBuffer);
+    {
+        std::lock_guard<std::mutex> lock(m_pendingUploadsMutex);
+        m_pendingUploads.push_back(uploadBuffer);
+    }
 
     DDSTextureHandle handle;
     handle.resource = texResource;
@@ -93,5 +96,6 @@ DDSTextureHandle TextureLoader::LoadDDS(
 
 void TextureLoader::CleanupUploads()
 {
+    std::lock_guard<std::mutex> lock(m_pendingUploadsMutex);
     m_pendingUploads.clear();
 }

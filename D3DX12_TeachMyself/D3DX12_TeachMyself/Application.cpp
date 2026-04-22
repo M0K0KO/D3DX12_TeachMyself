@@ -16,6 +16,7 @@
 #include "JobGroup.h"
 #include "ConsoleSystem.h"
 #include "SceneFactory.h"
+#include "BuiltinAssets.h"
 
 Application::Application()
 	:
@@ -66,31 +67,13 @@ void Application::Init()
 	auto* dx12 = static_cast<GraphicsDevice_DX12*>(m_device.get());
 	m_editorSystem = m_systemManager->Add<EditorSystem>(dx12, &m_renderer, wnd.GetHWND(), m_jobSystem, consoleSystem);
 
-
 	SystemContext ctx = {0.0f, &wnd, &m_inputState, &m_ecsScene};
 	m_systemManager->InitAll(ctx);
 
-	//SceneFactory::LoadGLTFToScene(m_ecsScene, *m_device.get(), "../Model/Sponza/Sponza.gltf");
+	BuiltinAssets::Initialize(*m_device);
 
-	{
-		Entity e = m_ecsScene.CreateSceneEntity("Directional Light");
-		auto& dl = m_ecsScene.GetRegistry().Add<DirectionalLightComponent>(e);
-		dl.direction = { 0.0f, -1.0f, 0.0f };
-		dl.color = { 1,1,1 };
-		dl.intensity = 1.0f;
-	}
-
-	{
-		Entity e = m_ecsScene.CreateSceneEntity("Point Light");
-		auto& t = m_ecsScene.GetRegistry().Get<TransformComponent>(e);
-		t.position = { 0.0f, 2.0f, 0.0f };
-
-		auto& pl = m_ecsScene.GetRegistry().Add<PointLightComponent>(e);
-		pl.color = { 0.0f, 0.7f, 0.7f };
-		pl.radius = 30.0f;
-		pl.intensity = 2.0f;
-	}
-
+	SceneFactory::CreateDirLight(m_ecsScene);
+	SceneFactory::CreatePointLight(m_ecsScene);
 	{
 		Entity e = m_ecsScene.CreateSceneEntity("Main Camera");
 		auto& cam = m_ecsScene.GetRegistry().Add<CameraComponent>(e);
@@ -99,8 +82,6 @@ void Application::Init()
 		auto& t = m_ecsScene.GetRegistry().Get<TransformComponent>(e);
 		t.position = { 0.0f, 1.0f, -5.0f };
 	}
-
-	
 
 	m_renderer.Init(m_device.get());
 

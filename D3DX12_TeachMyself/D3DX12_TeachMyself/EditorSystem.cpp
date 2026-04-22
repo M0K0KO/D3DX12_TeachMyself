@@ -102,6 +102,8 @@ void EditorSystem::Update(SystemContext& ctx)
 
 	m_consoleSystem->DrawUI();
 
+	FlushPendingDestroy(*ctx.scene);
+
 	ImGui::Render();
 }
 
@@ -126,10 +128,25 @@ void EditorSystem::Render(CommandContext& ctx)
 	auto& dx12Ctx = static_cast<CommandContext_DX12&>(ctx);
 	auto* cmdList = reinterpret_cast<ID3D12GraphicsCommandList*>(dx12Ctx.GetNativeHandle());
 
+	auto backBuffer = m_device->GetCurrentBackBuffer();
+	auto backBufferResource = m_device->GetTextureResource(backBuffer);
+
+	auto toRenderTarget = CD3DX12_RESOURCE_BARRIER::Transition(
+		backBufferResource.Get(),
+		D3D12_RESOURCE_STATE_PRESENT,
+		D3D12_RESOURCE_STATE_RENDER_TARGET);
+	cmdList->ResourceBarrier(1, &toRenderTarget);
+
 	auto rtv = m_device->GetCurrentBackBufferRTV();
 	cmdList->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
 
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList);
+
+	auto toPresent = CD3DX12_RESOURCE_BARRIER::Transition(
+		backBufferResource.Get(),
+		D3D12_RESOURCE_STATE_RENDER_TARGET,
+		D3D12_RESOURCE_STATE_PRESENT);
+	cmdList->ResourceBarrier(1, &toPresent);
 }
 
 bool EditorSystem::TryGetPendingViewportResize(uint32_t& w, uint32_t& h)
@@ -156,6 +173,13 @@ void EditorSystem::DrawViewportPanel(EntityScene& scene)
 			if (ImGui::IsKeyPressed(ImGuiKey_W)) m_gizmoOp = ImGuizmo::TRANSLATE;
 			if (ImGui::IsKeyPressed(ImGuiKey_E)) m_gizmoOp = ImGuizmo::ROTATE;
 			if (ImGui::IsKeyPressed(ImGuiKey_R)) m_gizmoOp = ImGuizmo::SCALE;
+
+			if (m_state.selected != INVALID_ENTITY &&
+				m_state.selected != scene.GetRoot() &&
+				ImGui::IsKeyPressed(ImGuiKey_Delete))
+			{
+				m_pendingDestroy.push_back(m_state.selected);
+			}
 		}
 
 		int mode = (int)m_gizmoMode;
@@ -207,6 +231,13 @@ void EditorSystem::DrawHierarchy(EntityScene& scene)
 		m_state.selected = INVALID_ENTITY;
 	}
 
+	if (ImGui::BeginPopupContextWindow("##HierarchyCtx",
+		ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
+	{
+		DrawCreateMenu(scene, INVALID_ENTITY);
+		ImGui::EndPopup();
+	}
+
 	ImGui::End();
 }
 
@@ -227,6 +258,12 @@ void EditorSystem::DrawHierarchyNode(EntityScene& scene, Entity e)
 
 	bool open = ImGui::TreeNodeEx((void*)(uintptr_t)(e.index | (uint64_t)e.generation << 32), flags, "%s", name);
 
+	if (ImGui::BeginPopupContextItem())
+	{
+		DrawEntityContextMenu(scene, e);
+		ImGui::EndPopup();
+	}
+
 	if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
 		m_state.selected = e;
 
@@ -240,6 +277,44 @@ void EditorSystem::DrawHierarchyNode(EntityScene& scene, Entity e)
 		}
 		ImGui::TreePop();
 	}
+}
+
+void EditorSystem::DrawEntityContextMenu(EntityScene& scene, Entity e)
+{
+	if (e != scene.GetRoot())
+	{
+		if (ImGui::MenuItem("Delete"))
+		{
+			m_pendingDestroy.push_back(e);
+		}
+		ImGui::Separator();
+	}
+
+	if (ImGui::BeginMenu("Create Child"))
+	{
+		DrawCreateMenu(scene, e);
+		ImGui::EndMenu();
+	}
+}
+
+void EditorSystem::DrawCreateMenu(EntityScene & scene, Entity parent)
+{
+	if (ImGui::MenuItem("Empty"))
+		SceneFactory::CreateEmpty(scene, "Empty", parent);
+
+	if (ImGui::MenuItem("Cube"))
+		SceneFactory::CreateCube(scene, "Cube", parent);
+
+	if (ImGui::MenuItem("Sphere"))
+		SceneFactory::CreateSphere(scene, "Sphere", parent);
+
+	ImGui::Separator();
+
+	if (ImGui::MenuItem("Directional Light"))
+		SceneFactory::CreateDirLight(scene, "Directional Light", parent);
+
+	if (ImGui::MenuItem("Point Light"))
+		SceneFactory::CreatePointLight(scene, "Point Light", parent);
 }
 
 void EditorSystem::DrawInspector(EntityScene& scene)
@@ -457,6 +532,38 @@ void EditorSystem::DrawDirectoryContents(EntityScene & scene)
 	}
 }
 
+void EditorSystem::FlushPendingDestroy(EntityScene& scene)
+{
+	if (m_pendingDestroy.empty())
+		return;
+
+	std::sort(m_pendingDestroy.begin(), m_pendingDestroy.end(),
+		[](const Entity& a, const Entity& b) {
+			if (a.index != b.index) return a.index < b.index;
+			return a.generation < b.generation;
+		});
+
+	m_pendingDestroy.erase(
+		std::unique(m_pendingDestroy.begin(), m_pendingDestroy.end(),
+			[](const Entity& a, const Entity& b) {
+				return a.index == b.index && a.generation == b.generation;
+			}),
+		m_pendingDestroy.end());
+
+	for (Entity e : m_pendingDestroy)
+	{
+		if (e == INVALID_ENTITY) continue;
+		if (e == scene.GetRoot()) continue;
+
+		if (m_state.selected == e)
+			m_state.selected = INVALID_ENTITY;
+
+		scene.DestroyEntity(e);
+	}
+
+	m_pendingDestroy.clear();
+}
+
 void EditorSystem::ManipulateSelectedEntity(EntityScene& scene)
 {
 	if (m_state.selected == INVALID_ENTITY) return;
@@ -520,6 +627,7 @@ void EditorSystem::HandleFileOpen(EntityScene& scene, std::filesystem::path path
 {
 	if (MokoPath::IsLoadableGLTF(path))
 	{
+		MOKOLOG_INFO("Loading Model from [{}]", path.string());
 		SceneFactory::LoadGLTFToScene(scene, *m_device, path);
 	}
 	else

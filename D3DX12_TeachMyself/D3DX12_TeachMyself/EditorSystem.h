@@ -31,6 +31,8 @@ private:
 
 	void DrawHierarchy(EntityScene& scene);
 	void DrawHierarchyNode(EntityScene& scene, Entity e);
+	void DrawEntityContextMenu(EntityScene& scene, Entity e);
+	void DrawCreateMenu(EntityScene& scene, Entity parent);
 
 	void DrawInspector(EntityScene& scene);
 
@@ -69,6 +71,8 @@ private:
 	void DrawBreadCrumb();
 	void DrawDirectoryContents(EntityScene& scene);
 
+	void FlushPendingDestroy(EntityScene& scene);
+
 	void ManipulateSelectedEntity(EntityScene& scene);
 	void HandleFileOpen(EntityScene& scene, std::filesystem::path path);
 
@@ -89,6 +93,8 @@ private:
 
 	ImGuizmo::OPERATION m_gizmoOp = ImGuizmo::TRANSLATE;
 	ImGuizmo::MODE      m_gizmoMode = ImGuizmo::WORLD;
+
+	std::vector<Entity> m_pendingDestroy;
 };
 
 

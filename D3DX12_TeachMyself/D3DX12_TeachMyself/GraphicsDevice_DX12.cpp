@@ -179,10 +179,16 @@ void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uin
 
 void GraphicsDevice_DX12::WaitForGpu()
 {
-	HR_CHECK(m_commandQueue->Signal(m_fence.Get(), m_fenceValues[m_frameIndex]));
-	HR_CHECK(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent));
-	WaitForSingleObjectEx(m_fenceEvent, INFINITE, FALSE);
-	m_fenceValues[m_frameIndex]++;
+	const UINT64 fenceToWaitFor = m_nextFenceValue++;
+	HR_CHECK(m_commandQueue->Signal(m_fence.Get(), fenceToWaitFor));
+
+	if (m_fence->GetCompletedValue() < fenceToWaitFor)
+	{
+		HR_CHECK(m_fence->SetEventOnCompletion(fenceToWaitFor, m_fenceEvent));
+		WaitForSingleObjectEx(m_fenceEvent, INFINITE, FALSE);
+	}
+
+	m_fenceValues[m_frameIndex] = fenceToWaitFor;
 }
 
 void GraphicsDevice_DX12::MoveToNextFrame()
@@ -965,6 +971,34 @@ DescriptorHandle GraphicsDevice_DX12::GetUAVHandle(TextureHandle handle, uint32_
 	MOKO_ASSERT(tex.uav.IsValid() && "GetUAVHandle: texture has no UAV");
 	MOKO_ASSERT(mip == 0 && "GetUAVHandle: non-mip UAV requested with mip > 0");
 	return tex.uav;
+}
+
+void GraphicsDevice_DX12::DestroyBuffer(BufferHandle handle)
+{
+	if (!handle.IsValid()) return;
+
+	InternalBuffer& buf = m_buffers[handle.id];
+
+	for (uint32_t i = 0; i < FRAMECOUNT; ++i)
+	{
+		if (buf.frameResources[i])
+		{
+			if (buf.mappedPointers[i])
+			{
+				buf.frameResources[i]->Unmap(0, nullptr);
+				buf.mappedPointers[i] = nullptr;
+			}
+
+			EnqueueResourceRelease(std::move(buf.frameResources[i]), m_nextFenceValue);
+			buf.frameResources[i].Reset();
+		}
+	}
+
+	if (buf.resource)
+	{
+		EnqueueResourceRelease(std::move(buf.resource), m_nextFenceValue);
+		buf.resource.Reset();
+	}
 }
 
 void GraphicsDevice_DX12::DestroyTexture(TextureHandle handle)

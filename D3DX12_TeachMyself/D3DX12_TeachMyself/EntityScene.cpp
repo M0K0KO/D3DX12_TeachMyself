@@ -55,27 +55,31 @@ void EntityScene::DestroyEntity(Entity e)
 void EntityScene::SetParent(Entity child, Entity newParent)
 {
 	MOKO_ASSERT(registry.Has<HierarchyComponent>(child));
+	MOKO_ASSERT(child != GetRoot());
+
+	if (newParent == INVALID_ENTITY)
+	{
+		newParent = GetRoot();
+	}
+
 	MOKO_ASSERT(registry.Has<HierarchyComponent>(newParent));
+	MOKO_ASSERT(child != newParent);
 
 	auto& cHier = registry.Get<HierarchyComponent>(child);
-
 	if (!(cHier.parent == INVALID_ENTITY))
 	{
 		DetachFromParent(child);
 	}
 
-	cHier.parent = newParent;
 	auto& pHier = registry.Get<HierarchyComponent>(newParent);
-
+	cHier.parent = newParent;
 	cHier.nextSibling = pHier.firstChild;
 	cHier.prevSibling = INVALID_ENTITY;
-
 	if (!(pHier.firstChild == INVALID_ENTITY))
 	{
 		registry.Get<HierarchyComponent>(pHier.firstChild).prevSibling = child;
 	}
 	pHier.firstChild = child;
-
 	registry.Get<TransformComponent>(child).dirty = true;
 }
 

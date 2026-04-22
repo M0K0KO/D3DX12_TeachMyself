@@ -1,5 +1,6 @@
 #pragma once
 #include "stdafx.h"
+#include <mutex>
 
 using namespace Microsoft::WRL;
 
@@ -25,5 +26,6 @@ public:
 
 private:
 	ID3D12Device* m_device;
+	std::mutex m_pendingUploadsMutex;
 	std::vector<ComPtr<ID3D12Resource>> m_pendingUploads;
 };

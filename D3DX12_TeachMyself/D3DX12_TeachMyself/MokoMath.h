@@ -112,3 +112,16 @@ inline XMFLOAT4 EulerToQuat(const XMFLOAT3& euler)
 	XMStoreFloat4(&result, q);
 	return result;
 }
+
+inline XMFLOAT3 Normalize3(const XMFLOAT3& v)
+{
+	const XMVECTOR vec = XMVector3Normalize(XMLoadFloat3(&v));
+	XMFLOAT3 out;
+	XMStoreFloat3(&out, vec);
+	return out;
+}
+
+inline float LengthSq3(const XMFLOAT3& v)
+{
+	return v.x * v.x + v.y * v.y + v.z * v.z;
+}

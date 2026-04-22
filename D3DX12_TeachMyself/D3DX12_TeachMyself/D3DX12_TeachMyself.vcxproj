@@ -228,6 +228,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="..\..\external\imgui\backends\imgui_impl_win32.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="AssetLoader.h" />
+    <ClInclude Include="BuiltinAssets.h" />
     <ClInclude Include="CameraComponent.h" />
     <ClInclude Include="CameraControllerSystem.h" />
     <ClInclude Include="CommandContext.h" />
@@ -307,6 +308,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="..\..\external\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Application.cpp" />
     <ClCompile Include="AssetLoader.cpp" />
+    <ClCompile Include="BuiltinAssets.cpp" />
     <ClCompile Include="CameraComponentOperations.cpp" />
     <ClCompile Include="CameraControllerSystem.cpp" />
     <ClCompile Include="CommandContext_DX12.cpp" />
