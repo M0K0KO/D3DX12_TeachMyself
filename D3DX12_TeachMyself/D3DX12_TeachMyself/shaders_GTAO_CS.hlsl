@@ -83,6 +83,12 @@ void CSMain(uint3 DTid : SV_DispatchThreadID)
         float3 projN = N - dot(N, sliceN) * sliceN;
         float projNLen = length(projN);
         
+        if (projNLen < 1e-4f)
+        {
+            visibility += 1.0f;
+            continue;
+        }
+        
         float n = SignedAngle(projN / projNLen, V, sliceN);
         
         // Horizon search
@@ -97,7 +103,7 @@ void CSMain(uint3 DTid : SV_DispatchThreadID)
             float dp = DepthTex.SampleLevel(PointClamp, uv + offset, 0).r;
             float3 Sp = ReconstructViewPos(uv + offset, dp, InvProj);
             float3 Dp = Sp - P;
-            float lenP = length(Dp);
+            float lenP = max(length(Dp), 1e-4f);
             float falloffP = saturate((FalloffEnd - lenP) / (FalloffEnd - FalloffStart));
             cosH1 = max(cosH1, dot(Dp / lenP, V) * falloffP);
             
@@ -105,7 +111,7 @@ void CSMain(uint3 DTid : SV_DispatchThreadID)
             float dm = DepthTex.SampleLevel(PointClamp, uv - offset, 0).r;
             float3 Sm = ReconstructViewPos(uv - offset, dm, InvProj);
             float3 Dm = Sm - P;
-            float lenM = length(Dm);
+            float lenM = max(length(Dm), 1e-4f);
             float falloffM = saturate((FalloffEnd - lenM) / (FalloffEnd - FalloffStart));
             cosH2 = max(cosH2, dot(Dm / lenM, V) * falloffM);
         }

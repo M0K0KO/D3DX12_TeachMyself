@@ -13,5 +13,5 @@ namespace SceneFactory
 	Entity CreateDirLight(EntityScene&, const std::string& name = "Directional Light", Entity parent = INVALID_ENTITY);
 	Entity CreatePointLight(EntityScene&, const std::string& name = "Point Light", Entity parent = INVALID_ENTITY);
 
-	Entity LoadGLTFToScene(EntityScene& ecsScene, GraphicsDevice& device, const std::filesystem::path& path, Entity parent = INVALID_ENTITY);
+	bool LoadGLTFToScene(EntityScene& ecsScene, GraphicsDevice& device, const std::filesystem::path& path, Entity parent = INVALID_ENTITY);
 };

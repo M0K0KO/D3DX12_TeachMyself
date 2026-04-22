@@ -248,8 +248,9 @@ float4 main(PSInput input) : SV_TARGET
     float4 albedoAO = gAlbedoAO.Sample(gSamplerPoint, uv);
     float3 albedo = albedoAO.rgb;
     //float ssao = gSSAOTex.Sample(gSamplerLinear, uv).r;
-    float gtao = gGTAOTex.Sample(gSamplerLinear, uv).r;
-    float ao = albedoAO.a * gtao;
+    float gtao = saturate(gGTAOTex.Sample(gSamplerLinear, uv).r);
+    float gtaoVisibility = lerp(1.0f, gtao, 0.85f);
+    float ao = albedoAO.a * gtaoVisibility;
     //float ao = albedoAO.a;
 
     float3 normalRGB = gNormalMap.Sample(gSamplerPoint, uv).rgb;
@@ -354,7 +355,7 @@ float4 main(PSInput input) : SV_TARGET
     float3 specularIBL = prefilteredColor * (F0 * envBRDF.x + envBRDF.y);
 
     // --- Final ---
-    float3 ambient = (diffuseIBL + specularIBL) * ao;
+    float3 ambient = diffuseIBL * ao + specularIBL;
     float3 color = ambient + totalLighting;
 
     return float4(color, 1.0);

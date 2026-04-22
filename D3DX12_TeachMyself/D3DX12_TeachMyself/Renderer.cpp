@@ -273,9 +273,10 @@ void Renderer::CreateCubeMap(GraphicsDevice* device)
 
 	AssetLoader loader;
 	int w, h, ch;
-	float* hdrData = loader.LoadHDR("../citrus_orchard_puresky_4k.hdr", w, h, ch, 4);
-	//float* hdrData = loader.LoadHDR("../venice_sunset_4k.hdr", w, h, ch, 4);
+	//float* hdrData = loader.LoadHDR("../citrus_orchard_puresky_4k.hdr", w, h, ch, 4);
+	float* hdrData = loader.LoadHDR("../venice_sunset_4k.hdr", w, h, ch, 4);
 	//float* hdrData = loader.LoadHDR("../qwantani_dusk_2_puresky_4k.hdr", w, h, ch, 4);
+	//float* hdrData = loader.LoadHDR("../qwantani_night_4k.hdr", w, h, ch, 4);
 
 	TextureDesc equirectDesc = {};
 	equirectDesc.width = w;
@@ -330,8 +331,8 @@ void Renderer::CreateIrradianceMap(GraphicsDevice* device)
 
 	CubemapTextureDesc irradianceCubeMapDesc = {};
 	irradianceCubeMapDesc.width = 32;
-	irradianceCubeMapDesc.usage = TextureUsage::UnorderedAccess;
 	irradianceCubeMapDesc.height = 32;
+	irradianceCubeMapDesc.usage = TextureUsage::UnorderedAccess;
 	irradianceCubeMapDesc.format = Format::R16G16B16A16_FLOAT;
 	m_irradianceMapTexture = device->CreateCubemapTexture(irradianceCubeMapDesc);
 
@@ -614,16 +615,16 @@ FrameContext Renderer::BuildFrameContext(GraphicsDevice* device, CommandContext&
 	RGResourceDesc depthTextrueDesc = { m_viewportWidth, m_viewportHeight, Format::R32_TYPELESS, TextureUsage::DepthStencil };
 	RGResourceHandle depthTexture = graph.ImportTexture(m_depthTexture, depthTextrueDesc, RGResourceState::DepthWrite);
 
-	RGResourceDesc cubeMapDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
+	RGResourceDesc cubeMapDesc = { 4096, 4096, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
 	RGResourceHandle cubeMap = graph.ImportTexture(m_cubemapTexture, cubeMapDesc, RGResourceState::ShaderResource);
 
-	RGResourceDesc irradiacneMapDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
+	RGResourceDesc irradiacneMapDesc = { 32, 32, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
 	RGResourceHandle irradiacneMap = graph.ImportTexture(m_irradianceMapTexture, irradiacneMapDesc, RGResourceState::ShaderResource);
 
-	RGResourceDesc prefilteredEnvMapDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
+	RGResourceDesc prefilteredEnvMapDesc = { 512, 512, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
 	RGResourceHandle prefilteredEnvMap = graph.ImportTexture(m_prefilteredEnvMapTexture, prefilteredEnvMapDesc, RGResourceState::ShaderResource);
 
-	RGResourceDesc brdfLUTDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
+	RGResourceDesc brdfLUTDesc = { 512, 512, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
 	RGResourceHandle brdfLUT = graph.ImportTexture(m_brdfLUTTexture, brdfLUTDesc, RGResourceState::ShaderResource);
 
 	RGResourceDesc shadowMapDesc = { 4096, 4096, Format::R32_TYPELESS, TextureUsage::DepthStencil };
@@ -749,13 +750,13 @@ FrameContext Renderer::BuildFrameContext(GraphicsDevice* device, CommandContext&
 
 	GTAOCB gtaoCB;
 	XMStoreFloat4x4(&gtaoCB.View, XMMatrixTranspose(XMLoadFloat4x4(&frameData.ViewMatrix)));
-	XMStoreFloat4x4(&gtaoCB.InvProj, XMMatrixInverse(nullptr, XMMatrixTranspose(XMLoadFloat4x4(&frameData.ProjMatrix))));
+	XMStoreFloat4x4(&gtaoCB.InvProj, XMMatrixTranspose(XMMatrixInverse(nullptr, XMLoadFloat4x4(&frameData.ProjMatrix))));
 	XMStoreFloat2(&gtaoCB.InvRes, { 1.0f / m_viewportWidth, 1.0f / m_viewportHeight });
-	gtaoCB.Radius = 0.05f;
-	gtaoCB.FalloffStart = gtaoCB.Radius * 0.75f;
+	gtaoCB.Radius = 0.6f;
+	gtaoCB.FalloffStart = gtaoCB.Radius * 0.35f;
 	gtaoCB.FalloffEnd = gtaoCB.Radius;
-	gtaoCB.NumSlices = 2;
-	gtaoCB.NumSteps = 6;
+	gtaoCB.NumSlices = 6;
+	gtaoCB.NumSteps = 8;
 	gtaoCB.FrameIndex = 0;
 
 

@@ -625,14 +625,31 @@ void EditorSystem::ManipulateSelectedEntity(EntityScene& scene)
 
 void EditorSystem::HandleFileOpen(EntityScene& scene, std::filesystem::path path)
 {
-	if (MokoPath::IsLoadableGLTF(path))
+	if (!MokoPath::IsLoadableGLTF(path))
 	{
-		MOKOLOG_INFO("Loading Model from [{}]", path.string());
-		SceneFactory::LoadGLTFToScene(scene, *m_device, path);
+		MOKOLOG_ERROR("Unsupported file type: {}", path.extension().string());
+		return;
 	}
-	else
+
+	MOKOLOG_INFO("Loading Model from [{}]", path.string());
+
+	try
 	{
-		auto ext = path.extension().string();
-		MOKOLOG_ERROR("Unsupported file type : {}", ext);
+		const bool ok = SceneFactory::LoadGLTFToScene(scene, *m_device, path);
+		if (!ok)
+		{
+			MOKOLOG_ERROR("Failed to load model: {}", path.string());
+			return;
+		}
+
+		MOKOLOG_INFO("Model loaded successfully: {}", path.string());
+	}
+	catch (const std::exception& e)
+	{
+		MOKOLOG_ERROR("Exception while loading model [{}]: {}", path.string(), e.what());
+	}
+	catch (...)
+	{
+		MOKOLOG_ERROR("Unknown exception while loading model [{}]", path.string());
 	}
 }

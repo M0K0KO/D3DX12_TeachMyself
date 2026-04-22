@@ -6,6 +6,7 @@
 #include "DirectionalLightComponent.h"
 #include "PointLightComponent.h"
 #include "BuiltinAssets.h"
+#include "MokoPath.h"
 
 
 namespace SceneFactory
@@ -105,120 +106,349 @@ namespace SceneFactory
 		return e;
 	}
 
-	Entity LoadGLTFToScene(EntityScene& ecsScene, GraphicsDevice& device, const std::filesystem::path& path, Entity parent)
-	{
-		AssetLoader loader;
-		auto loadedScene = loader.LoadGLTF(path.string());
+    bool LoadGLTFToScene(EntityScene& ecsScene, GraphicsDevice& device, const std::filesystem::path& path, Entity parent)
+    {
+        std::vector<Entity> createdEntities;
+        createdEntities.reserve(256);
 
-		BufferDesc vbDesc = {
-			static_cast<uint32_t>(loadedScene.vertices.size() * sizeof(Mesh::Vertex)),
-			sizeof(Mesh::Vertex),
-			BufferUsage::Vertex, MemoryAccess::CpuWrite };
-		auto vb = device.CreateBuffer(vbDesc, loadedScene.vertices.data());
+        auto rollback = [&]() {
+            for (auto it = createdEntities.rbegin(); it != createdEntities.rend(); ++it)
+            {
+                const Entity e = *it;
+                if (e != INVALID_ENTITY)
+                {
+                    ecsScene.DestroyEntity(e);
+                }
+            }
+            };
 
-		BufferDesc ibDesc = {
-			static_cast<uint32_t>(loadedScene.indices.size() * sizeof(uint32_t)),
-			sizeof(uint32_t),
-			BufferUsage::Index, MemoryAccess::CpuWrite };
-		auto ib = device.CreateBuffer(ibDesc, loadedScene.indices.data());
+        try
+        {
+            AssetLoader loader;
+            auto loadedScene = loader.LoadGLTF(path.string());
 
-		std::vector<TextureHandle> gpuTextures;
+            if (loadedScene.nodes.empty() && loadedScene.subMeshes.empty())
+            {
+                MOKOLOG_WARN("GLTF [{}] contains no nodes and no submeshes.", path.string());
+                return false;
+            }
 
-		device.BeginTextureUpload();
-		for (auto& tex : loadedScene.textures)
-		{
-			gpuTextures.push_back(device.LoadTexture(tex.path));
-		}
-		device.FlushTextureUploads();
+            if (loadedScene.vertices.empty())
+            {
+                MOKOLOG_ERROR("GLTF [{}] has no vertices.", path.string());
+                return false;
+            }
 
+            if (loadedScene.indices.empty())
+            {
+                MOKOLOG_ERROR("GLTF [{}] has no indices.", path.string());
+                return false;
+            }
 
-		TextureHandle defaultWhite = BuiltinAssets::GetDefaultWhite();
-		TextureHandle defaultNormal = BuiltinAssets::GetDefaultNormal();
-		TextureHandle defaultMR = BuiltinAssets::GetDefaultMR();
+            BufferDesc vbDesc = {
+                static_cast<uint32_t>(loadedScene.vertices.size() * sizeof(Mesh::Vertex)),
+                sizeof(Mesh::Vertex),
+                BufferUsage::Vertex,
+                MemoryAccess::CpuWrite
+            };
 
-		Entity gltfRoot =
-			parent == INVALID_ENTITY ?
-			ecsScene.GetRoot() : parent;
+            auto vb = device.CreateBuffer(vbDesc, loadedScene.vertices.data());
+            if (!vb.IsValid())
+            {
+                MOKOLOG_ERROR("Failed to create vertex buffer for [{}].", path.string());
+                return false;
+            }
 
-		std::vector<Entity> nodeEntities(loadedScene.nodes.size(), INVALID_ENTITY);
-		for (size_t i = 0; i < loadedScene.nodes.size(); ++i)
-		{
-			const auto& node = loadedScene.nodes[i];
-			Entity e = ecsScene.CreateSceneEntity(node.name);
-			nodeEntities[i] = e;
+            BufferDesc ibDesc = {
+                static_cast<uint32_t>(loadedScene.indices.size() * sizeof(uint32_t)),
+                sizeof(uint32_t),
+                BufferUsage::Index,
+                MemoryAccess::CpuWrite
+            };
 
-			auto& t = ecsScene.GetRegistry().Get<TransformComponent>(e);
-			t.position = node.translation;
-			t.rotation = node.rotation;
-			t.scale = node.scale;
-			t.dirty = true;
-		}
+            auto ib = device.CreateBuffer(ibDesc, loadedScene.indices.data());
+            if (!ib.IsValid())
+            {
+                MOKOLOG_ERROR("Failed to create index buffer for [{}].", path.string());
+                return false;
+            }
 
-		for (size_t i = 0; i < loadedScene.nodes.size(); ++i)
-		{
-			const auto& node = loadedScene.nodes[i];
-			Entity child = nodeEntities[i];
-			if (child == INVALID_ENTITY) continue;
+            std::vector<TextureHandle> gpuTextures;
+            gpuTextures.reserve(loadedScene.textures.size());
 
-			if (node.parentIndex < 0)
-			{
-				ecsScene.SetParent(child, gltfRoot);
-			}
-			else
-			{
-				Entity parent = nodeEntities[node.parentIndex];
-				if (parent != INVALID_ENTITY)
-					ecsScene.SetParent(child, parent);
-			}
-		}
+            TextureHandle defaultWhite = BuiltinAssets::GetDefaultWhite();
+            TextureHandle defaultNormal = BuiltinAssets::GetDefaultNormal();
+            TextureHandle defaultMR = BuiltinAssets::GetDefaultMR();
 
-		for (const auto& subMesh : loadedScene.subMeshes)
-		{
-			Entity e = ecsScene.CreateSceneEntity(subMesh.name);
-			if (subMesh.nodeIndex >= 0 && subMesh.nodeIndex < static_cast<int>(nodeEntities.size()))
-			{
-				Entity parentEntity = nodeEntities[subMesh.nodeIndex];
-				if (parentEntity != INVALID_ENTITY)
-				{
-					ecsScene.SetParent(e, parentEntity);
-				}
-			}
+            device.BeginTextureUpload();
+            try
+            {
+                for (size_t i = 0; i < loadedScene.textures.size(); ++i)
+                {
+                    const auto& tex = loadedScene.textures[i];
 
-			auto& t = ecsScene.GetRegistry().Get<TransformComponent>(e);
-			t.dirty = true;
+                    TextureHandle handle{};
+                    try
+                    {
+                        handle = device.LoadTexture(tex.path);
+                        if (!handle.IsValid())
+                        {
+                            MOKOLOG_WARN("Texture load failed [{}] in scene [{}]. Fallback will be used.", MokoPath::ToString(tex.path), path.string());
+                        }
+                    }
+                    catch (const std::exception& e)
+                    {
+                        MOKOLOG_WARN("Exception while loading texture [{}] in scene [{}]: {}", MokoPath::ToString(tex.path), path.string(), e.what());
+                    }
+                    catch (...)
+                    {
+                        MOKOLOG_WARN("Unknown exception while loading texture [{}] in scene [{}].", MokoPath::ToString(tex.path), path.string());
+                    }
 
-			auto& mr = ecsScene.GetRegistry().Add<MeshRendererComponent>(e);
-			mr.vertexBuffer = vb;
-			mr.indexBuffer = ib;
-			mr.indexOffset = subMesh.indexOffset;
-			mr.indexCount = subMesh.indexCount;
+                    gpuTextures.push_back(handle);
+                }
+            }
+            catch (...)
+            {
+                device.FlushTextureUploads();
+                throw;
+            }
+            device.FlushTextureUploads();
 
-			auto& mat = loadedScene.materials[subMesh.materialIndex];
-			mr.material.baseColor = (mat.baseColorTexture >= 0) ? gpuTextures[mat.baseColorTexture] : defaultWhite;
-			mr.material.normal = (mat.normalTexture >= 0) ? gpuTextures[mat.normalTexture] : defaultNormal;
-			mr.material.metallicRoughness = (mat.metallicRoughnessTexture >= 0) ? gpuTextures[mat.metallicRoughnessTexture] : defaultMR;
-			mr.material.alphaMode = mat.alphaMode;
-			mr.material.alphaCutoff = mat.alphaCutoff;
-			mr.material.metallicFactor = mat.metallicFactor;
-			mr.material.roughnessFactor = mat.roughnessFactor;
-			mr.visible = true;
+            const Entity gltfRoot = (parent == INVALID_ENTITY) ? ecsScene.GetRoot() : parent;
 
-			mr.aabbMin = subMesh.aabbMin;
-			mr.aabbMax = subMesh.aabbMax;
-		}
-		XMFLOAT3 scaledMin = {
-			loadedScene.sceneAABBMin.x,
-			loadedScene.sceneAABBMin.y,
-			loadedScene.sceneAABBMin.z
-		};
-		XMFLOAT3 scaledMax = {
-			loadedScene.sceneAABBMax.x,
-			loadedScene.sceneAABBMax.y,
-			loadedScene.sceneAABBMax.z
-		};
-		ecsScene.SetSceneAABB(scaledMin, scaledMax);
+            std::vector<Entity> nodeEntities(loadedScene.nodes.size(), INVALID_ENTITY);
 
-		MOKOLOG_INFO("Model {} has loaded Successfully", path.filename().string());
-		return gltfRoot;
-	}
+            for (size_t i = 0; i < loadedScene.nodes.size(); ++i)
+            {
+                const auto& node = loadedScene.nodes[i];
+
+                Entity e = ecsScene.CreateSceneEntity(node.name.empty() ? "GLTF_Node" : node.name);
+                if (e == INVALID_ENTITY)
+                {
+                    MOKOLOG_ERROR("Failed to create entity for node {} in [{}].", i, path.string());
+                    rollback();
+                    return false;
+                }
+
+                createdEntities.push_back(e);
+                nodeEntities[i] = e;
+
+                auto& t = ecsScene.GetRegistry().Get<TransformComponent>(e);
+                t.position = node.translation;
+                t.rotation = node.rotation;
+                t.scale = node.scale;
+                t.dirty = true;
+            }
+
+            for (size_t i = 0; i < loadedScene.nodes.size(); ++i)
+            {
+                const auto& node = loadedScene.nodes[i];
+                const Entity child = nodeEntities[i];
+                if (child == INVALID_ENTITY)
+                    continue;
+
+                if (node.parentIndex < 0)
+                {
+                    ecsScene.SetParent(child, gltfRoot);
+                }
+                else
+                {
+                    if (node.parentIndex >= static_cast<int>(nodeEntities.size()))
+                    {
+                        MOKOLOG_ERROR(
+                            "Invalid parent index {} for node {} in [{}].",
+                            node.parentIndex,
+                            i,
+                            path.string()
+                        );
+                        rollback();
+                        return false;
+                    }
+
+                    Entity parentEntity = nodeEntities[node.parentIndex];
+                    if (parentEntity == INVALID_ENTITY)
+                    {
+                        MOKOLOG_ERROR(
+                            "Parent entity is invalid for node {} in [{}].",
+                            i,
+                            path.string()
+                        );
+                        rollback();
+                        return false;
+                    }
+
+                    ecsScene.SetParent(child, parentEntity);
+                }
+            }
+
+            for (size_t i = 0; i < loadedScene.subMeshes.size(); ++i)
+            {
+                const auto& subMesh = loadedScene.subMeshes[i];
+
+                if (subMesh.indexCount <= 0)
+                {
+                    MOKOLOG_WARN("Skipping submesh [{}] with zero indexCount in [{}].", subMesh.name, path.string());
+                    continue;
+                }
+
+                if (subMesh.indexOffset + subMesh.indexCount > loadedScene.indices.size())
+                {
+                    MOKOLOG_ERROR(
+                        "Submesh [{}] has invalid index range (offset={}, count={}) in [{}].",
+                        subMesh.name,
+                        subMesh.indexOffset,
+                        subMesh.indexCount,
+                        path.string()
+                    );
+                    rollback();
+                    return false;
+                }
+
+                Entity e = ecsScene.CreateSceneEntity(subMesh.name.empty() ? "GLTF_SubMesh" : subMesh.name);
+                if (e == INVALID_ENTITY)
+                {
+                    MOKOLOG_ERROR("Failed to create submesh entity [{}] in [{}].", subMesh.name, path.string());
+                    rollback();
+                    return false;
+                }
+
+                createdEntities.push_back(e);
+
+                if (subMesh.nodeIndex >= 0)
+                {
+                    if (subMesh.nodeIndex >= static_cast<int>(nodeEntities.size()))
+                    {
+                        MOKOLOG_ERROR(
+                            "Submesh [{}] has invalid nodeIndex {} in [{}].",
+                            subMesh.name,
+                            subMesh.nodeIndex,
+                            path.string()
+                        );
+                        rollback();
+                        return false;
+                    }
+
+                    Entity parentEntity = nodeEntities[subMesh.nodeIndex];
+                    if (parentEntity == INVALID_ENTITY)
+                    {
+                        MOKOLOG_ERROR(
+                            "Submesh [{}] references invalid parent node entity in [{}].",
+                            subMesh.name,
+                            path.string()
+                        );
+                        rollback();
+                        return false;
+                    }
+
+                    ecsScene.SetParent(e, parentEntity);
+                }
+                else
+                {
+                    ecsScene.SetParent(e, gltfRoot);
+                }
+
+                auto& t = ecsScene.GetRegistry().Get<TransformComponent>(e);
+                t.dirty = true;
+
+                auto& mr = ecsScene.GetRegistry().Add<MeshRendererComponent>(e);
+                mr.vertexBuffer = vb;
+                mr.indexBuffer = ib;
+                mr.indexOffset = subMesh.indexOffset;
+                mr.indexCount = subMesh.indexCount;
+                mr.visible = true;
+                mr.aabbMin = subMesh.aabbMin;
+                mr.aabbMax = subMesh.aabbMax;
+
+                if (subMesh.materialIndex < 0 || subMesh.materialIndex >= static_cast<int>(loadedScene.materials.size()))
+                {
+                    MOKOLOG_WARN(
+                        "Submesh [{}] has invalid material index {} in [{}]. Using default material.",
+                        subMesh.name,
+                        subMesh.materialIndex,
+                        path.string()
+                    );
+
+                    mr.material.baseColor = defaultWhite;
+                    mr.material.normal = defaultNormal;
+                    mr.material.metallicRoughness = defaultMR;
+                    mr.material.alphaMode = AlphaMode::Opaque;
+                    mr.material.alphaCutoff = 0.5f;
+                    mr.material.metallicFactor = 1.0f;
+                    mr.material.roughnessFactor = 1.0f;
+                    continue;
+                }
+
+                const auto& mat = loadedScene.materials[subMesh.materialIndex];
+
+                auto resolveTextureOrDefault = [&](int texIndex, TextureHandle fallback, const char* slotName) -> TextureHandle {
+                    if (texIndex < 0)
+                        return fallback;
+
+                    if (texIndex >= static_cast<int>(gpuTextures.size()))
+                    {
+                        MOKOLOG_WARN(
+                            "Material texture index out of range for submesh [{}], slot [{}], texIndex={} in [{}]. Using fallback.",
+                            subMesh.name,
+                            slotName,
+                            texIndex,
+                            path.string()
+                        );
+                        return fallback;
+                    }
+
+                    if (!gpuTextures[texIndex].IsValid())
+                    {
+                        MOKOLOG_WARN(
+                            "Material texture invalid for submesh [{}], slot [{}], texIndex={} in [{}]. Using fallback.",
+                            subMesh.name,
+                            slotName,
+                            texIndex,
+                            path.string()
+                        );
+                        return fallback;
+                    }
+
+                    return gpuTextures[texIndex];
+                    };
+
+                mr.material.baseColor = resolveTextureOrDefault(mat.baseColorTexture, defaultWhite, "BaseColor");
+                mr.material.normal = resolveTextureOrDefault(mat.normalTexture, defaultNormal, "Normal");
+                mr.material.metallicRoughness = resolveTextureOrDefault(mat.metallicRoughnessTexture, defaultMR, "MetallicRoughness");
+                mr.material.alphaMode = mat.alphaMode;
+                mr.material.alphaCutoff = mat.alphaCutoff;
+                mr.material.metallicFactor = mat.metallicFactor;
+                mr.material.roughnessFactor = mat.roughnessFactor;
+            }
+
+            XMFLOAT3 scaledMin = {
+                loadedScene.sceneAABBMin.x,
+                loadedScene.sceneAABBMin.y,
+                loadedScene.sceneAABBMin.z
+            };
+
+            XMFLOAT3 scaledMax = {
+                loadedScene.sceneAABBMax.x,
+                loadedScene.sceneAABBMax.y,
+                loadedScene.sceneAABBMax.z
+            };
+
+            ecsScene.SetSceneAABB(scaledMin, scaledMax);
+
+            MOKOLOG_INFO("Model [{}] loaded successfully.", path.filename().string());
+            return true;
+        }
+        catch (const std::exception& e)
+        {
+            rollback();
+            MOKOLOG_ERROR("Failed to load GLTF [{}]: {}", path.string(), e.what());
+            return false;
+        }
+        catch (...)
+        {
+            rollback();
+            MOKOLOG_ERROR("Failed to load GLTF [{}]: unknown exception", path.string());
+            return false;
+        }
+    }
 }
