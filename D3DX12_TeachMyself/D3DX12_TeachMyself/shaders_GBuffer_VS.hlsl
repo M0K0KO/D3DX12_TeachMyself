@@ -31,6 +31,12 @@ struct VSOutput
     float4 worldTangent : TEXCOORD2;
 };
 
+float3 SafeNormalize(float3 v, float3 fallback)
+{
+    float lenSq = dot(v, v);
+    return (lenSq > 1e-8f) ? (v * rsqrt(lenSq)) : fallback;
+}
+
 VSOutput main(VSInput input)
 {
     VSOutput output;
@@ -39,10 +45,10 @@ VSOutput main(VSInput input)
     output.position = mul(worldPos, ViewProj);
     output.uv = input.uv;
     
-    output.worldNormal = normalize(mul(input.normal, (float3x3) World));
+    output.worldNormal = SafeNormalize(mul(input.normal, (float3x3) World), float3(0.0f, 1.0f, 0.0f));
 
     output.worldTangent = float4(
-    normalize(mul(input.tangent.xyz, (float3x3) World)),
+    mul(input.tangent.xyz, (float3x3) World),
     input.tangent.w
 );
     

@@ -47,20 +47,28 @@ namespace SceneFactory
                 return srcChannel[0];
                 };
 
-            for (size_t i = 0; i < pixelCount; ++i)
+            for (int y = 0; y < tex.height; y++)
             {
-                const uint8_t* src = tex.data.data() + (i * srcStride);
-                const size_t dstBase = i * dstChannels;
+                const int srcY = (tex.height - 1) - y;
 
-                const uint8_t r = readAsUNorm8(src + (0 * tex.bytesPerChannel));
-                const uint8_t g = (tex.channels >= 2) ? readAsUNorm8(src + (1 * tex.bytesPerChannel)) : r;
-                const uint8_t b = (tex.channels >= 3) ? readAsUNorm8(src + (2 * tex.bytesPerChannel)) : r;
-                const uint8_t a = (tex.channels >= 4) ? readAsUNorm8(src + (3 * tex.bytesPerChannel)) : 255;
+                for (int x = 0; x < tex.width; ++x)
+                {
+                    const size_t srcIndex = static_cast<size_t>(srcY) * static_cast<size_t>(tex.width) + static_cast<size_t>(x);
+                    const uint8_t* src = tex.data.data() + (srcIndex * srcStride);
 
-                rgba[dstBase + 0] = r;
-                rgba[dstBase + 1] = g;
-                rgba[dstBase + 2] = b;
-                rgba[dstBase + 3] = a;
+                    const size_t dstIndex = static_cast<size_t>(y) * static_cast<size_t>(tex.width) + static_cast<size_t>(x);
+                    const size_t dstBase = dstIndex * dstChannels;
+
+                    const uint8_t r = readAsUNorm8(src + (0 * tex.bytesPerChannel));
+                    const uint8_t g = (tex.channels >= 2) ? readAsUNorm8(src + (1 * tex.bytesPerChannel)) : r;
+                    const uint8_t b = (tex.channels >= 3) ? readAsUNorm8(src + (2 * tex.bytesPerChannel)) : r;
+                    const uint8_t a = (tex.channels >= 4) ? readAsUNorm8(src + (3 * tex.bytesPerChannel)) : 255;
+
+                    rgba[dstBase + 0] = r;
+                    rgba[dstBase + 1] = g;
+                    rgba[dstBase + 2] = b;
+                    rgba[dstBase + 3] = a;
+                }
             }
 
             TextureDesc desc = {
