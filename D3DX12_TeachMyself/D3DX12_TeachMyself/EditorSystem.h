@@ -33,10 +33,14 @@ private:
 
 	void DrawHierarchy(EntityScene& scene);
 	void DrawHierarchyNode(EntityScene& scene, Entity e);
+	bool DrawHierarchyNodeFiltered(EntityScene& scene, Entity e, const std::string& filterLower);
 	void DrawEntityContextMenu(EntityScene& scene, Entity e);
 	void DrawCreateMenu(EntityScene& scene, Entity parent);
 
 	void DrawInspector(EntityScene& scene);
+	void DrawAddComponentMenu(Registry& registry, Entity e);
+	void DrawRemoveComponentMenu(Registry& registry, Entity e);
+	void DrawViewportStatusBar();
 
 	template<typename T, typename F>
 	void DrawComponent(const char* name, Registry& registry, Entity e, F&& func)
@@ -98,6 +102,10 @@ private:
 	ImGuizmo::MODE      m_gizmoMode = ImGuizmo::WORLD;
 
 	std::vector<Entity> m_pendingDestroy;
+	char m_hierarchySearch[128] = {};
+	char m_contentSearch[128] = {};
+	bool m_contentOnlyGLTF = false;
+	bool m_viewportStatusBarFolded = false;
 };
 
 

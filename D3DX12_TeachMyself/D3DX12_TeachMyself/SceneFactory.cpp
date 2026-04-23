@@ -82,7 +82,6 @@ namespace SceneFactory
         }
     }
 
-
 	Entity CreateEmpty(EntityScene& scene, const std::string& name, Entity parent)
 	{
 		Entity e = scene.CreateSceneEntity(name);

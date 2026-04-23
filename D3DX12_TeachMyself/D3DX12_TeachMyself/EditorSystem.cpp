@@ -15,6 +15,7 @@
 #include "MokoAssert.h"
 #include "MokoPath.h"
 #include "SceneFactory.h"
+#include "MokoTime.h"
 
 using namespace MokoImGui;
 
@@ -31,6 +32,13 @@ static bool IsValidReparent(EntityScene& scene, Entity dragged, Entity newParent
 		cur = registry.Get<HierarchyComponent>(cur).parent;
 	}
 	return true;
+}
+
+static std::string ToLower(std::string value)
+{
+	for (char& ch : value)
+		ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+	return value;
 }
 
 EditorSystem::EditorSystem(GraphicsDevice_DX12* device, Renderer* renderer, HWND hwnd, MokoJob::JobSystem* jobSystem, ConsoleSystem* consoleSystem)
@@ -189,6 +197,33 @@ void EditorSystem::DrawViewportPanel(EntityScene& scene)
 			if (ImGui::IsKeyPressed(ImGuiKey_E)) m_gizmoOp = ImGuizmo::ROTATE;
 			if (ImGui::IsKeyPressed(ImGuiKey_R)) m_gizmoOp = ImGuizmo::SCALE;
 
+			if (m_state.selected != INVALID_ENTITY && ImGui::IsKeyPressed(ImGuiKey_F))
+			{
+				auto& reg = scene.GetRegistry();
+				if (reg.Has<TransformComponent>(m_state.selected))
+				{
+					Entity camEntity = scene.GetMainCamera();
+					if (camEntity != INVALID_ENTITY && reg.Has<TransformComponent>(camEntity) && reg.Has<CameraComponent>(camEntity))
+					{
+						auto& targetTf = reg.Get<TransformComponent>(m_state.selected);
+						auto& cam = reg.Get<CameraComponent>(camEntity);
+
+						const float focusDistance = 5.0f;
+						XMVECTOR forward = XMVectorSet(
+							cosf(cam.pitch) * sinf(cam.yaw),
+							sinf(cam.pitch),
+							cosf(cam.pitch) * cosf(cam.yaw),
+							0.0f);
+						XMVECTOR target = XMLoadFloat3(&targetTf.position);
+						XMVECTOR newPos = target - XMVectorScale(forward, focusDistance);
+						XMFLOAT3 pos;
+						XMStoreFloat3(&pos, newPos);
+						Transform::SetPosition(reg, camEntity, pos);
+					}
+				}
+			}
+
+
 			if (m_state.selected != INVALID_ENTITY &&
 				m_state.selected != scene.GetRoot() &&
 				ImGui::IsKeyPressed(ImGuiKey_Delete))
@@ -204,6 +239,8 @@ void EditorSystem::DrawViewportPanel(EntityScene& scene)
 
 		ImGui::EndChild();
 	}
+
+	DrawViewportStatusBar();
 
 	ImVec2 pos = ImGui::GetCursorScreenPos();
 	ImVec2 size = ImGui::GetContentRegionAvail();
@@ -233,11 +270,18 @@ void EditorSystem::DrawViewportPanel(EntityScene& scene)
 void EditorSystem::DrawHierarchy(EntityScene& scene)
 {
 	ImGui::Begin("Hierarchy");
+	ImGui::SetNextItemWidth(-1.0f);
+	ImGui::InputTextWithHint("##HierarchySearch", "Search entity...", m_hierarchySearch, sizeof(m_hierarchySearch));
+	ImGui::Separator();
+
+	const std::string filter = ToLower(m_hierarchySearch);
+	const bool hasFilter = !filter.empty();
 	auto& hier = scene.GetRegistry().Get<HierarchyComponent>(scene.GetRoot());
 	Entity c = hier.firstChild;
 	while (c != INVALID_ENTITY)
 	{
-		DrawHierarchyNode(scene, c);
+		if (!hasFilter) DrawHierarchyNode(scene, c);
+		else DrawHierarchyNodeFiltered(scene, c, filter);
 		c = scene.GetRegistry().Get<HierarchyComponent>(c).nextSibling;
 	}
 
@@ -351,6 +395,34 @@ void EditorSystem::DrawHierarchyNode(EntityScene& scene, Entity e)
 	}
 }
 
+bool EditorSystem::DrawHierarchyNodeFiltered(EntityScene& scene, Entity e, const std::string& filterLower)
+{
+	auto& registry = scene.GetRegistry();
+	auto hasMatchInSubtree = [&](auto&& self, Entity node) -> bool {
+		auto& nodeHier = registry.Get<HierarchyComponent>(node);
+		std::string nodeName = "Entity";
+		if (registry.Has<NameComponent>(node))
+			nodeName = registry.Get<NameComponent>(node).name;
+
+		if (ToLower(nodeName).find(filterLower) != std::string::npos)
+			return true;
+
+		Entity child = nodeHier.firstChild;
+		while (child != INVALID_ENTITY)
+		{
+			if (self(self, child)) return true;
+			child = registry.Get<HierarchyComponent>(child).nextSibling;
+		}
+		return false;
+		};
+
+	if (!hasMatchInSubtree(hasMatchInSubtree, e))
+		return false;
+
+	DrawHierarchyNode(scene, e);
+	return true;
+}
+
 void EditorSystem::DrawEntityContextMenu(EntityScene& scene, Entity e)
 {
 	if (e != scene.GetRoot())
@@ -404,6 +476,25 @@ void EditorSystem::DrawInspector(EntityScene& scene)
 	auto& registry = scene.GetRegistry();
 
 	DrawNameComponent(registry, e);
+
+	if (ImGui::Button("Add Component"))
+		ImGui::OpenPopup("AddComponentPopup");
+	ImGui::SameLine();
+	if (ImGui::Button("Remove Component"))
+		ImGui::OpenPopup("RemoveComponentPopup");
+
+	if (ImGui::BeginPopup("AddComponentPopup"))
+	{
+		DrawAddComponentMenu(registry, e);
+		ImGui::EndPopup();
+	}
+
+	if (ImGui::BeginPopup("RemoveComponentPopup"))
+	{
+		DrawRemoveComponentMenu(registry, e);
+		ImGui::EndPopup();
+	}
+
 	ImGui::Separator();
 	ImGui::Dummy(ImVec2(0, 5));
 
@@ -443,7 +534,7 @@ void EditorSystem::DrawInspector(EntityScene& scene)
 		DrawProperty("Color", [&]() { ImGui::ColorEdit3("##C", &dl.color.x); });
 		DrawProperty("Direction", [&]() {ImGui::DragFloat3("##D", &dl.direction.x, 0.001f, -1.0f, 1.0f); });
 		DrawProperty("Intensity", [&]() { ImGui::DragFloat("##I", &dl.intensity, 0.1f, 0.0f, 100.0f); });
-		DrawProperty("AmbientIntensity", [&]() {ImGui::DragFloat("##A", &dl.ambient, 0.001f, 0.0f, 0.8f); });
+		DrawProperty("AmbientIntensity", [&]() {ImGui::DragFloat("##A", &dl.ambient, 0.001f, 0.0f, 1.0f); });
 		});
 
 	// Point Light
@@ -456,13 +547,52 @@ void EditorSystem::DrawInspector(EntityScene& scene)
 
 	// Camera
 	DrawComponent<CameraComponent>("Camera", registry, e, [&](auto& cam) {
-		DrawProperty("FOV Y", [&]() { ImGui::SliderFloat("##F", &cam.fovY, 0.1f, DirectX::XM_PI); });
+		DrawProperty("FOV Y", [&]() { ImGui::SliderFloat("##F", &cam.fovY, 0.1f, DirectX::XM_PI - 0.1f); });
 		DrawProperty("Near Z", [&]() { ImGui::InputFloat("##N", &cam.nearZ); });
 		DrawProperty("Far Z", [&]() { ImGui::InputFloat("##FZ", &cam.farZ); });
 		DrawProperty("Main", [&]() { ImGui::Checkbox("##M", &cam.isMain); });
 		});
 
 	ImGui::End();
+}
+
+void EditorSystem::DrawAddComponentMenu(Registry& registry, Entity e)
+{
+	if (!registry.Has<MeshRendererComponent>(e) && ImGui::MenuItem("Mesh Renderer"))
+		registry.Add<MeshRendererComponent>(e);
+	if (!registry.Has<DirectionalLightComponent>(e) && ImGui::MenuItem("Directional Light"))
+		registry.Add<DirectionalLightComponent>(e);
+	if (!registry.Has<PointLightComponent>(e) && ImGui::MenuItem("Point Light"))
+		registry.Add<PointLightComponent>(e);
+	if (!registry.Has<CameraComponent>(e) && ImGui::MenuItem("Camera"))
+		registry.Add<CameraComponent>(e);
+}
+
+void EditorSystem::DrawRemoveComponentMenu(Registry & registry, Entity e)
+{
+	if (registry.Has<MeshRendererComponent>(e) && ImGui::MenuItem("Mesh Renderer"))
+		registry.Remove<MeshRendererComponent>(e);
+	if (registry.Has<DirectionalLightComponent>(e) && ImGui::MenuItem("Directional Light"))
+		registry.Remove<DirectionalLightComponent>(e);
+	if (registry.Has<PointLightComponent>(e) && ImGui::MenuItem("Point Light"))
+		registry.Remove<PointLightComponent>(e);
+	if (registry.Has<CameraComponent>(e) && ImGui::MenuItem("Camera"))
+		registry.Remove<CameraComponent>(e);
+}
+
+void EditorSystem::DrawViewportStatusBar()
+{
+	if (ImGui::SmallButton(m_viewportStatusBarFolded ? ">" : "v"))
+		m_viewportStatusBarFolded = !m_viewportStatusBarFolded;
+
+	if (!m_viewportStatusBarFolded)
+	{
+		const float dt = MokoTime::GetDeltaTime();
+		const float fps = dt > 0.0f ? (1.0f / dt) : 0.0f;
+		const float ms = dt * 1000.0f;
+		ImGui::SameLine();
+		ImGui::Text("FPS: %.1f  Frame: %.2f ms", fps, ms);
+	}
 }
 
 void EditorSystem::DrawNameComponent(Registry& registry, Entity e)
@@ -537,6 +667,10 @@ void EditorSystem::DrawContentBrowserPanel(EntityScene& scene)
 	{
 		DrawBreadCrumb();
 		ImGui::Separator();
+		ImGui::SetNextItemWidth(-1.0f);
+		ImGui::InputTextWithHint("##ContentSearch", "Search asset...", m_contentSearch, sizeof(m_contentSearch));
+		ImGui::Checkbox("Only .gltf/.glb", &m_contentOnlyGLTF);
+		ImGui::Separator();
 		DrawDirectoryContents(scene);
 	}
 	ImGui::End();  // 항상 호출
@@ -582,10 +716,22 @@ void EditorSystem::DrawDirectoryContents(EntityScene & scene)
 		else files.push_back(entry);
 	}
 	
+	std::sort(dirs.begin(), dirs.end(), [](const auto& a, const auto& b) {
+		return a.path().filename().string() < b.path().filename().string();
+		});
+	std::sort(files.begin(), files.end(), [](const auto& a, const auto& b) {
+		return a.path().filename().string() < b.path().filename().string();
+		});
+
+	const std::string search = ToLower(m_contentSearch);
 
 	for (const auto& e : dirs)
 	{
-		std::string label = "[D] " + e.path().filename().string();
+		std::string name = e.path().filename().string();
+		if (!search.empty() && ToLower(name).find(search) == std::string::npos)
+			continue;
+
+		std::string label = "[D] " + name;
 		ImGui::Selectable(label.c_str());
 		if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
 		{
@@ -596,8 +742,14 @@ void EditorSystem::DrawDirectoryContents(EntityScene & scene)
 
 	for (const auto& e : files)
 	{
-		std::string label = e.path().filename().string();
-		ImGui::Selectable(label.c_str());
+		std::string name = e.path().filename().string();
+		std::string lowerName = ToLower(name);
+		if (!search.empty() && lowerName.find(search) == std::string::npos)
+			continue;
+		if (m_contentOnlyGLTF && !(MokoPath::IsLoadableGLTF(e.path())))
+			continue;
+
+		ImGui::Selectable(name.c_str());
 		if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
 		{
 			HandleFileOpen(scene, e.path());
