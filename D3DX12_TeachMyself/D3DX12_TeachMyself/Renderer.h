@@ -265,10 +265,13 @@ private:
 	{
 		XMFLOAT3 Direction;
 		float padding0;
+
 		XMFLOAT3 Color;
 		float Intensity;
-		XMFLOAT3 Ambient;
+
+		float Ambient;
 		int PointLightCount;
+		float padding1[2];
 
 		PointLight PointLights[MAX_POINT_LIGHTS];
 	};

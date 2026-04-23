@@ -57,8 +57,9 @@ cbuffer LightData : register(b1)
     float3 lightColor;
     float lightIntensity;
     
-    float3 ambient;
+    float ambientIntensity;
     int PointLightCount;
+    float pad3[2];
     
     PointLight PointLights[MAX_POINT_LIGHTS];
 };
@@ -355,7 +356,7 @@ float4 main(PSInput input) : SV_TARGET
     float3 specularIBL = prefilteredColor * (F0 * envBRDF.x + envBRDF.y);
 
     // --- Final ---
-    float3 ambient = diffuseIBL * ao + specularIBL;
+    float3 ambient = (diffuseIBL * ao + specularIBL) * ambientIntensity;
     float3 color = ambient + totalLighting;
 
     return float4(color, 1.0);

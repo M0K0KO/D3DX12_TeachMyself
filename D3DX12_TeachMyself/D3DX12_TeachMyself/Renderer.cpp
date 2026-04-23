@@ -669,7 +669,7 @@ FrameContext Renderer::BuildFrameContext(GraphicsDevice* device, CommandContext&
 	light.Direction = frameData.DirectionalLightDir;
 	light.Color = frameData.DirectionalLightColor;
 	light.Intensity = frameData.DirectionalLightIntensity;
-	light.Ambient = { 0.03f, 0.03f, 0.03f };
+	light.Ambient = frameData.Ambient;
 
 	light.PointLightCount = importedPointLightCount;
 	for (int i = 0; i < importedPointLightCount; i++)

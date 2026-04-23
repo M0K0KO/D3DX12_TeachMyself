@@ -18,6 +18,21 @@
 
 using namespace MokoImGui;
 
+static bool IsValidReparent(EntityScene& scene, Entity dragged, Entity newParent)
+{
+	if (dragged == newParent) return false;
+	if (dragged == scene.GetRoot()) return false;
+
+	auto& registry = scene.GetRegistry();
+	Entity cur = newParent;
+	while (cur != INVALID_ENTITY)
+	{
+		if (cur == dragged) return false;
+		cur = registry.Get<HierarchyComponent>(cur).parent;
+	}
+	return true;
+}
+
 EditorSystem::EditorSystem(GraphicsDevice_DX12* device, Renderer* renderer, HWND hwnd, MokoJob::JobSystem* jobSystem, ConsoleSystem* consoleSystem)
 	: m_device(device), m_renderer(renderer), m_hwnd(hwnd), m_jobSystem(jobSystem), m_consoleSystem(consoleSystem)
 {
@@ -231,10 +246,39 @@ void EditorSystem::DrawHierarchy(EntityScene& scene)
 		m_state.selected = INVALID_ENTITY;
 	}
 
-	if (ImGui::BeginPopupContextWindow("##HierarchyCtx",
-		ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
+	ImGui::InvisibleButton(
+		"##hierarchy_empty",
+		ImVec2(-1.0f, std::max(10.0f, ImGui::GetContentRegionAvail().y))
+	);
+
+	const bool emptyHovered = ImGui::IsItemHovered();
+
+	if (ImGui::BeginDragDropTarget())
 	{
-		DrawCreateMenu(scene, INVALID_ENTITY);
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(PAYLOAD_ENTITY))
+		{
+			if (payload->DataSize == sizeof(Entity))
+			{
+				Entity dragged = *static_cast<const Entity*>(payload->Data);
+
+				if (dragged != scene.GetRoot() &&
+					IsValidReparent(scene, dragged, scene.GetRoot()))
+				{
+					scene.SetParent(dragged, scene.GetRoot());
+				}
+			}
+		}
+		ImGui::EndDragDropTarget();
+	}
+
+	if (emptyHovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right))
+	{
+		ImGui::OpenPopup("##HierarchyCtx");
+	}
+
+	if (ImGui::BeginPopup("##HierarchyCtx"))
+	{
+		DrawCreateMenu(scene, scene.GetRoot()); 
 		ImGui::EndPopup();
 	}
 
@@ -266,6 +310,34 @@ void EditorSystem::DrawHierarchyNode(EntityScene& scene, Entity e)
 
 	if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
 		m_state.selected = e;
+
+	if (ImGui::BeginDragDropSource())
+	{
+		ImGui::SetDragDropPayload(PAYLOAD_ENTITY, &e, sizeof(Entity));
+		ImGui::TextUnformatted(name);
+		ImGui::EndDragDropSource();
+	}
+
+	if (ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(PAYLOAD_ENTITY))
+		{
+			if (payload->DataSize == sizeof(Entity))
+			{
+				Entity dragged = *static_cast<const Entity*>(payload->Data);
+
+				if (IsValidReparent(scene, dragged, e))
+				{
+					scene.SetParent(dragged, e);
+				}
+				else
+				{
+					MOKOLOG_ERROR("Invalid Reparent! Aborting...");
+				}
+			}
+		}
+		ImGui::EndDragDropTarget();
+	}
 
 	if (open)
 	{
@@ -371,6 +443,7 @@ void EditorSystem::DrawInspector(EntityScene& scene)
 		DrawProperty("Color", [&]() { ImGui::ColorEdit3("##C", &dl.color.x); });
 		DrawProperty("Direction", [&]() {ImGui::DragFloat3("##D", &dl.direction.x, 0.001f, -1.0f, 1.0f); });
 		DrawProperty("Intensity", [&]() { ImGui::DragFloat("##I", &dl.intensity, 0.1f, 0.0f, 100.0f); });
+		DrawProperty("AmbientIntensity", [&]() {ImGui::DragFloat("###A", &dl.ambient, 0.001f, 0.0f, 0.8f); });
 		});
 
 	// Point Light
@@ -653,3 +726,4 @@ void EditorSystem::HandleFileOpen(EntityScene& scene, std::filesystem::path path
 		MOKOLOG_ERROR("Unknown exception while loading model [{}]", path.string());
 	}
 }
+

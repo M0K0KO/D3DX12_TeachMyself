@@ -9,6 +9,8 @@
 #include <ImGuizmo.h>
 #include <filesystem>
 
+constexpr const char* PAYLOAD_ENTITY = "MOKO_ENTITY";
+
 struct EditorState
 {
 	Entity selected = INVALID_ENTITY;
@@ -77,6 +79,7 @@ private:
 	void HandleFileOpen(EntityScene& scene, std::filesystem::path path);
 
 private:
+
 	GraphicsDevice_DX12* m_device = nullptr;
 	Renderer* m_renderer = nullptr;
 	HWND m_hwnd = nullptr;
@@ -96,7 +99,6 @@ private:
 
 	std::vector<Entity> m_pendingDestroy;
 };
-
 
 
 static DescriptorAllocator* s_srvAllocator = nullptr;
