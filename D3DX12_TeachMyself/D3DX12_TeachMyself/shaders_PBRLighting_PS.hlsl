@@ -59,7 +59,7 @@ cbuffer LightData : register(b1)
     
     float ambientIntensity;
     int PointLightCount;
-    float pad3[2];
+    float2 pad3;
     
     PointLight PointLights[MAX_POINT_LIGHTS];
 };

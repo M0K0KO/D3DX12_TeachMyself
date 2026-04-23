@@ -443,7 +443,7 @@ void EditorSystem::DrawInspector(EntityScene& scene)
 		DrawProperty("Color", [&]() { ImGui::ColorEdit3("##C", &dl.color.x); });
 		DrawProperty("Direction", [&]() {ImGui::DragFloat3("##D", &dl.direction.x, 0.001f, -1.0f, 1.0f); });
 		DrawProperty("Intensity", [&]() { ImGui::DragFloat("##I", &dl.intensity, 0.1f, 0.0f, 100.0f); });
-		DrawProperty("AmbientIntensity", [&]() {ImGui::DragFloat("###A", &dl.ambient, 0.001f, 0.0f, 0.8f); });
+		DrawProperty("AmbientIntensity", [&]() {ImGui::DragFloat("##A", &dl.ambient, 0.001f, 0.0f, 0.8f); });
 		});
 
 	// Point Light
