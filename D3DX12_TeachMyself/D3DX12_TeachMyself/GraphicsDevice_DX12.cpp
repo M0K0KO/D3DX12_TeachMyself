@@ -314,28 +314,35 @@ BufferHandle GraphicsDevice_DX12::CreateBuffer(const BufferDesc desc, const void
 	internalBuffer.desc = desc;
 
 	ComPtr<ID3D12Resource> buffer;
-	UINT8* bufferDataBegin = nullptr;
-
-	auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
 	auto resDesc = CD3DX12_RESOURCE_DESC::Buffer(desc.size);
 
-	HR_CHECK(m_device->CreateCommittedResource(
-		&heapProps,
-		D3D12_HEAP_FLAG_NONE,
-		&resDesc,
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&buffer)));
-
-	internalBuffer.resource = buffer;
-
-	if (initialData)
+	if (desc.access == MemoryAccess::GpuOnly)
 	{
-		CD3DX12_RANGE readRange(0, 0);
-		HR_CHECK(buffer->Map(0, &readRange, reinterpret_cast<void**>(&bufferDataBegin)));
-		memcpy(bufferDataBegin, initialData, desc.size);
-		buffer->Unmap(0, nullptr);
+		auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+		HR_CHECK(m_device->CreateCommittedResource(
+			&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
+			D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&buffer)));
+
+		if (initialData)
+			m_uploadQueue->UploadBuffer(buffer.Get(), 0, initialData, desc.size);
 	}
+	else
+	{
+		auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+		HR_CHECK(m_device->CreateCommittedResource(
+			&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
+			D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&buffer)));
+
+		if (initialData)
+		{
+			UINT8* dst = nullptr;
+			CD3DX12_RANGE readRange(0, 0);
+			HR_CHECK(buffer->Map(0, &readRange, reinterpret_cast<void**>(&dst)));
+			memcpy(dst, initialData, desc.size);
+			buffer->Unmap(0, nullptr);
+		}
+	}
+	internalBuffer.resource = buffer;
 
 	uint32_t id = m_buffers.size();
 	m_buffers.push_back(internalBuffer);

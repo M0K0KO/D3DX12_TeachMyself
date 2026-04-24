@@ -231,7 +231,7 @@ namespace SceneFactory
                 static_cast<uint32_t>(loadedScene.vertices.size() * sizeof(Mesh::Vertex)),
                 sizeof(Mesh::Vertex),
                 BufferUsage::Vertex,
-                MemoryAccess::CpuWrite
+                MemoryAccess::GpuOnly
             };
 
             auto vb = device.CreateBuffer(vbDesc, loadedScene.vertices.data());
@@ -245,7 +245,7 @@ namespace SceneFactory
                 static_cast<uint32_t>(loadedScene.indices.size() * sizeof(uint32_t)),
                 sizeof(uint32_t),
                 BufferUsage::Index,
-                MemoryAccess::CpuWrite
+                MemoryAccess::GpuOnly
             };
 
             auto ib = device.CreateBuffer(ibDesc, loadedScene.indices.data());

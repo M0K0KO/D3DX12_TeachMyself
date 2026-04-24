@@ -232,14 +232,14 @@ namespace
         vbDesc.size = uint32_t(sizeof(Vertex) * cpu.vertices.size());
         vbDesc.stride = sizeof(Vertex);
         vbDesc.usage = BufferUsage::Vertex;
-        vbDesc.access = MemoryAccess::CpuWrite; // UPLOAD
+        vbDesc.access = MemoryAccess::GpuOnly; 
         out.vb = device.CreateBuffer(vbDesc, cpu.vertices.data());
        
         BufferDesc ibDesc = {};
         ibDesc.size = uint32_t(sizeof(uint32_t) * cpu.indices.size());
         ibDesc.stride = sizeof(uint32_t);
         ibDesc.usage = BufferUsage::Index;
-        ibDesc.access = MemoryAccess::CpuWrite; // UPLOAD
+        ibDesc.access = MemoryAccess::GpuOnly; 
         out.ib = device.CreateBuffer(ibDesc, cpu.indices.data());
 
         return out;
