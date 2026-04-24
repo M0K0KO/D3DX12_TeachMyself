@@ -2,6 +2,7 @@
 #include "HRException.h"
 #include "MokoLogger.h"
 #include "MokoAssert.h"
+#include "d3dx12.h"
 
 UploadHeapRingAllocator::UploadHeapRingAllocator(ID3D12Device* device, ID3D12Fence* fence)
 	:
@@ -26,7 +27,6 @@ UploadHeapRingAllocator::~UploadHeapRingAllocator()
 	if (m_resource)
 		m_resource->Unmap(0, nullptr);
 }
-
 
 void UploadHeapRingAllocator::ReleaseCompleted()
 {

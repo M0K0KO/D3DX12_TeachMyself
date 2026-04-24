@@ -1,9 +1,12 @@
 #pragma once
-#include "stdafx.h"
+#include <d3dcompiler.h>
+#include <wrl.h>
 #include <string>
+#include <vector>
+#include <filesystem>
+
 #include "RHITypes.h"
 #include "HRException.h"
-#include <filesystem>
 
 using namespace Microsoft::WRL;
 

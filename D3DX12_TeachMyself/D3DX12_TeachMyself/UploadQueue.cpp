@@ -1,6 +1,9 @@
 #include "UploadQueue.h"
 #include "HRException.h"
 
+#include "d3dx12.h"
+#include "MokoAssert.h"
+
 UploadQueue::UploadQueue(ID3D12Device* device)
 	: m_device(device)
 {

@@ -1,9 +1,12 @@
 #pragma once
 
-#include "stdafx.h"
-#include "RHITypes.h"
+#include <DirectXMath.h>
+#include <vector>
+#include <string>
+#include <cfloat>
 #include <optional>
-#include "DirectXTex/DirectXTex.h"
+
+#include "RHITypes.h"
 
 using namespace DirectX;
 

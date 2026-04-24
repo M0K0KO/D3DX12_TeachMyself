@@ -1,6 +1,10 @@
 #pragma once
-#include "stdafx.h"
+#include <d3d12.h>
+#include <dxgi1_6.h>
+#include <wrl.h>
 #include <mutex>
+#include <vector>
+#include <string>
 
 using namespace Microsoft::WRL;
 

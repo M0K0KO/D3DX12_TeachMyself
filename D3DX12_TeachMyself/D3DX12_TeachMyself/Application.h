@@ -1,7 +1,6 @@
 #pragma once
 #include "stdafx.h"
 #include "Window.h"
-#include "GraphicsDevice_DX12.h"
 #include "Renderer.h"
 #include "FrameData.h"
 #include "EntityScene.h"
@@ -10,6 +9,8 @@
 #include "EditorSystem.h"
 #include "JobSystem.h"
 #include "SceneSerializer.h"
+
+class GraphicsDevice;
 
 class Application
 {

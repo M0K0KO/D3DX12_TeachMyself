@@ -1,10 +1,12 @@
 #pragma once
-#include "stdafx.h"
+#include <d3d12.h>
+#include <wrl.h>
+#include <memory>
+#include <cstdint>
+
 #include "UploadStagingRingAllocator.h"
 
 using namespace Microsoft::WRL;
-
-
 
 class UploadQueue
 {

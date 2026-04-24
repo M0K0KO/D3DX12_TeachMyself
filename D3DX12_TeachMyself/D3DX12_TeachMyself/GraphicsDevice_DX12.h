@@ -1,18 +1,23 @@
 #pragma once
-#include "stdafx.h"
+#include <d3d12.h>
+#include <dxgi1_6.h>
+#include <wrl.h>
+#include <array>
+#include <deque>
+#include <functional>
+#include <memory>
+#include <vector>
+
 #include "GraphicsDevice.h"
 #include "CommandContext_DX12.h"
-#include "UploadHeapRingAllocator.h"
-#include "TextureLoader.h"
-#include "GPUTimestampProfiler.h"
-#include <functional>
 #include "DescriptorAllocator.h"
 #include "DescriptorHandle.h"
-#include <array>
+#include "UploadHeapRingAllocator.h"
 #include "UploadQueue.h"
+#include "TextureLoader.h"
+#include "GPUTimestampProfiler.h"
 
 using namespace Microsoft::WRL;
-using namespace DirectX;
 
 static const UINT FRAMECOUNT = 3;
 

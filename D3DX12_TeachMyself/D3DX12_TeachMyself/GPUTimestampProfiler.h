@@ -1,8 +1,12 @@
 #pragma once
-#include "stdafx.h"
+#include <d3d12.h>
+#include <wrl.h>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <cstring>
+#include <cstdint>
 #include <array>
-
-#undef max
 
 enum PassID
 {

@@ -18,6 +18,7 @@
 #include "SceneFactory.h"
 #include "BuiltinAssets.h"
 #include "MokoPath.h"
+#include "GraphicsDevice_DX12.h"
 
 Application::Application()
 	:

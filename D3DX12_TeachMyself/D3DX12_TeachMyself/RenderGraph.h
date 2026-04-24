@@ -1,8 +1,11 @@
 #pragma once
-#include "stdafx.h"
-#include "RHITypes.h"
 #include <string>
+#include <vector>
+#include <unordered_map>
 #include <functional>
+#include <cstdint>
+
+#include "RHITypes.h"
 
 class GraphicsDevice;
 class CommandContext;

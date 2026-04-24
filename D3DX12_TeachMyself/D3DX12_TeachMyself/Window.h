@@ -1,9 +1,11 @@
 #pragma once
-#include "stdafx.h"
 #include <optional>
-#include "Keyboard.h"
 #include <functional>
+#include <Windows.h>
+#include <vector>
+#include <string>
 #include "Mouse.h"
+#include "Keyboard.h"
 
 class Window
 {
