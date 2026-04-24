@@ -120,7 +120,7 @@ namespace SceneFactory
 		{
 			scene.SetParent(e, parent);
 		}
-        AttachCubeMesh(scene.GetRegistry(), parent);
+        AttachCubeMesh(scene.GetRegistry(), e);
 		MOKOLOG_INFO("Created Cube");
 		return e;
 	}
@@ -154,7 +154,7 @@ namespace SceneFactory
 		{
 			scene.SetParent(e, parent);
 		}
-        AttachSphereMesh(scene.GetRegistry(), parent);
+        AttachSphereMesh(scene.GetRegistry(), e);
 		MOKOLOG_INFO("Created Sphere");
 		return e;
 	}
