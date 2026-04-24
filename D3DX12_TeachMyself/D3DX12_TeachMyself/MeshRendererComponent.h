@@ -4,6 +4,14 @@
 
 using namespace DirectX;
 
+struct MeshSource
+{
+	enum class Type { None, GLTF, Builtin };
+	Type type = Type::None;
+	std::string path;
+	int submeshIndex;
+};
+
 struct MeshRendererComponent
 {
 	// TODO
@@ -18,4 +26,6 @@ struct MeshRendererComponent
 	XMFLOAT3 aabbMin = { FLT_MAX,  FLT_MAX,  FLT_MAX };
 	XMFLOAT3 aabbMax = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
 	bool visible = true;
+
+	MeshSource source;
 };

@@ -121,6 +121,24 @@ Entity EntityScene::GetMainCamera()
 	return INVALID_ENTITY;
 }
 
+void EntityScene::Clear()
+{
+	Entity root = GetRoot();
+
+	Entity child = registry.Get<HierarchyComponent>(root).firstChild;
+	while (!(child == INVALID_ENTITY))
+	{
+		Entity next = registry.Get<HierarchyComponent>(child).nextSibling;
+		DestroyEntity(child);
+		child = next;
+	}
+
+	auto& rootHier = registry.Get<HierarchyComponent>(root);
+	rootHier.firstChild = INVALID_ENTITY;
+	rootHier.prevSibling = INVALID_ENTITY;
+	rootHier.nextSibling = INVALID_ENTITY;
+}
+
 void EntityScene::SetSceneAABB(XMFLOAT3 min, XMFLOAT3 max)
 {
 	sceneAABBMax = max;

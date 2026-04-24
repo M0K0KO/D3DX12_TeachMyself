@@ -90,6 +90,29 @@ namespace SceneFactory
 		MOKOLOG_INFO("Created Empty Entity");
 		return e;
 	}
+
+    void AttachCubeMesh(Registry& reg, Entity e)
+    {
+        auto& mr = reg.Add<MeshRendererComponent>(e);
+        const auto& cube = BuiltinAssets::GetCube();
+        mr.vertexBuffer = cube.vb;
+        mr.indexBuffer = cube.ib;
+        mr.indexOffset = cube.indexOffset;
+        mr.indexCount = cube.indexCount;
+        mr.aabbMin = cube.aabbMin;
+        mr.aabbMax = cube.aabbMax;
+
+        mr.material.baseColor = BuiltinAssets::GetDefaultWhite();
+        mr.material.normal = BuiltinAssets::GetDefaultNormal();
+        mr.material.metallicRoughness = BuiltinAssets::GetDefaultMR();
+        mr.material.metallicFactor = 0.0f;
+        mr.material.roughnessFactor = 1.0f;
+        mr.material.alphaMode = AlphaMode::Opaque;
+        mr.material.alphaCutoff = 0.5f;
+        mr.visible = true;
+
+        mr.source = { MeshSource::Type::Builtin, "Cube", 0 };
+    }
 	Entity CreateCube(EntityScene& scene, const std::string& name, Entity parent)
 	{
 		Entity e = scene.CreateSceneEntity(name);
@@ -97,28 +120,33 @@ namespace SceneFactory
 		{
 			scene.SetParent(e, parent);
 		}
-
-		auto& mr = scene.GetRegistry().Add<MeshRendererComponent>(e);
-		const auto& cube = BuiltinAssets::GetCube();
-		mr.vertexBuffer = cube.vb;
-		mr.indexBuffer = cube.ib;
-		mr.indexOffset = cube.indexOffset;
-		mr.indexCount = cube.indexCount;
-		mr.aabbMin = cube.aabbMin;
-		mr.aabbMax = cube.aabbMax;
-
-		mr.material.baseColor = BuiltinAssets::GetDefaultWhite();
-		mr.material.normal = BuiltinAssets::GetDefaultNormal();
-		mr.material.metallicRoughness = BuiltinAssets::GetDefaultMR();
-		mr.material.metallicFactor = 0.0f;
-		mr.material.roughnessFactor = 1.0f;
-		mr.material.alphaMode = AlphaMode::Opaque;
-		mr.material.alphaCutoff = 0.5f;
-		mr.visible = true;
-
+        AttachCubeMesh(scene.GetRegistry(), parent);
 		MOKOLOG_INFO("Created Cube");
 		return e;
 	}
+
+    void AttachSphereMesh(Registry& reg, Entity e)
+    {
+        auto& mr = reg.Add<MeshRendererComponent>(e);
+        const auto& sphere = BuiltinAssets::GetSphere();
+        mr.vertexBuffer = sphere.vb;
+        mr.indexBuffer = sphere.ib;
+        mr.indexOffset = sphere.indexOffset;
+        mr.indexCount = sphere.indexCount;
+        mr.aabbMin = sphere.aabbMin;
+        mr.aabbMax = sphere.aabbMax;
+
+        mr.material.baseColor = BuiltinAssets::GetDefaultWhite();
+        mr.material.normal = BuiltinAssets::GetDefaultNormal();
+        mr.material.metallicRoughness = BuiltinAssets::GetDefaultMR();
+        mr.material.metallicFactor = 0.0f;
+        mr.material.roughnessFactor = 1.0f;
+        mr.material.alphaMode = AlphaMode::Opaque;
+        mr.material.alphaCutoff = 0.5f;
+        mr.visible = true;
+
+        mr.source = { MeshSource::Type::Builtin, "Sphere", 0 };
+    }
 	Entity CreateSphere(EntityScene& scene, const std::string& name, Entity parent)
 	{
 		Entity e = scene.CreateSceneEntity(name);
@@ -126,28 +154,11 @@ namespace SceneFactory
 		{
 			scene.SetParent(e, parent);
 		}
-
-		auto& mr = scene.GetRegistry().Add<MeshRendererComponent>(e);
-		const auto& sphere = BuiltinAssets::GetSphere();
-		mr.vertexBuffer = sphere.vb;
-		mr.indexBuffer = sphere.ib;
-		mr.indexOffset = sphere.indexOffset;
-		mr.indexCount = sphere.indexCount;
-		mr.aabbMin = sphere.aabbMin;
-		mr.aabbMax = sphere.aabbMax;
-
-		mr.material.baseColor = BuiltinAssets::GetDefaultWhite();
-		mr.material.normal = BuiltinAssets::GetDefaultNormal();
-		mr.material.metallicRoughness = BuiltinAssets::GetDefaultMR();
-		mr.material.metallicFactor = 0.0f;
-		mr.material.roughnessFactor = 1.0f;
-		mr.material.alphaMode = AlphaMode::Opaque;  
-		mr.material.alphaCutoff = 0.5f;
-		mr.visible = true;
-
+        AttachSphereMesh(scene.GetRegistry(), parent);
 		MOKOLOG_INFO("Created Sphere");
 		return e;
 	}
+
 	Entity CreateDirLight(EntityScene& scene, const std::string& name, Entity parent)
 	{
 		Entity e = scene.CreateSceneEntity(name);
@@ -455,6 +466,7 @@ namespace SceneFactory
                 mr.visible = true;
                 mr.aabbMin = subMesh.aabbMin;
                 mr.aabbMax = subMesh.aabbMax;
+                mr.source = { MeshSource::Type::GLTF, path.generic_string(), static_cast<int>(i) };
 
                 if (subMesh.materialIndex < 0 || subMesh.materialIndex >= static_cast<int>(loadedScene.materials.size()))
                 {

@@ -234,6 +234,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="CommandContext.h" />
     <ClInclude Include="CommandContext_DX12.h" />
     <ClInclude Include="ComponentPool.h" />
+    <ClInclude Include="ComponentSerializer.h" />
     <ClInclude Include="ConsoleSink.h" />
     <ClInclude Include="ConsoleSystem.h" />
     <ClInclude Include="d3dx12.h" />
@@ -282,6 +283,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="RenderScene.h" />
     <ClInclude Include="RHITypes.h" />
     <ClInclude Include="SceneFactory.h" />
+    <ClInclude Include="SceneSerializer.h" />
     <ClInclude Include="ShaderCompiler.h" />
     <ClInclude Include="SpinWait.h" />
     <ClInclude Include="stb_image.h" />
@@ -312,6 +314,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="CameraComponentOperations.cpp" />
     <ClCompile Include="CameraControllerSystem.cpp" />
     <ClCompile Include="CommandContext_DX12.cpp" />
+    <ClCompile Include="ComponentSerializer.cpp" />
     <ClCompile Include="ConsoleSink.cpp" />
     <ClCompile Include="ConsoleSystem.cpp" />
     <ClCompile Include="DebugOutputSink.cpp" />
@@ -335,6 +338,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="RenderGraph.cpp" />
     <ClCompile Include="SceneFactory.cpp" />
+    <ClCompile Include="SceneSerializer.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="SystemManager.cpp" />
     <ClCompile Include="TextureLoader.cpp" />

@@ -106,6 +106,12 @@
     <Filter Include="Header Files\Built-in">
       <UniqueIdentifier>{d67b9c45-7f68-4459-aca9-2cf699222d9c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Serialize">
+      <UniqueIdentifier>{d7563c20-3ada-4a73-9203-a21f57561212}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Serializer">
+      <UniqueIdentifier>{5d2a4b75-efb5-4847-9d5c-bafb2c0ace3d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -242,6 +248,12 @@
     </ClCompile>
     <ClCompile Include="EditorSystem.cpp">
       <Filter>Source Files\ECS\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="ComponentSerializer.cpp">
+      <Filter>Source Files\Serializer</Filter>
+    </ClCompile>
+    <ClCompile Include="SceneSerializer.cpp">
+      <Filter>Source Files\Serializer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -463,6 +475,12 @@
     </ClInclude>
     <ClInclude Include="BuiltinAssets.h">
       <Filter>Header Files\Built-in</Filter>
+    </ClInclude>
+    <ClInclude Include="SceneSerializer.h">
+      <Filter>Header Files\Serialize</Filter>
+    </ClInclude>
+    <ClInclude Include="ComponentSerializer.h">
+      <Filter>Header Files\Serialize</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

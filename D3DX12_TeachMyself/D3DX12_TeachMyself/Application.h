@@ -9,6 +9,7 @@
 #include "InputState.h"
 #include "EditorSystem.h"
 #include "JobSystem.h"
+#include "SceneSerializer.h"
 
 class Application
 {

@@ -17,6 +17,7 @@
 #include "ConsoleSystem.h"
 #include "SceneFactory.h"
 #include "BuiltinAssets.h"
+#include "MokoPath.h"
 
 Application::Application()
 	:
@@ -226,6 +227,15 @@ void Application::HandleKeyboardEvents()
 			wnd.EnableCursor();
 			wnd.mouse.DisableRaw();
 		}
+	}
+
+	if (m_inputState.IsKeyDown(VK_CONTROL) && m_inputState.WasKeyPressed('S'))
+	{
+		SceneSerializer::Save(m_ecsScene, MokoPath::GetAssetRoot() / "testScene.json");
+	}
+	else if (m_inputState.IsKeyDown(VK_CONTROL) && m_inputState.WasKeyPressed('L'))
+	{
+		SceneSerializer::Load(m_ecsScene, MokoPath::GetAssetRoot() / "testScene.json");
 	}
 }
 void  Application::HandleDebugModeInput()

@@ -25,6 +25,8 @@ public:
 	Registry& GetRegistry() { return registry; };
 	Entity GetRoot() const { return rootEntity; };
 
+	void Clear();
+
 	void SetSceneAABB(XMFLOAT3 min, XMFLOAT3 max);
 	XMFLOAT3 GetSceneAABBMin() const;
 	XMFLOAT3 GetSceneAABBMax() const;
