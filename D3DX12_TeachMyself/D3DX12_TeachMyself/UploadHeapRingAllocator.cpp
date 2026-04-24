@@ -7,7 +7,6 @@ UploadHeapRingAllocator::UploadHeapRingAllocator(ID3D12Device* device, ID3D12Fen
 	:
 	m_fence(fence)
 {
-	// make a huuuuge Upload Heap (64MB)
 	auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
 	auto desc = CD3DX12_RESOURCE_DESC::Buffer(kCapacity);
 	HR_CHECK(device->CreateCommittedResource(
