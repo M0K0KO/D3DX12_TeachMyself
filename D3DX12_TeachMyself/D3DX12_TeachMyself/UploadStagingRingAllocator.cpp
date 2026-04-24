@@ -2,6 +2,7 @@
 #include "HRException.h"
 
 UploadStagingRingAllocator::UploadStagingRingAllocator(ID3D12Device* device, ID3D12Fence* fence)
+	: m_fence(fence)
 {
 	auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
 	auto desc = CD3DX12_RESOURCE_DESC::Buffer(kCapacity);
@@ -15,8 +16,6 @@ UploadStagingRingAllocator::UploadStagingRingAllocator(ID3D12Device* device, ID3
 
 	HR_CHECK(m_resource->Map(0, nullptr, &m_cpuBase));
 	m_gpuBase = m_resource->GetGPUVirtualAddress();
-
-	m_fence = fence;
 }
 
 UploadStagingRingAllocator::~UploadStagingRingAllocator()
@@ -60,6 +59,7 @@ void UploadStagingRingAllocator::ReleaseCompleted()
 
 StagingAllocation UploadStagingRingAllocator::Allocate(size_t size)
 {
+	ReleaseCompleted();
 	auto result = TryAllocate(size);
 	MOKO_ASSERT(result.has_value() && "Ring exhausted - caller must Flush first");
 	return *result;

@@ -106,6 +106,12 @@ UINT64 UploadQueue::Flush()
 void UploadQueue::InsertWaitOnQueue(ID3D12CommandQueue* targetQueue, UINT64 fenceValue)
 {
 	if (fenceValue == 0) return;
+
+	if (m_listOpen && fenceValue == m_nextFenceValue)
+	{
+		Flush();
+	}
+
 	HR_CHECK(targetQueue->Wait(m_fence.Get(), fenceValue));
 }
 
