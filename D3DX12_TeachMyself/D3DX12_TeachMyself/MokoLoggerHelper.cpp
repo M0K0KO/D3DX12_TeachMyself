@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "MokoLoggerHelper.h"
 
 const char* ToString(LogLevel level)

@@ -2,7 +2,6 @@
 #include "CommandContext_DX12.h"
 #include "GraphicsDevice_DX12.h"
 #include "MokoLogger.h"
-#include "MokoAssert.h"
 
 void CommandContext_DX12::Init(GraphicsDevice_DX12* pDevice, ID3D12GraphicsCommandList* pCommandList)
 {

@@ -1,8 +1,8 @@
+#include "stdafx.h"
 #include "JobSystem.h"
 #include "WorkerThread.h"
 #include "JobGroup.h"
 #include "JobTime.h"
-#include "MokoAssert.h"
 
 namespace MokoJob
 {

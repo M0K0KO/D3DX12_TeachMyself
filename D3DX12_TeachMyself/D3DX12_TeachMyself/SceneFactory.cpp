@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "SceneFactory.h"
 #include "TransformComponent.h"
 #include "MeshRendererComponent.h"

@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "TransformSystem.h"
 #include "MokoMath.h"
 #include "TransformComponent.h"

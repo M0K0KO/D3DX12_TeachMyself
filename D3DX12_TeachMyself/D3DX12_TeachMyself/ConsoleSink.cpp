@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "ConsoleSink.h"
 
 ConsoleSink::ConsoleSink(size_t maxEntries)

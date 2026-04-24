@@ -1,6 +1,5 @@
-#include "MokoPath.h"
-#include <string>
 #include "stdafx.h"
+#include "MokoPath.h"
 
 namespace MokoPath
 {

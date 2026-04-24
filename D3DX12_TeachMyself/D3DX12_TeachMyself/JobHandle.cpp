@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "JobHandle.h"
 #include "SpinWait.h"
 

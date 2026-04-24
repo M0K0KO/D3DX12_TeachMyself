@@ -1,6 +1,6 @@
+#include "stdafx.h"
 #include "MokoLoggerHelper.h"
 #include "DebugOutputSink.h"
-#include <windows.h>
 
 void DebugOutputSink::Write(const LogEntry& entry)
 {

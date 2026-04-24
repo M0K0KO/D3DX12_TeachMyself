@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "DX12Helpers.h"
 
 namespace DX12Helpers

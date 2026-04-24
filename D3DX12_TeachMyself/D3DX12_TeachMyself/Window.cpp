@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "Window.h"
 #include <format>
 #include <imgui_impl_win32.h>

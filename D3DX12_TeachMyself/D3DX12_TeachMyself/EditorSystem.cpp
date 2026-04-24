@@ -1,9 +1,9 @@
+#include "stdafx.h"
 #include "EditorSystem.h"
 #include "GraphicsDevice_DX12.h"
 #include <imgui_impl_win32.h>
 #include "MokoLogger.h"
 #include "HirerarchyComponent.h"
-#include <numbers>
 #include "NameComponent.h"
 #include "TransformComponent.h"
 #include "MeshRendererComponent.h"
@@ -12,7 +12,6 @@
 #include "CameraComponent.h"
 #include "MokoMath.h"
 #include "MokoImGui.h"
-#include "MokoAssert.h"
 #include "MokoPath.h"
 #include "SceneFactory.h"
 #include "MokoTime.h"
@@ -673,7 +672,7 @@ void EditorSystem::DrawContentBrowserPanel(EntityScene& scene)
 		ImGui::Separator();
 		DrawDirectoryContents(scene);
 	}
-	ImGui::End();  // 항상 호출
+	ImGui::End();  // 瘤 호
 }
 
 void EditorSystem::DrawBreadCrumb()

@@ -1,3 +1,4 @@
+#include "stdafx.h"
 // Define these only in *one* .cc file.
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
@@ -7,9 +8,7 @@
 #include "AssetLoader.h"
 #include "DirectXTex/DirectXTex.h"
 #include "JobSystem.h"
-#include <algorithm>
 #include <cctype>
-#include <cstdint>
 
 namespace
 {
@@ -499,7 +498,7 @@ Mesh::Scene AssetLoader::LoadGLTFParallel(const std::string& path, MokoJob::JobS
 
     Mesh::Scene scene;
 
-    // ---------------- Textures (serial, 가벼움) ----------------
+    // ---------------- Textures (serial, ) ----------------
     scene.textures.resize(model.images.size());
     std::filesystem::path baseDir = std::filesystem::path(path).parent_path();
 
@@ -523,7 +522,7 @@ Mesh::Scene AssetLoader::LoadGLTFParallel(const std::string& path, MokoJob::JobS
         }
     }
 
-    // ---------------- Materials (serial, 가벼움) ----------------
+    // ---------------- Materials (serial, ) ----------------
     scene.materials.reserve(model.materials.size());
     for (const auto& gltfMat : model.materials)
     {
@@ -572,27 +571,27 @@ Mesh::Scene AssetLoader::LoadGLTFParallel(const std::string& path, MokoJob::JobS
     }
 
     // =================================================================
-    // PASS 1 (Serial DFS): TRS 계산 + primitive 수집 + offset 확정
+    // PASS 1 (Serial DFS): TRS  + primitive  + offset 확
     // =================================================================
 
-    // 병렬 처리를 위해 primitive들을 flat list로 모음
+    //  처  primitive flat list 
     struct PrimitiveJob
     {
         int             nodeIndex;
         int             meshIndex;
-        int             primIndex;           // gltfMesh.primitives 내 인덱스
-        DirectX::XMMATRIX world;             // 사전 계산된 world matrix
-        uint32_t        vertexOffset;        // 최종 scene.vertices 내 위치
-        uint32_t        indexOffset;         // 최종 scene.indices 내 위치
+        int             primIndex;           // gltfMesh.primitives  琯
+        DirectX::XMMATRIX world;             //   world matrix
+        uint32_t        vertexOffset;        //  scene.vertices  치
+        uint32_t        indexOffset;         //  scene.indices  치
         uint32_t        vertexCount;
-        uint32_t        indexCount;          // prim.indices < 0이면 vertexCount
-        int             subMeshIndex;        // scene.subMeshes 내 위치
+        uint32_t        indexCount;          // prim.indices < 0見 vertexCount
+        int             subMeshIndex;        // scene.subMeshes  치
     };
 
     std::vector<PrimitiveJob> primJobs;
-    primJobs.reserve(model.meshes.size() * 2);  // 추정
+    primJobs.reserve(model.meshes.size() * 2);  // 
 
-    // 누적 offset
+    //  offset
     uint32_t cumVertex = 0;
     uint32_t cumIndex = 0;
 
@@ -663,7 +662,7 @@ Mesh::Scene AssetLoader::LoadGLTFParallel(const std::string& path, MokoJob::JobS
                 job.vertexCount = vCount;
                 job.indexCount = iCount;
 
-                // SubMesh 먼저 만들어두기 (이름/offset만, AABB는 Pass 2에서)
+                // SubMesh  慣 (見/offset, AABB Pass 2)
                 Mesh::SubMesh subMesh{};
                 std::string subMeshName = !node.name.empty() ? node.name
                     : (!gltfMesh.name.empty() ? gltfMesh.name
@@ -673,7 +672,7 @@ Mesh::Scene AssetLoader::LoadGLTFParallel(const std::string& path, MokoJob::JobS
                 subMesh.indexCount = iCount;
                 subMesh.materialIndex = prim.material >= 0 ? prim.material : 0;
                 subMesh.nodeIndex = nodeIndex;
-                // aabbMin/Max는 Pass 2에서 채움
+                // aabbMin/Max Pass 2 채
 
                 job.subMeshIndex = (int)scene.subMeshes.size();
                 scene.subMeshes.push_back(subMesh);
@@ -696,15 +695,15 @@ Mesh::Scene AssetLoader::LoadGLTFParallel(const std::string& path, MokoJob::JobS
             CollectNode(nodeIndex, XMMatrixIdentity());
     }
 
-    // 전체 size 미리 확정
+    // 체 size 見 확
     scene.vertices.resize(cumVertex);
     scene.indices.resize(cumIndex);
 
     // =================================================================
-    // PASS 2 (Parallel): 각 primitive가 자기 영역에 독립적으로 write
+    // PASS 2 (Parallel):  primitive 未   write
     // =================================================================
 
-    // per-primitive AABB 결과 저장 (병렬 write)
+    // per-primitive AABB   ( write)
     struct PrimAABB { DirectX::XMFLOAT3 mn, mx; };
     std::vector<PrimAABB> primAABBs(primJobs.size());
 
@@ -825,7 +824,7 @@ Mesh::Scene AssetLoader::LoadGLTFParallel(const std::string& path, MokoJob::JobS
                 case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
                     index = reinterpret_cast<const uint32_t*>(idxBase)[i]; break;
                 default:
-                    // 병렬 컨텍스트에선 throw 대신 0으로 대체 (또는 에러 플래그)
+                    //  灣트 throw  0 체 (풔  첨)
                     index = 0; break;
                 }
                 scene.indices[iOff + i] = vOff + index;
@@ -839,7 +838,7 @@ Mesh::Scene AssetLoader::LoadGLTFParallel(const std::string& path, MokoJob::JobS
         });
 
     // =================================================================
-    // Pass 3 (Serial): SubMesh AABB 채우기 + scene AABB reduce
+    // Pass 3 (Serial): SubMesh AABB 채 + scene AABB reduce
     // =================================================================
     scene.sceneAABBMin = { FLT_MAX,  FLT_MAX,  FLT_MAX };
     scene.sceneAABBMax = { -FLT_MAX, -FLT_MAX, -FLT_MAX };

@@ -1,10 +1,10 @@
+#include "stdafx.h"
 #include "EntityScene.h"
 #include "MokoMath.h"
 #include "HirerarchyComponent.h"
 #include "TransformComponent.h"
 #include "CameraComponent.h"
 #include "NameComponent.h"
-#include "MokoAssert.h"
 
 EntityScene::EntityScene()
 {

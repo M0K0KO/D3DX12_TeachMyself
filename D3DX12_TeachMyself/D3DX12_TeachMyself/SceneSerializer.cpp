@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "SceneSerializer.h"
 #include "Entity.h"
 #include "EntityScene.h"

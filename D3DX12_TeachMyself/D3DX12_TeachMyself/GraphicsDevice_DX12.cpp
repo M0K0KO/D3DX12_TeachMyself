@@ -1,8 +1,8 @@
+#include "stdafx.h"
 #include "HRException.h"
 #include "GraphicsDevice_DX12.h"
 #include "Renderer.h"
 #include "DX12Helpers.h"
-#include "MokoAssert.h"
 
 void GraphicsDevice_DX12::ReserveResources()
 {

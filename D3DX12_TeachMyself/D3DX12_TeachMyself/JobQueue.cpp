@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "JobQueue.h"
 
 namespace MokoJob
