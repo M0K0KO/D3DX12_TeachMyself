@@ -250,16 +250,6 @@ CommandContext& GraphicsDevice_DX12::BeginFrame()
 	UINT64 fv = m_uploadQueue->Flush();
 	if (fv > 0) m_uploadQueue->InsertWaitOnQueue(m_commandQueue.Get(), fv);
 
-	if (!m_pendingTransitions.empty())
-	{
-		ExecuteImmediate([&](CommandContext& ctx) {
-			m_commandList->ResourceBarrier(
-				(UINT)m_pendingTransitions.size(),
-				m_pendingTransitions.data());
-			});
-		m_pendingTransitions.clear();
-	}
-
 	const uint64_t completedFence = m_fence->GetCompletedValue();
 	m_cbvSrvUavAllocator.FinishFrame(completedFence);
 	m_rtvAllocator.FinishFrame(completedFence);
@@ -279,6 +269,14 @@ CommandContext& GraphicsDevice_DX12::BeginFrame()
 
 	ID3D12DescriptorHeap* ppHeaps[] = { GetCbvSrvUavAllocator().GetHeap() };
 	m_commandList->SetDescriptorHeaps(1, ppHeaps);
+
+	if (!m_pendingTransitions.empty())
+	{
+		m_commandList->ResourceBarrier(
+			static_cast<UINT>(m_pendingTransitions.size()),
+			m_pendingTransitions.data());
+		m_pendingTransitions.clear();
+	}
 
 	uploadHeapAllocator->ReleaseCompleted();
 	ProcessCompletedResourceReleases(m_fence->GetCompletedValue());

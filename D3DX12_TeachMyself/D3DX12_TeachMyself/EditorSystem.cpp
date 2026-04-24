@@ -866,8 +866,6 @@ void EditorSystem::HandleFileOpen(EntityScene& scene, std::filesystem::path path
 			MOKOLOG_ERROR("Failed to load model: {}", path.string());
 			return;
 		}
-
-		MOKOLOG_INFO("Model loaded successfully: {}", path.string());
 	}
 	catch (const std::exception& e)
 	{
