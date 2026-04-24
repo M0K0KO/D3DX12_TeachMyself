@@ -255,6 +255,12 @@
     <ClCompile Include="SceneSerializer.cpp">
       <Filter>Source Files\Serializer</Filter>
     </ClCompile>
+    <ClCompile Include="UploadStagingRingAllocator.cpp">
+      <Filter>Source Files\Allocator</Filter>
+    </ClCompile>
+    <ClCompile Include="UploadQueue.cpp">
+      <Filter>Source Files\Allocator</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -481,6 +487,12 @@
     </ClInclude>
     <ClInclude Include="ComponentSerializer.h">
       <Filter>Header Files\Serialize</Filter>
+    </ClInclude>
+    <ClInclude Include="UploadQueue.h">
+      <Filter>Header Files\Allocator</Filter>
+    </ClInclude>
+    <ClInclude Include="UploadStagingRingAllocator.h">
+      <Filter>Header Files\Allocator</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

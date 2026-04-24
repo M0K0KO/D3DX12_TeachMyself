@@ -9,6 +9,7 @@
 #include "DescriptorAllocator.h"
 #include "DescriptorHandle.h"
 #include <array>
+#include "UploadQueue.h"
 
 using namespace Microsoft::WRL;
 using namespace DirectX;
@@ -115,6 +116,9 @@ private:
 	UINT64 m_nextFenceValue = 1;
 
 	std::unique_ptr<UploadHeapRingAllocator> uploadHeapAllocator;
+
+	std::unique_ptr<UploadQueue> m_uploadQueue;
+	std::vector<D3D12_RESOURCE_BARRIER> m_pendingTransitions;
 
 	DescriptorAllocator m_cbvSrvUavAllocator;
 	DescriptorAllocator m_dsvAllocator;

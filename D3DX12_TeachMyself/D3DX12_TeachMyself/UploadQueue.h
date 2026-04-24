@@ -26,6 +26,7 @@ public:
 
 private:
 	void OpenListIfNeeded();
+	void FlushAndWait();
 
 private:
 	ID3D12Device* m_device = nullptr;

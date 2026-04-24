@@ -295,6 +295,8 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="TransformComponent.h" />
     <ClInclude Include="TransformSystem.h" />
     <ClInclude Include="UploadHeapRingAllocator.h" />
+    <ClInclude Include="UploadQueue.h" />
+    <ClInclude Include="UploadStagingRingAllocator.h" />
     <ClInclude Include="View.h" />
     <ClInclude Include="Window.h" />
     <ClInclude Include="WorkerThread.h" />
@@ -345,6 +347,8 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="TransformComponentOperations.cpp" />
     <ClCompile Include="TransformSystem.cpp" />
     <ClCompile Include="UploadHeapRingAllocator.cpp" />
+    <ClCompile Include="UploadQueue.cpp" />
+    <ClCompile Include="UploadStagingRingAllocator.cpp" />
     <ClCompile Include="Window.cpp" />
     <ClCompile Include="WorkerThread.cpp" />
   </ItemGroup>

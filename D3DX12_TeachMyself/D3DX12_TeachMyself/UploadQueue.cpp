@@ -24,12 +24,17 @@ UINT64 UploadQueue::UploadBuffer(ID3D12Resource * dst, UINT64 dstOffset, const v
 	MOKO_ASSERT(dst && data && size > 0);
 	OpenListIfNeeded();
 
-	auto alloc = m_ring->Allocate(size);
-	memcpy(alloc.cpuAddress, data, size);
+	auto alloc = m_ring->TryAllocate(size);
+	if (!alloc)
+	{
+		FlushAndWait();
+		alloc = m_ring->TryAllocate(size);
+		MOKO_ASSERT(alloc && "Even after flush, allocation failed - single request > capacity?");
+	}
 
 	m_cmdList->CopyBufferRegion(
 		dst, dstOffset,
-		alloc.stagingResource, alloc.offset,
+		alloc->stagingResource, alloc->offset,
 		size
 	);
 
@@ -51,20 +56,27 @@ UINT64 UploadQueue::UploadTexture(ID3D12Resource* dst, const D3D12_SUBRESOURCE_D
 		&desc, firstSubresource, subresourceCount, 0,
 		layouts.data(), numRows.data(), rowSizes.data(), &totalBytes);
 
-	auto alloc = m_ring->Allocate(totalBytes);
+	auto alloc = m_ring->TryAllocate(totalBytes);
+	MOKO_ASSERT(alloc && "Texture size exceeds staging ring capacity");
+	if (!alloc)
+	{
+		FlushAndWait();
+		alloc = m_ring->TryAllocate(totalBytes);
+		MOKO_ASSERT(alloc && "Even after flush, allocation failed - single request > capacity?");
+	}
 
 	for (UINT i = 0; i < subresourceCount; i++)
 	{
 		D3D12_MEMCPY_DEST destInfo{};
-		destInfo.pData = static_cast<uint8_t*>(alloc.cpuAddress) + layouts[i].Offset;
+		destInfo.pData = static_cast<uint8_t*>(alloc->cpuAddress) + layouts[i].Offset;
 		destInfo.RowPitch = layouts[i].Footprint.RowPitch;
 		destInfo.SlicePitch = SIZE_T(layouts[i].Footprint.RowPitch) * numRows[i];
 
 		MemcpySubresource(&destInfo, &subresources[i], static_cast<SIZE_T>(rowSizes[i]), numRows[i], layouts[i].Footprint.Depth);
 	
-		layouts[i].Offset += alloc.offset;
+		layouts[i].Offset += alloc->offset;
 
-		CD3DX12_TEXTURE_COPY_LOCATION srcLoc(alloc.stagingResource, layouts[i]);
+		CD3DX12_TEXTURE_COPY_LOCATION srcLoc(alloc->stagingResource, layouts[i]);
 		CD3DX12_TEXTURE_COPY_LOCATION dstLoc(dst, firstSubresource + i);
 
 		m_cmdList->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, nullptr);
@@ -123,4 +135,27 @@ void UploadQueue::OpenListIfNeeded()
 	HR_CHECK(m_cmdAlloc->Reset());
 	HR_CHECK(m_cmdList->Reset(m_cmdAlloc.Get(), nullptr));
 	m_listOpen = true;
+}
+
+void UploadQueue::FlushAndWait()
+{
+	if (!m_listOpen) return;
+
+	HR_CHECK(m_cmdList->Close());
+	ID3D12CommandList* lists[] = { m_cmdList.Get() };
+	m_copyQueue->ExecuteCommandLists(1, lists);
+
+	const UINT64 fv = m_nextFenceValue;
+	HR_CHECK(m_copyQueue->Signal(m_fence.Get(), fv));
+	m_ring->Submit(fv);
+
+	m_lastSubmittedFenceValue = fv;
+	m_nextFenceValue++;
+	m_listOpen = false;
+
+	WaitForFenceCPU(fv);
+
+	m_ring->ReleaseCompleted();
+
+	OpenListIfNeeded();
 }

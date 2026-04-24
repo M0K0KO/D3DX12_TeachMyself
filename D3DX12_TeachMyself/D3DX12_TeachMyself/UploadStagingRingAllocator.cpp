@@ -15,6 +15,8 @@ UploadStagingRingAllocator::UploadStagingRingAllocator(ID3D12Device* device, ID3
 
 	HR_CHECK(m_resource->Map(0, nullptr, &m_cpuBase));
 	m_gpuBase = m_resource->GetGPUVirtualAddress();
+
+	m_fence = fence;
 }
 
 UploadStagingRingAllocator::~UploadStagingRingAllocator()
@@ -58,28 +60,46 @@ void UploadStagingRingAllocator::ReleaseCompleted()
 
 StagingAllocation UploadStagingRingAllocator::Allocate(size_t size)
 {
+	auto result = TryAllocate(size);
+	MOKO_ASSERT(result.has_value() && "Ring exhausted - caller must Flush first");
+	return *result;
+}
+
+std::optional<StagingAllocation> UploadStagingRingAllocator::TryAllocate(size_t size)
+{
 	UINT64 aligned = AlignUp(static_cast<UINT>(size), kAlignment);
-	MOKO_ASSERT(aligned <= kCapacity && "Ring Buffer Allocation exceeds total capacity");
+	MOKO_ASSERT(aligned <= kCapacity && "Allocation exceeds total capacity");
 
 	UINT64 offset = m_virtualHead % kCapacity;
+	UINT64 virtualHeadAfterPad = m_virtualHead;
 
 	if (offset + aligned > kCapacity)
 	{
-		MOKOLOG_WARN("[RingBuffer] WRAP-AROUND! offset={} aligned={} padding={}",
-			offset, aligned, kCapacity - offset);
-		m_virtualHead += (kCapacity - offset);
+		virtualHeadAfterPad += (kCapacity - offset);
 		offset = 0;
 	}
 
-	while (m_virtualHead + aligned > m_virtualTail + kCapacity)
+	while (virtualHeadAfterPad + aligned > m_virtualTail + kCapacity)
 	{
-		MOKO_ASSERT(!m_submitQueue.empty() &&
-			"Ring exhausted without pending submits - caller forgot Flush?");
+		if (m_submitQueue.empty())
+		{
+			return std::nullopt;
+		}
+
+		const UINT64 completed = m_fence->GetCompletedValue();
+		if (m_submitQueue.front().fenceValue <= completed)
+		{
+			m_virtualTail = m_submitQueue.front().virtualHead;
+			m_submitQueue.pop();
+			continue;
+		}
 
 		MOKOLOG_WARN("[RingBuffer] STALL! Waiting for GPU. vHead={} vTail={} inFlight={}",
-			m_virtualHead, m_virtualTail, m_virtualHead - m_virtualTail);
+			virtualHeadAfterPad, m_virtualTail, m_virtualHead - m_virtualTail);
 		WaitForFront();
 	}
+
+	m_virtualHead = virtualHeadAfterPad;
 
 	StagingAllocation alloc{};
 	alloc.offset = offset;

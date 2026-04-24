@@ -1,5 +1,6 @@
 #pragma once
 #include <queue>
+#include <optional>
 #include "stdafx.h"
 
 using namespace Microsoft::WRL;
@@ -21,11 +22,12 @@ public:
 	void ReleaseCompleted();
 	
 	StagingAllocation Allocate(size_t size);
+	std::optional<StagingAllocation> TryAllocate(size_t size);
 
 	void Submit(UINT64 fenceValue);
 
 private:
-	static constexpr UINT64 kCapacity = 128 * 1024 * 1024; // 128MB
+	static constexpr UINT64 kCapacity = 256 * 1024 * 1024; // 256MB
 	static constexpr UINT64 kAlignment = 512;
 
 	UINT64 AlignUp(UINT64 value, UINT64 alignment);
