@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "Application.h"
 
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)

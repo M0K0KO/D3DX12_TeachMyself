@@ -1,5 +1,5 @@
+#include "stdafx.h"
 #include "EntityManager.h"
-#include "MokoAssert.h"
 
 Entity EntityManager::Create()
 {

@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "MokoLogger.h"
 
 #include <ctime>

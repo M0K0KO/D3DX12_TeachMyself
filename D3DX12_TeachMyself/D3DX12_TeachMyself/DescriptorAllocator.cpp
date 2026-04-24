@@ -1,6 +1,6 @@
+#include "stdafx.h"
 #include "DescriptorAllocator.h"
 #include "HRException.h"
-#include "MokoAssert.h"
 
 void DescriptorAllocator::Init(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t capacity, bool shaderVisible)
 {

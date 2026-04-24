@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "Application.h"
 #include "AssetLoader.h"
 #include "TextureLoader.h"

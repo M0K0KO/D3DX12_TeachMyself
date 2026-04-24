@@ -1,6 +1,6 @@
+#include "stdafx.h"
 #include "CameraControllerSystem.h"
 #include "MokoMath.h"
-#include <algorithm>
 #include "TransformComponent.h"
 #include "CameraComponent.h"
 

@@ -1,7 +1,7 @@
+#include "stdafx.h"
 #include "TextureLoader.h"
 #include "HRException.h"
 #include "DirectXTex/DirectXTex.h"
-#include "d3dx12.h"
 
 TextureLoader::TextureLoader(ID3D12Device* device)
     :

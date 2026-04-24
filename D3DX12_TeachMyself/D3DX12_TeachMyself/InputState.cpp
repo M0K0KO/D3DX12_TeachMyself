@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "InputState.h"
 
 void InputState::Capture(Window& wnd)

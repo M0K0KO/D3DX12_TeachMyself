@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "Renderer.h"
 #include "ShaderCompiler.h"
 #include "CommandContext.h"
@@ -8,7 +9,6 @@
 #include "MokoTime.h"
 #include <random>
 #include <imgui_impl_dx12.h>
-#include "MokoAssert.h"
 
 static inline float PointAABBDistanceSq(const XMFLOAT3& p, const XMFLOAT3& aabbMin, const XMFLOAT3& aabbMax)
 {

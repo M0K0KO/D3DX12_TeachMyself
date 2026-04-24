@@ -1,16 +1,13 @@
+#include "stdafx.h"
 #include "BuiltinAssets.h"
 
-#include <vector>
 #include <cmath>
-#include <numbers>
 #include <stdexcept>
 #include <cassert>
-#include <cstdint>
 
 #include "GraphicsDevice.h"
 #include "MokoMath.h"
 
-#include "MokoAssert.h"
 
 using namespace DirectX;
 
@@ -176,7 +173,7 @@ namespace
                 XMFLOAT3 normal = Normalize3(XMFLOAT3(x, y, z));
                 XMFLOAT3 position = XMFLOAT3(normal.x * radius, normal.y * radius, normal.z * radius);
 
-                // longitude πÊ«‚ tangent
+                // longitude  tangent
                 XMFLOAT3 tangent3 = XMFLOAT3(-std::sin(theta), 0.0f, std::cos(theta));
                 if (LengthSq3(tangent3) < 1e-6f)
                 {

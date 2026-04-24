@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "JobGroup.h"
 #include "JobSystem.h"
 #include "JobHandle.h"

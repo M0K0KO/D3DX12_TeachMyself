@@ -1,7 +1,6 @@
+#include "stdafx.h"
 #include "UploadStagingRingAllocator.h"
 #include "HRException.h"
-#include "MokoAssert.h"
-#include "d3dx12.h"
 
 UploadStagingRingAllocator::UploadStagingRingAllocator(ID3D12Device* device, ID3D12Fence* fence)
 	: m_fence(fence)
