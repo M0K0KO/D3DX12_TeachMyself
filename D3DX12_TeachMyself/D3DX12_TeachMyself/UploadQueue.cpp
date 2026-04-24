@@ -32,6 +32,8 @@ UINT64 UploadQueue::UploadBuffer(ID3D12Resource * dst, UINT64 dstOffset, const v
 		MOKO_ASSERT(alloc && "Even after flush, allocation failed - single request > capacity?");
 	}
 
+	memcpy(alloc->cpuAddress, data, size);
+
 	m_cmdList->CopyBufferRegion(
 		dst, dstOffset,
 		alloc->stagingResource, alloc->offset,

@@ -296,7 +296,6 @@ void Renderer::CreateCubeMap(GraphicsDevice* device)
 	cubemapDesc.format = Format::R16G16B16A16_FLOAT;
 	m_cubemapTexture = device->CreateCubemapTexture(cubemapDesc);
 
-
 	device->ExecuteImmediate(
 		[&](CommandContext& ctx) {
 			ctx.SetComputePipeline(m_equirectCSPipeline);

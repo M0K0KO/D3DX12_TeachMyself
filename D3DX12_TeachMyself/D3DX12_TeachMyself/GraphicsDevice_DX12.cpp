@@ -210,24 +210,33 @@ void GraphicsDevice_DX12::MoveToNextFrame()
 
 void GraphicsDevice_DX12::ExecuteImmediate(std::function<void(CommandContext&)> fn)
 {
+	UINT64 fv = m_uploadQueue->Flush();
+	if (fv > 0)
+		m_uploadQueue->InsertWaitOnQueue(m_commandQueue.Get(), fv);
+
 	HR_CHECK(m_immediateAllocator->Reset());
 	HR_CHECK(m_immediateCommandList->Reset(m_immediateAllocator.Get(), nullptr));
-
 	auto originalMainList = m_commandList;
 	m_commandList = m_immediateCommandList;
-
 	m_commandContext.SetInternalCommandList(m_immediateCommandList.Get());
 	m_commandContext.ResetState();
 
 	ID3D12DescriptorHeap* heaps[] = { GetCbvSrvUavAllocator().GetHeap() };
 	m_immediateCommandList->SetDescriptorHeaps(_countof(heaps), heaps);
 
+	if (!m_pendingTransitions.empty())
+	{
+		m_immediateCommandList->ResourceBarrier(
+			(UINT)m_pendingTransitions.size(),
+			m_pendingTransitions.data());
+		m_pendingTransitions.clear();
+	}
+
 	fn(m_commandContext);
 
 	HR_CHECK(m_immediateCommandList->Close());
 	ID3D12CommandList* ppCommandLists[] = { m_immediateCommandList.Get() };
 	m_commandQueue->ExecuteCommandLists(1, ppCommandLists);
-
 	WaitForGpu();
 
 	m_commandList = originalMainList;
@@ -412,6 +421,7 @@ TextureHandle GraphicsDevice_DX12::CreateSRTexture(const TextureDesc& desc, cons
 	textureDesc.Dimension =			 D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 
 	auto defaultHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+
 	HR_CHECK(m_device->CreateCommittedResource(
 		&defaultHeapProps, D3D12_HEAP_FLAG_NONE, &textureDesc,
 		D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&texture)));
@@ -610,42 +620,36 @@ TextureHandle GraphicsDevice_DX12::CreateSRCubemapTexture(const CubemapTextureDe
 	auto defaultHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 	HR_CHECK(m_device->CreateCommittedResource(
 		&defaultHeapProps, D3D12_HEAP_FLAG_NONE, &textureDesc,
-		D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&texture)));
+		D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&texture)));
 
 	if (initialData)
 	{
-		const UINT64 uploadBufferSize = GetRequiredIntermediateSize(texture.Get(), 0, 1);
-		ComPtr<ID3D12Resource> textureUploadHeap;
-		auto uploadHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-		auto resDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
-		HR_CHECK(m_device->CreateCommittedResource(
-			&uploadHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
-			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&textureUploadHeap)));
+		const uint32_t bytesPerPixel = DX12Helpers::GetBytesPerPixel(desc.format);
+		const UINT64 rowPitch = static_cast<UINT64>(desc.width) * bytesPerPixel;
+		const UINT64 slicePitch = rowPitch * desc.height;
+		const uint8_t* base = static_cast<const uint8_t*>(initialData);
 
-		D3D12_SUBRESOURCE_DATA textureData = {};
-		textureData.pData = initialData;
-		textureData.RowPitch = desc.width * DX12Helpers::GetBytesPerPixel(desc.format);
-		textureData.SlicePitch = textureData.RowPitch * desc.height;
+		std::array<D3D12_SUBRESOURCE_DATA, 6> subresources{};
+		for (uint32_t face = 0; face < 6; ++face)
+		{
+			subresources[face].pData = base + slicePitch * face;
+			subresources[face].RowPitch = static_cast<LONG_PTR>(rowPitch);
+			subresources[face].SlicePitch = static_cast<LONG_PTR>(slicePitch);
+		}
 
-		ExecuteImmediate([&](CommandContext& ctx) {
-			UpdateSubresources(m_commandList.Get(), texture.Get(),
-				textureUploadHeap.Get(), 0, 0, 1, &textureData);
-			auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_uploadQueue->UploadTexture(texture.Get(), subresources.data(), 6, 0);
+		UINT64 uploadFence = m_uploadQueue->Flush();
+		if (uploadFence > 0)
+		{
+			m_uploadQueue->InsertWaitOnQueue(m_commandQueue.Get(), uploadFence);
+		}
+
+		m_pendingTransitions.push_back(
+			CD3DX12_RESOURCE_BARRIER::Transition(
 				texture.Get(),
-				D3D12_RESOURCE_STATE_COPY_DEST,
-				D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-			m_commandList->ResourceBarrier(1, &barrier);
-			});
-	}
-	else
-	{
-		ExecuteImmediate([&](CommandContext& ctx) {
-			auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-				texture.Get(),
-				D3D12_RESOURCE_STATE_COPY_DEST,
-				D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-			m_commandList->ResourceBarrier(1, &barrier);
-		});
+				D3D12_RESOURCE_STATE_COMMON,
+				D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
+				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
 	}
 
 	auto srvHandle = AllocateSRV();
