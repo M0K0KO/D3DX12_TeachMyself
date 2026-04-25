@@ -14,7 +14,7 @@ namespace SceneFactory
 {
     namespace
     {
-        TextureHandle CreateTextureFromEmbedded(const Mesh::Texture& tex, GraphicsDevice& device)
+        GPUTextureHandle CreateTextureFromEmbedded(const Mesh::Texture& tex, GraphicsDevice& device)
         {
             if (!tex.embedded || tex.width <= 0 || tex.height <= 0 || tex.data.empty())
                 return {};
@@ -72,14 +72,20 @@ namespace SceneFactory
                 }
             }
 
-            TextureDesc desc = {
-                static_cast<uint32_t>(tex.width),
-                static_cast<uint32_t>(tex.height),
-                Format::R8G8B8A8_UNORM,
-                TextureUsage::ShaderResource
+            SubresourceData sub{ rgba.data(), tex.width * dstChannels, tex.width * tex.height * dstChannels };
+            TextureInitDesc desc = {
+                {
+                    static_cast<uint32_t>(tex.width),
+                    static_cast<uint32_t>(tex.height),
+                    1, 1,
+                    Format::R8G8B8A8_UNORM,
+                    TextureUsage::ShaderResource,
+                    false
+                },
+                std::span<const SubresourceData>(&sub, 1)
             };
 
-            return device.CreateTexture(desc, rgba.data());
+            return device.CreateTexture(desc);
         }
     }
 
@@ -256,12 +262,12 @@ namespace SceneFactory
                 return false;
             }
 
-            std::vector<TextureHandle> gpuTextures;
+            std::vector<GPUTextureHandle> gpuTextures;
             gpuTextures.reserve(loadedScene.textures.size());
 
-            TextureHandle defaultWhite = BuiltinAssets::GetDefaultWhite();
-            TextureHandle defaultNormal = BuiltinAssets::GetDefaultNormal();
-            TextureHandle defaultMR = BuiltinAssets::GetDefaultMR();
+            GPUTextureHandle defaultWhite = BuiltinAssets::GetDefaultWhite();
+            GPUTextureHandle defaultNormal = BuiltinAssets::GetDefaultNormal();
+            GPUTextureHandle defaultMR = BuiltinAssets::GetDefaultMR();
 
             device.BeginTextureUpload();
             try
@@ -270,7 +276,7 @@ namespace SceneFactory
                 {
                     const auto& tex = loadedScene.textures[i];
 
-                    TextureHandle handle{};
+                    GPUTextureHandle handle{};
                     try
                     {
                         if (tex.embedded)
@@ -490,7 +496,7 @@ namespace SceneFactory
 
                 const auto& mat = loadedScene.materials[subMesh.materialIndex];
 
-                auto resolveTextureOrDefault = [&](int texIndex, TextureHandle fallback, const char* slotName) -> TextureHandle {
+                auto resolveTextureOrDefault = [&](int texIndex, GPUTextureHandle fallback, const char* slotName) -> GPUTextureHandle {
                     if (texIndex < 0)
                         return fallback;
 

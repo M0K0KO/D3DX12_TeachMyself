@@ -54,14 +54,8 @@ void Renderer::Init(GraphicsDevice* device)
 	CreateBRDFLUT(device);
 	CreatePrefilteredEnvironmentMap(device);
 
-	CubemapTextureDesc cubemapDesc = {};
-	cubemapDesc.format = Format::R32_TYPELESS;
-	cubemapDesc.usage = TextureUsage::DepthStencil;
-	cubemapDesc.height = 1;
-	cubemapDesc.width = 1;
-
-	float defaultDepth = 1.0f;
-	m_defaultCubemapTexture = device->CreateCubemapTexture(cubemapDesc, &defaultDepth);
+	CubemapTextureDesc desc = { 1, 1, Format::D32_FLOAT, TextureUsage::DepthStencil };
+	m_defaultCubemapTexture = device->CreateDSCubemapTexture(desc);
 
 	hemisphereSamples.resize(32);
 
@@ -119,28 +113,67 @@ void Renderer::Resize(GraphicsDevice* device)
 	if (m_gtaoTempTexture.IsValid()) device->DestroyTexture(m_gtaoTempTexture);
 	if (m_sceneColorTexture.IsValid()) device->DestroyTexture(m_sceneColorTexture);
 
-	TextureDesc gbufferDesc = { m_resizeWidth, m_resizeHeight, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
-	m_gbufferAlbedo = device->CreateTexture(gbufferDesc, nullptr);
+	TextureDesc gbufferDesc =
+	{
+		m_resizeWidth,
+		m_resizeHeight,
+		1, 1,
+		Format::R8G8B8A8_UNORM,
+		TextureUsage::RenderTarget,
+	};
+	m_gbufferAlbedo = device->CreateRTTexture(gbufferDesc);
 
 	gbufferDesc.format = Format::R16G16B16A16_FLOAT;
-	m_gbufferNormal = device->CreateTexture(gbufferDesc, nullptr);
+	m_gbufferNormal = device->CreateRTTexture(gbufferDesc);
 
 	gbufferDesc.format = Format::R8G8B8A8_UNORM;
-	m_gbufferMR = device->CreateTexture(gbufferDesc, nullptr);
+	m_gbufferMR = device->CreateRTTexture(gbufferDesc);
 
-	TextureDesc depthDesc = { m_resizeWidth, m_resizeHeight, Format::D32_FLOAT, TextureUsage::DepthStencil };
-	m_depthTexture = device->CreateTexture(depthDesc, nullptr);
+	TextureDesc depthDesc = 
+	{ 
+		m_resizeWidth, 
+		m_resizeHeight, 
+		1, 1,
+		Format::D32_FLOAT, 
+		TextureUsage::DepthStencil,
+		false
+	};
+	m_depthTexture = device->CreateDSTexture(depthDesc);
 
-	TextureDesc ssaoTextureDesc = { m_resizeWidth / 2, m_resizeHeight / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
-	m_ssaoTexture = device->CreateTexture(ssaoTextureDesc, nullptr);
-	m_ssaoTempTexture = device->CreateTexture(ssaoTextureDesc, nullptr);
+	TextureDesc ssaoTextureDesc = 
+	{
+		m_resizeWidth / 2,
+		m_resizeHeight / 2, 
+		1, 1,
+		Format::R8_UNORM, 
+		TextureUsage::RenderTarget,
+		false
+	};
+	m_ssaoTexture = device->CreateRTTexture(ssaoTextureDesc);
+	m_ssaoTempTexture = device->CreateRTTexture(ssaoTextureDesc);
 
-	TextureDesc gtaoTextureDesc = { m_resizeWidth, m_resizeHeight, Format::R8G8B8A8_UNORM, TextureUsage::UnorderedAccess };
-	m_gtaoTexture = device->CreateTexture(gtaoTextureDesc);
-	m_gtaoTempTexture = device->CreateTexture(gtaoTextureDesc);
+	TextureDesc gtaoTextureDesc = 
+	{
+		m_resizeWidth, 
+		m_resizeHeight,
+		1, 1,
+		Format::R8G8B8A8_UNORM,
+		TextureUsage::UnorderedAccess,
+		false
+	};
+	m_gtaoTexture = device->CreateUAVTexture(gtaoTextureDesc);
+	m_gtaoTempTexture = device->CreateUAVTexture(gtaoTextureDesc);
 
-	TextureDesc sceneColorTextureDesc = { m_resizeWidth, m_resizeHeight, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
-	m_sceneColorTexture = device->CreateTexture(sceneColorTextureDesc);
+	TextureDesc sceneColorTextureDesc = 
+	{
+		m_resizeWidth, 
+		m_resizeHeight, 
+		1, 1,
+		Format::R16G16B16A16_FLOAT,
+		TextureUsage::RenderTarget,
+		false
+	};
+	m_sceneColorTexture = device->CreateRTTexture(sceneColorTextureDesc);
 
 	m_viewportWidth = m_resizeWidth;
 	m_viewportHeight = m_resizeHeight;
@@ -278,12 +311,22 @@ void Renderer::CreateCubeMap(GraphicsDevice* device)
 	//float* hdrData = loader.LoadHDR("../qwantani_dusk_2_puresky_4k.hdr", w, h, ch, 4);
 	//float* hdrData = loader.LoadHDR("../qwantani_night_4k.hdr", w, h, ch, 4);
 
-	TextureDesc equirectDesc = {};
-	equirectDesc.width = w;
-	equirectDesc.height = h;
-	equirectDesc.format = Format::R32G32B32A32_FLOAT;
-	equirectDesc.usage = TextureUsage::ShaderResource;
-	m_equirectTexture = device->CreateTexture(equirectDesc, hdrData);
+	SubresourceData sub{
+	.data = hdrData,
+	.rowPitch = w * sizeof(float) * 4,
+	.slicePitch = w * h * sizeof(float) * 4,
+	};
+	TextureInitDesc init{
+		.desc = {
+			.width = static_cast<uint32_t>(w), 
+			.height = static_cast<uint32_t>(h),
+			.mipLevels = 1, .arraySize = 1,
+			.format = Format::R32G32B32A32_FLOAT,
+			.isCubemap = false,
+		},
+		.subresources = std::span(&sub, 1),
+	};
+	m_equirectTexture = device->CreateTexture(init);
 
 	loader.FreeImage(hdrData);
 
@@ -294,7 +337,7 @@ void Renderer::CreateCubeMap(GraphicsDevice* device)
 	cubemapDesc.height = kCubemapSize;
 	cubemapDesc.usage = TextureUsage::UnorderedAccess;
 	cubemapDesc.format = Format::R16G16B16A16_FLOAT;
-	m_cubemapTexture = device->CreateCubemapTexture(cubemapDesc);
+	m_cubemapTexture = device->CreateUAVCubemapTexture(cubemapDesc);
 
 	device->ExecuteImmediate(
 		[&](CommandContext& ctx) {
@@ -333,7 +376,7 @@ void Renderer::CreateIrradianceMap(GraphicsDevice* device)
 	irradianceCubeMapDesc.height = 32;
 	irradianceCubeMapDesc.usage = TextureUsage::UnorderedAccess;
 	irradianceCubeMapDesc.format = Format::R16G16B16A16_FLOAT;
-	m_irradianceMapTexture = device->CreateCubemapTexture(irradianceCubeMapDesc);
+	m_irradianceMapTexture = device->CreateUAVCubemapTexture(irradianceCubeMapDesc);
 
 	device->ExecuteImmediate(
 		[&](CommandContext& ctx) {
@@ -378,7 +421,7 @@ void Renderer::CreatePrefilteredEnvironmentMap(GraphicsDevice* device)
 	prefiltredEnvironmentCubeMapDesc.usage = TextureUsage::UnorderedAccess;
 	prefiltredEnvironmentCubeMapDesc.format = Format::R16G16B16A16_FLOAT;
 	prefiltredEnvironmentCubeMapDesc.mipLevels = mipLevels;
-	m_prefilteredEnvMapTexture = device->CreateCubemapTexture(prefiltredEnvironmentCubeMapDesc);
+	m_prefilteredEnvMapTexture = device->CreateUAVCubemapTexture(prefiltredEnvironmentCubeMapDesc);
 
 	device->ExecuteImmediate(
 		[&](CommandContext& ctx) {
@@ -407,8 +450,8 @@ void Renderer::CreatePrefilteredEnvironmentMap(GraphicsDevice* device)
 void Renderer::CreateBRDFLUT(GraphicsDevice* device)
 {
 	// BRDF LUT 
-	TextureDesc brdfLUTDesc = { 512, 512, Format::R16G16_FLOAT, TextureUsage::UnorderedAccess };
-	m_brdfLUTTexture = device->CreateTexture(brdfLUTDesc);
+	TextureDesc brdfLUTDesc = { 512, 512, 1, 1, Format::R16G16_FLOAT, TextureUsage::UnorderedAccess, false };
+	m_brdfLUTTexture = device->CreateUAVTexture(brdfLUTDesc);
 
 
 	m_brdfLUTCS = ShaderCompiler::CompileFromFile(
@@ -836,17 +879,17 @@ void Renderer::InitDepthPrePass(GraphicsDevice* device)
 
 	m_depthPrePassPipeline = device->CreatePipeline(m_depthPrePassPipelinDesc);
 
-	TextureDesc depthTextureDesc = { m_viewportWidth, m_viewportHeight, Format::D32_FLOAT, TextureUsage::DepthStencil };
-	m_depthTexture = device->CreateTexture(depthTextureDesc, nullptr);
+	TextureDesc depthTextureDesc = { m_viewportWidth, m_viewportHeight, 1, 1, Format::D32_FLOAT, TextureUsage::DepthStencil, false };
+	m_depthTexture = device->CreateDSTexture(depthTextureDesc);
 }
 void Renderer::InitGBufferPass(GraphicsDevice* device)
 {
-	TextureDesc albedoTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
-	m_gbufferAlbedo = device->CreateTexture(albedoTextureDesc, nullptr);
-	TextureDesc normalTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
-	m_gbufferNormal = device->CreateTexture(normalTextureDesc, nullptr);
-	TextureDesc mrTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
-	m_gbufferMR = device->CreateTexture(mrTextureDesc, nullptr);
+	TextureDesc albedoTextureDesc = { m_viewportWidth, m_viewportHeight, 1, 1, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget, false };
+	m_gbufferAlbedo = device->CreateRTTexture(albedoTextureDesc);
+	TextureDesc normalTextureDesc = { m_viewportWidth, m_viewportHeight, 1, 1, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget, false };
+	m_gbufferNormal = device->CreateRTTexture(normalTextureDesc);
+	TextureDesc mrTextureDesc = { m_viewportWidth, m_viewportHeight, 1, 1, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget, false };
+	m_gbufferMR = device->CreateRTTexture(mrTextureDesc);
 
 	RootSignatureDesc gBufferPassRSDesc = {};
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Vertex });
@@ -950,8 +993,8 @@ void Renderer::InitDirectionalShadowPass(GraphicsDevice* device)
 
 	m_shadowMapPipeline = device->CreatePipeline(shadowMapPSODesc);
 
-	TextureDesc shadowMapDesc = { 4096, 4096, Format::D32_FLOAT, TextureUsage::DepthStencil };
-	m_shadowMapTexture = device->CreateTexture(shadowMapDesc, nullptr);
+	TextureDesc shadowMapDesc = { 4096, 4096, 1, 1, Format::D32_FLOAT, TextureUsage::DepthStencil, false };
+	m_shadowMapTexture = device->CreateDSTexture(shadowMapDesc);
 }
 void Renderer::InitPointShadowPass(GraphicsDevice* device)
 {
@@ -992,7 +1035,7 @@ void Renderer::InitPointShadowPass(GraphicsDevice* device)
 
 	for (int i = 0; i < MAX_POINT_LIGHTS; i++)
 	{
-		m_pointShadowMapTextures.push_back(device->CreateCubemapTexture(pointShadowMapDesc, nullptr));
+		m_pointShadowMapTextures.push_back(device->CreateDSCubemapTexture(pointShadowMapDesc));
 	}
 }
 void Renderer::InitSSAOPass(GraphicsDevice* device)
@@ -1033,8 +1076,8 @@ void Renderer::InitSSAOPass(GraphicsDevice* device)
 		CullMode::None };
 	m_SSAOPipeline = device->CreatePipeline(m_SSAOPipelineDesc);
 
-	TextureDesc ssaoTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
-	m_ssaoTexture = device->CreateTexture(ssaoTextureDesc, nullptr);
+	TextureDesc ssaoTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, 1, 1, Format::R8_UNORM, TextureUsage::RenderTarget, false };
+	m_ssaoTexture = device->CreateRTTexture(ssaoTextureDesc);
 
 	std::vector<XMFLOAT4> noise(16);
 	std::uniform_real_distribution<float> dist(0.0f, 1.0f);
@@ -1050,13 +1093,21 @@ void Renderer::InitSSAOPass(GraphicsDevice* device)
 		XMVECTOR v = XMVector3Normalize(XMLoadFloat3(&n));
 		XMStoreFloat4(&noise[i], v);
 	}
-	TextureDesc ssaoNoiseTextureDesc = {};
-	ssaoNoiseTextureDesc.width = 4;
-	ssaoNoiseTextureDesc.height = 4;
-	ssaoNoiseTextureDesc.format = Format::R32G32B32A32_FLOAT;
-	ssaoNoiseTextureDesc.usage = TextureUsage::ShaderResource;
 
-	m_ssaoNoiseTexture = device->CreateTexture(ssaoNoiseTextureDesc, noise.data());
+	SubresourceData sub = { noise.data(), 4 * sizeof(XMFLOAT4), 4 * 4 * sizeof(XMFLOAT4) };
+	TextureInitDesc ssaoNoiseTextureDesc =
+	{
+		{
+			4, 4,
+			1, 1,
+			Format::R32G32B32A32_FLOAT,
+			TextureUsage::ShaderResource,
+			false
+		},
+		std::span<const SubresourceData>(&sub, 1)
+	};
+
+	m_ssaoNoiseTexture = device->CreateTexture(ssaoNoiseTextureDesc);
 }
 void Renderer::InitGTAOPass(GraphicsDevice* device)
 {
@@ -1084,8 +1135,8 @@ void Renderer::InitGTAOPass(GraphicsDevice* device)
 	gtaoTextureDesc.height = m_viewportHeight;
 	gtaoTextureDesc.format = Format::R8G8B8A8_UNORM;
 	gtaoTextureDesc.usage = TextureUsage::UnorderedAccess;
-	m_gtaoTexture = device->CreateTexture(gtaoTextureDesc);
-	m_gtaoTempTexture = device->CreateTexture(gtaoTextureDesc);
+	m_gtaoTexture = device->CreateUAVTexture(gtaoTextureDesc);
+	m_gtaoTempTexture = device->CreateUAVTexture(gtaoTextureDesc);
 }
 void Renderer::InitSSAOBilateralBlurPass(GraphicsDevice* device)
 {
@@ -1126,8 +1177,8 @@ void Renderer::InitSSAOBilateralBlurPass(GraphicsDevice* device)
 	m_bilateralBlurPipelineDesc.ps = ShaderCompiler::GetBytecode(m_bilateralBlurPS_Horizontal);
 	m_bilateralBlurPipeline_Horizontal = device->CreatePipeline(m_bilateralBlurPipelineDesc);
 
-	TextureDesc ssaoTempTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
-	m_ssaoTempTexture = device->CreateTexture(ssaoTempTextureDesc, nullptr);
+	TextureDesc ssaoTempTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, 1, 1, Format::R8_UNORM, TextureUsage::RenderTarget, false };
+	m_ssaoTempTexture = device->CreateRTTexture(ssaoTempTextureDesc);
 }
 void Renderer::InitGTAOBilateralBlurPass(GraphicsDevice* device)
 {
@@ -1156,7 +1207,7 @@ void Renderer::InitGTAOBilateralBlurPass(GraphicsDevice* device)
 	gtaoTempTextureDesc.height = m_viewportHeight;
 	gtaoTempTextureDesc.format = Format::R8G8B8A8_UNORM;
 	gtaoTempTextureDesc.usage = TextureUsage::UnorderedAccess;
-	m_gtaoTempTexture = device->CreateTexture(gtaoTempTextureDesc);
+	m_gtaoTempTexture = device->CreateUAVTexture(gtaoTempTextureDesc);
 }
 void Renderer::InitPBRLightingPass(GraphicsDevice* device)
 {
@@ -1245,8 +1296,8 @@ void Renderer::InitPresentPass(GraphicsDevice* device)
 	presentPSODesc.cullMode = CullMode::None;
 	m_presentPipeline = device->CreatePipeline(presentPSODesc);
 
-	TextureDesc sceneColorTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
-	m_sceneColorTexture = device->CreateTexture(sceneColorTextureDesc, nullptr);
+	TextureDesc sceneColorTextureDesc = { m_viewportWidth, m_viewportHeight, 1, 1, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget, false };
+	m_sceneColorTexture = device->CreateRTTexture(sceneColorTextureDesc);
 }
 void Renderer::InitDebugPass(GraphicsDevice* device)
 {
@@ -1338,7 +1389,7 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 		[this, &fc, device, &scene](CommandContext& passCtx) {
 			passCtx.BeginTimestamp(PassID::GBufferPass);
 			{
-				TextureHandle renderTargets[] = { m_gbufferAlbedo, m_gbufferNormal, m_gbufferMR };
+				GPUTextureHandle renderTargets[] = { m_gbufferAlbedo, m_gbufferNormal, m_gbufferMR };
 				passCtx.ClearRenderTargets(3, renderTargets, clearColor);
 				passCtx.SetRenderTarget(3, renderTargets, m_depthTexture);
 
@@ -1388,7 +1439,7 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 		[this, &fc, device, &scene](CommandContext& passCtx) {
 			passCtx.BeginTimestamp(PassID::GBufferAlphaPass);
 			{
-				TextureHandle renderTargets[] = { m_gbufferAlbedo, m_gbufferNormal, m_gbufferMR };
+				GPUTextureHandle renderTargets[] = { m_gbufferAlbedo, m_gbufferNormal, m_gbufferMR };
 				passCtx.SetRenderTarget(3, renderTargets, m_depthTexture);
 				passCtx.SetPipeline(m_gBufferAlphaPassPipeline);
 				passCtx.BindConstantBuffer(0, fc.perFrameCB);

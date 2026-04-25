@@ -12,8 +12,8 @@ class BuiltinAssets
 public:
 	struct MeshData
 	{
-		BufferHandle vb;
-		BufferHandle ib;
+		GPUBufferHandle vb;
+		GPUBufferHandle ib;
 		uint32_t indexOffset = 0;
 		uint32_t indexCount = 0;
 		XMFLOAT3 aabbMin{};
@@ -28,9 +28,9 @@ public:
 	static const MeshData& GetCube();
 	static const MeshData& GetSphere();
 
-	static TextureHandle GetDefaultWhite();
-	static TextureHandle GetDefaultNormal();
-	static TextureHandle GetDefaultMR();
+	static GPUTextureHandle GetDefaultWhite();
+	static GPUTextureHandle GetDefaultNormal();
+	static GPUTextureHandle GetDefaultMR();
 
 private:
 	BuiltinAssets() = delete;

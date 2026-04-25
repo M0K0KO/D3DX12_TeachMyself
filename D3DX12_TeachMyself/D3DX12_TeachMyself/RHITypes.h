@@ -1,7 +1,5 @@
 #pragma once
-#include <cstdint>
-#include <memory>
-#include <vector>
+#include "stdafx.h"
 
 enum class Format
 {
@@ -126,13 +124,13 @@ struct CBHandle
 	unsigned long long gpuAddress;
 };
 
-struct BufferHandle 
+struct GPUBufferHandle 
 { 
 	uint32_t id = UINT32_MAX;
 	bool IsValid() const { return id != UINT32_MAX; }
 };
 
-struct TextureHandle 
+struct GPUTextureHandle 
 {
 	uint32_t id = UINT32_MAX;
 	bool IsValid() const { return id != UINT32_MAX; }
@@ -156,8 +154,24 @@ struct TextureDesc
 {
 	uint32_t width;
 	uint32_t height;
+	uint32_t mipLevels = 1;
+	uint32_t arraySize = 1;
 	Format format;
-	TextureUsage usage;
+	TextureUsage usage = TextureUsage::ShaderResource;
+	bool isCubemap = false;
+};
+
+struct SubresourceData 
+{ 
+	const void* data; 
+	size_t rowPitch;
+	size_t slicePitch; 
+};
+
+struct TextureInitDesc
+{
+	TextureDesc desc;
+	std::span<const SubresourceData> subresources;
 };
 
 struct CubemapTextureDesc
@@ -185,9 +199,9 @@ struct ShaderBytecode
 
 struct GPUMaterial
 {
-	TextureHandle baseColor;
-	TextureHandle normal;
-	TextureHandle metallicRoughness;
+	GPUTextureHandle baseColor;
+	GPUTextureHandle normal;
+	GPUTextureHandle metallicRoughness;
 	AlphaMode alphaMode = AlphaMode::Opaque;
 	float alphaCutoff = 0.5f;
 	float metallicFactor = 1.0f;

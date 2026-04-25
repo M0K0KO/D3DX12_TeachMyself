@@ -7,8 +7,8 @@ using namespace DirectX;
 
 struct RenderObject
 {
-	BufferHandle vertexBuffer;
-	BufferHandle indexBuffer;
+	GPUBufferHandle vertexBuffer;
+	GPUBufferHandle indexBuffer;
 	uint32_t indexOffset;
 	uint32_t indexCount;
 	GPUMaterial material;

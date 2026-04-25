@@ -30,29 +30,35 @@ public:
 	void Initialize(void* hwnd, const uint32_t width, const uint32_t height) override;
 	void Shutdown() override;
 
-	BufferHandle CreateBuffer(const BufferDesc desc, const void* initialData = nullptr) override;
-	TextureHandle CreateTexture(const TextureDesc desc, const void* initialData = nullptr) override;
-	TextureHandle CreateCubemapTexture(const CubemapTextureDesc desc, const void* initialData = nullptr) override;
+	GPUBufferHandle CreateBuffer(const BufferDesc desc, const void* initialData = nullptr) override;
+
+	GPUTextureHandle CreateTexture(const TextureInitDesc& init) override;
+
+	GPUTextureHandle CreateRTTexture(const TextureDesc& desc) override;
+	GPUTextureHandle CreateDSTexture(const TextureDesc& desc) override;
+	GPUTextureHandle CreateUAVTexture(const TextureDesc& desc) override;
+	GPUTextureHandle CreateDSCubemapTexture(const CubemapTextureDesc& desc) override;
+	GPUTextureHandle CreateUAVCubemapTexture(const CubemapTextureDesc& desc) override;
 
 	PipelineHandle CreatePipeline(const PipelineDesc desc) override;
 	PipelineHandle CreateComputePipeline(const ComputePipelineDesc desc) override;
 
-	DescriptorHandle GetSRVHandle(TextureHandle handle) override;
-	DescriptorHandle GetUAVHandle(TextureHandle handle, uint32_t mip = 0) override;
+	DescriptorHandle GetSRVHandle(GPUTextureHandle handle) override;
+	DescriptorHandle GetUAVHandle(GPUTextureHandle handle, uint32_t mip = 0) override;
 
-	void DestroyBuffer(BufferHandle handle) override;
-	void DestroyTexture(TextureHandle handle) override;
+	void DestroyBuffer(GPUBufferHandle handle) override;
+	void DestroyTexture(GPUTextureHandle handle) override;
 
 	void BeginTextureUpload() override;
-	TextureHandle LoadTexture(const std::wstring& path) override;
+	GPUTextureHandle LoadTexture(const std::wstring& path) override;
 	void FlushTextureUploads() override;
 
 	void ExecuteImmediate(std::function<void(CommandContext&)> fn) override;
 	CommandContext& BeginFrame() override;
 	void EndFrame() override;
 
-	TextureHandle GetCurrentBackBuffer() override;
-	TextureHandle* GetCurrentBackBufferPtr() override;
+	GPUTextureHandle GetCurrentBackBuffer() override;
+	GPUTextureHandle* GetCurrentBackBufferPtr() override;
 
 	void ResizeSwapChain(uint32_t width, uint32_t height) override;
 	uint32_t GetWidth() override;
@@ -62,7 +68,7 @@ public:
 	void WaitForGpu() override;
 
 public:
-	const ComPtr<ID3D12Resource> GetTextureResource(TextureHandle handle);
+	const ComPtr<ID3D12Resource> GetTextureResource(GPUTextureHandle handle);
 
 	DescriptorAllocator& GetCbvSrvUavAllocator() { return m_cbvSrvUavAllocator; }
 	DescriptorAllocator& GetRtvAllocator() { return m_rtvAllocator; }
@@ -89,15 +95,8 @@ public:
 
 private:
 	ComPtr<ID3D12RootSignature> BuildRootSignature(const RootSignatureDesc& desc);
+	
 
-	TextureHandle CreateRTTexture(const TextureDesc& desc);
-	TextureHandle CreateSRTexture(const TextureDesc& desc, const void* initialData);
-	TextureHandle CreateDSTexture(const TextureDesc& desc);
-	TextureHandle CreateUAVTexture(const TextureDesc& desc);
-
-	TextureHandle CreateSRCubemapTexture(const CubemapTextureDesc& desc, const void* initialData);
-	TextureHandle CreateDSCubemapTexture(const CubemapTextureDesc& desc);
-	TextureHandle CreateUAVCubemapTexture(const CubemapTextureDesc& desc);
 
 	void ReserveResources();
 	void EnqueueResourceRelease(ComPtr<ID3D12Resource>&& resource, uint64_t fenceValue);
@@ -178,7 +177,7 @@ private:
 	};
 	std::deque<PendingResourceRelease> m_pendingResourceReleases;
 
-	TextureHandle m_backBufferHandles[FRAMECOUNT];
+	GPUTextureHandle m_backBufferHandles[FRAMECOUNT];
 
 	std::unique_ptr<TextureLoader> m_pTextureLoader;
 

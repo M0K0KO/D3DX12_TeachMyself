@@ -36,9 +36,9 @@ namespace
         BuiltinAssets::MeshData cube{};
         BuiltinAssets::MeshData sphere{};
 
-        TextureHandle defaultWhite{};
-        TextureHandle defaultNormal{};
-        TextureHandle defaultMR{};
+        GPUTextureHandle defaultWhite{};
+        GPUTextureHandle defaultNormal{};
+        GPUTextureHandle defaultMR{};
     };
 
     BuiltinStorage g_builtin;
@@ -242,16 +242,27 @@ namespace
         return out;
     }
 
-    static TextureHandle Create1x1TextureRGBA8(GraphicsDevice& device, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+    static GPUTextureHandle Create1x1TextureRGBA8(GraphicsDevice& device, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
     {
         const uint8_t pixel[4] = { r, g, b, a };
 
-        TextureDesc desc = {};
-        desc.width = 1;
-        desc.height = 1;
-        desc.format = Format::R8G8B8A8_UNORM;
-        desc.usage = TextureUsage::ShaderResource;
-        return device.CreateTexture(desc, pixel);
+        SubresourceData sub{};
+        sub.data = pixel;
+        sub.rowPitch = 4 * sizeof(uint8_t);
+        sub.slicePitch = sub.rowPitch * 1;
+
+        TextureInitDesc desc =
+        {
+            {
+                1, 1,
+                1, 1,
+                Format::R8G8B8A8_UNORM,
+                TextureUsage::ShaderResource,
+                false
+            },
+            std::span<const SubresourceData>(&sub, 1)
+        };
+        return device.CreateTexture(desc);
     }
 
     static void DestroyMesh(GraphicsDevice& device, BuiltinAssets::MeshData& mesh)
@@ -262,7 +273,7 @@ namespace
         mesh = {};
     }
 
-    static void DestroyTexture(GraphicsDevice& device, TextureHandle& tex)
+    static void DestroyTexture(GraphicsDevice& device, GPUTextureHandle& tex)
     {
         if (tex.IsValid()) device.DestroyTexture(tex);
         tex = {};
@@ -337,19 +348,19 @@ const BuiltinAssets::MeshData& BuiltinAssets::GetSphere()
     return g_builtin.sphere;
 }
 
-TextureHandle BuiltinAssets::GetDefaultWhite()
+GPUTextureHandle BuiltinAssets::GetDefaultWhite()
 {
     MOKO_ASSERT(g_builtin.initialized);
     return g_builtin.defaultWhite;
 }
 
-TextureHandle BuiltinAssets::GetDefaultNormal()
+GPUTextureHandle BuiltinAssets::GetDefaultNormal()
 {
     MOKO_ASSERT(g_builtin.initialized);
     return g_builtin.defaultNormal;
 }
 
-TextureHandle BuiltinAssets::GetDefaultMR()
+GPUTextureHandle BuiltinAssets::GetDefaultMR()
 {
     MOKO_ASSERT(g_builtin.initialized);
     return g_builtin.defaultMR;

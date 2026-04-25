@@ -15,8 +15,8 @@ public:
 	void SetComputePipeline(PipelineHandle handle) override;
 	void Dispatch(UINT x, UINT y, UINT z) override;
 	void SetPipeline(PipelineHandle handle) override;
-	void SetVertexBuffer(BufferHandle handle) override;
-	void SetIndexBuffer(BufferHandle handle) override;
+	void SetVertexBuffer(GPUBufferHandle handle) override;
+	void SetIndexBuffer(GPUBufferHandle handle) override;
 	
 	void SetRootConstants(uint32_t slot, const void* data, uint32_t count32Bit) override;
 	void SetComputeRootConstants(uint32_t slot, const void* data, uint32_t count32Bit) override;
@@ -26,20 +26,20 @@ public:
 	void BindConstantBuffer(uint32_t slot, CBHandle handle) override;
 	void BindComputeConstantBuffer(uint32_t slot, CBHandle handle) override;
 
-	void BindTexture(uint32_t slot, TextureHandle handle) override;
-	void BindComputeTexture(uint32_t slot, TextureHandle handle) override;
+	void BindTexture(uint32_t slot, GPUTextureHandle handle) override;
+	void BindComputeTexture(uint32_t slot, GPUTextureHandle handle) override;
 
-	void BindUav(uint32_t slot, TextureHandle handle, uint32_t mip = 0) override;
-	void BindComputeUav(uint32_t slot, TextureHandle handle, uint32_t mip = 0) override;
+	void BindUav(uint32_t slot, GPUTextureHandle handle, uint32_t mip = 0) override;
+	void BindComputeUav(uint32_t slot, GPUTextureHandle handle, uint32_t mip = 0) override;
 
 	void SetDescriptorTable(uint32_t slot, DescriptorHandle handle) override;
 	void SetComputeDescriptorTable(uint32_t slot, DescriptorHandle handle) override;
 
-	void TransitionBarrier(TextureHandle handle, RGResourceState before, RGResourceState after) override;
-	void ClearRenderTarget(TextureHandle handle, const float clearValue[4]) override;
-	void ClearDepthStencil(TextureHandle handle, float depth, int faceIdx = -1) override;
-	void ClearRenderTargets(UINT numRT, TextureHandle* renderTargets, const float clearValue[4]) override;
-	void SetRenderTarget(UINT numRT, TextureHandle* renderTargets, TextureHandle depth, int faceIdx = -1) override;
+	void TransitionBarrier(GPUTextureHandle handle, RGResourceState before, RGResourceState after) override;
+	void ClearRenderTarget(GPUTextureHandle handle, const float clearValue[4]) override;
+	void ClearDepthStencil(GPUTextureHandle handle, float depth, int faceIdx = -1) override;
+	void ClearRenderTargets(UINT numRT, GPUTextureHandle* renderTargets, const float clearValue[4]) override;
+	void SetRenderTarget(UINT numRT, GPUTextureHandle* renderTargets, GPUTextureHandle depth, int faceIdx = -1) override;
 	void DrawIndexed(uint32_t indexCount, uint32_t startIndex, uint32_t baseVertex) override;
 	void Draw(uint32_t vertexCount, uint32_t startVertex) override;
 

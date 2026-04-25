@@ -60,7 +60,7 @@ struct RGResource
 	uint32_t lastUserIndex		= UINT32_MAX;
 
 	bool		  imported		 = false;
-	TextureHandle realizedHandle = {};
+	GPUTextureHandle realizedHandle = {};
 };
 
 struct BarrierInfo
@@ -105,7 +105,7 @@ public:
 	explicit RenderGraph(GraphicsDevice* device);
 
 	RGResourceHandle CreateTexture(RGResourceDesc desc, RGResourceState state);
-	RGResourceHandle ImportTexture(TextureHandle existing, RGResourceDesc desc, RGResourceState state);
+	RGResourceHandle ImportTexture(GPUTextureHandle existing, RGResourceDesc desc, RGResourceState state);
 	void AddPass(
 		std::string name, 
 		std::function<void(RGBuilder&)> setupFunc, 
@@ -126,13 +126,13 @@ public:
 private:
 	friend class RGBuilder;
 
-	TextureHandle RealizeResource(const RGResourceDesc& desc);
+	GPUTextureHandle RealizeResource(const RGResourceDesc& desc);
 
 	GraphicsDevice*			m_device	= nullptr;
 	std::vector<RGResource> m_resources;
 	std::vector<RGPass>		m_passes;
 
-	std::unordered_map<RGResourceDesc, std::vector<TextureHandle>, RGResourceDescHash> m_resourcePool;
+	std::unordered_map<RGResourceDesc, std::vector<GPUTextureHandle>, RGResourceDescHash> m_resourcePool;
 
 	std::vector<BarrierInfo> m_epilogueBarriers;
 };

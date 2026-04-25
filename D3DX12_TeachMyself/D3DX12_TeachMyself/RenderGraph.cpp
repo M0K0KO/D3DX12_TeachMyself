@@ -65,7 +65,7 @@ RGResourceHandle RenderGraph::CreateTexture(RGResourceDesc desc, RGResourceState
 	return RGResourceHandle{ index, 0 };
 }
 
-RGResourceHandle RenderGraph::ImportTexture(TextureHandle existing, RGResourceDesc desc, RGResourceState state)
+RGResourceHandle RenderGraph::ImportTexture(GPUTextureHandle existing, RGResourceDesc desc, RGResourceState state)
 {
 	RGResource resource = {};
 	resource.desc = desc;
@@ -231,24 +231,30 @@ void RenderGraph::Execute(CommandContext& ctx)
 	}
 }
 
-TextureHandle RenderGraph::RealizeResource(const RGResourceDesc& desc)
+GPUTextureHandle RenderGraph::RealizeResource(const RGResourceDesc& desc)
 {
 	auto& pool = m_resourcePool[desc];
 
 	if (!pool.empty())
 	{
-		TextureHandle handle = pool.back();
+		GPUTextureHandle handle = pool.back();
 		pool.pop_back();
 		return handle;
 	}
 
-	TextureDesc texDesc = {};
-	texDesc.width = desc.width;
-	texDesc.height = desc.height;
-	texDesc.format = desc.format;
-	texDesc.usage = desc.usage;
+	TextureInitDesc texDesc =
+	{
+		{
+			desc.width, desc.height,
+			1, 1,
+			desc.format,
+			desc.usage,
+			false
+		},
+		{}
+	};
 
-	return m_device->CreateTexture(texDesc, nullptr);
+	return m_device->CreateTexture(texDesc);
 }
 
 void RenderGraph::Clear()

@@ -67,7 +67,7 @@ public:
 
 	void OnViewportResize(uint32_t width, uint32_t height);
 
-	TextureHandle GetSceneColor() const	{ return m_sceneColorTexture; };
+	GPUTextureHandle GetSceneColor() const	{ return m_sceneColorTexture; };
 
 private:
 	void ReloadPSO(GraphicsDevice* device);
@@ -200,39 +200,39 @@ private:
 
 
 
-	BufferHandle m_perFrameCB;
-	BufferHandle m_perObjectCB;
-	BufferHandle m_lightingDataCB;
+	GPUBufferHandle m_perFrameCB;
+	GPUBufferHandle m_perObjectCB;
+	GPUBufferHandle m_lightingDataCB;
 
-	TextureHandle m_depthTexture;
+	GPUTextureHandle m_depthTexture;
 
-	TextureHandle m_gbufferAlbedo;
-	TextureHandle m_gbufferNormal;
-	TextureHandle m_gbufferMR;
+	GPUTextureHandle m_gbufferAlbedo;
+	GPUTextureHandle m_gbufferNormal;
+	GPUTextureHandle m_gbufferMR;
 
-	TextureHandle m_equirectTexture;
-	TextureHandle m_cubemapTexture;
+	GPUTextureHandle m_equirectTexture;
+	GPUTextureHandle m_cubemapTexture;
 
-	TextureHandle m_brdfLUTTexture;
+	GPUTextureHandle m_brdfLUTTexture;
 
-	TextureHandle m_irradianceMapTexture;
+	GPUTextureHandle m_irradianceMapTexture;
 
-	TextureHandle m_prefilteredEnvMapTexture;
+	GPUTextureHandle m_prefilteredEnvMapTexture;
 
-	TextureHandle m_shadowMapTexture;
+	GPUTextureHandle m_shadowMapTexture;
 
-	TextureHandle m_defaultCubemapTexture;
+	GPUTextureHandle m_defaultCubemapTexture;
 
-	std::vector<TextureHandle> m_pointShadowMapTextures;
+	std::vector<GPUTextureHandle> m_pointShadowMapTextures;
 
-	TextureHandle m_ssaoTexture;
-	TextureHandle m_ssaoNoiseTexture;
-	TextureHandle m_ssaoTempTexture;
+	GPUTextureHandle m_ssaoTexture;
+	GPUTextureHandle m_ssaoNoiseTexture;
+	GPUTextureHandle m_ssaoTempTexture;
 
-	TextureHandle m_gtaoTexture;
-	TextureHandle m_gtaoTempTexture;
+	GPUTextureHandle m_gtaoTexture;
+	GPUTextureHandle m_gtaoTempTexture;
 
-	TextureHandle m_sceneColorTexture;
+	GPUTextureHandle m_sceneColorTexture;
 
 	struct PerFrameCB
 	{

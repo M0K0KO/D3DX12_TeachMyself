@@ -49,7 +49,7 @@ void CommandContext_DX12::SetComputePipeline(PipelineHandle handle)
 	m_commandList->SetComputeRootSignature(internalPSO.rootSignature.Get());
 }
 
-void CommandContext_DX12::SetVertexBuffer(BufferHandle handle)
+void CommandContext_DX12::SetVertexBuffer(GPUBufferHandle handle)
 {
 	const auto& buffer = m_pDevice->m_buffers[handle.id];
 
@@ -61,7 +61,7 @@ void CommandContext_DX12::SetVertexBuffer(BufferHandle handle)
 	m_commandList->IASetVertexBuffers(0, 1, &bufferView);
 }
 
-void CommandContext_DX12::SetIndexBuffer(BufferHandle handle)
+void CommandContext_DX12::SetIndexBuffer(GPUBufferHandle handle)
 {
 	const auto& buffer = m_pDevice->m_buffers[handle.id];
 
@@ -100,21 +100,21 @@ void CommandContext_DX12::BindComputeConstantBuffer(uint32_t slot, CBHandle hand
 	m_commandList->SetComputeRootConstantBufferView(slot, handle.gpuAddress);
 }
 
-void CommandContext_DX12::BindTexture(uint32_t slot, TextureHandle handle)
+void CommandContext_DX12::BindTexture(uint32_t slot, GPUTextureHandle handle)
 {
 	const auto& texture = m_pDevice->m_textures[handle.id];
 
 	m_commandList->SetGraphicsRootDescriptorTable(slot, texture.srv.gpu);
 }
 
-void CommandContext_DX12::BindComputeTexture(uint32_t slot, TextureHandle handle)
+void CommandContext_DX12::BindComputeTexture(uint32_t slot, GPUTextureHandle handle)
 {
 	const auto& texture = m_pDevice->m_textures[handle.id];
 
 	m_commandList->SetComputeRootDescriptorTable(slot, texture.srv.gpu);
 }
 
-void CommandContext_DX12::BindUav(uint32_t slot, TextureHandle handle, uint32_t mip)
+void CommandContext_DX12::BindUav(uint32_t slot, GPUTextureHandle handle, uint32_t mip)
 {
 	const auto& texture = m_pDevice->m_textures[handle.id];
 	if (!texture.uavMips.empty())
@@ -130,7 +130,7 @@ void CommandContext_DX12::BindUav(uint32_t slot, TextureHandle handle, uint32_t 
 	}
 }
 
-void CommandContext_DX12::BindComputeUav(uint32_t slot, TextureHandle handle, uint32_t mip)
+void CommandContext_DX12::BindComputeUav(uint32_t slot, GPUTextureHandle handle, uint32_t mip)
 {
 	const auto& texture = m_pDevice->m_textures[handle.id];
 	if (!texture.uavMips.empty())
@@ -156,7 +156,7 @@ void CommandContext_DX12::SetComputeDescriptorTable(uint32_t slot, DescriptorHan
 	m_commandList->SetComputeRootDescriptorTable(slot, handle.gpu);
 }
 
-void CommandContext_DX12::TransitionBarrier(TextureHandle handle, RGResourceState before, RGResourceState after)
+void CommandContext_DX12::TransitionBarrier(GPUTextureHandle handle, RGResourceState before, RGResourceState after)
 {
 	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
 		m_pDevice->m_textures[handle.id].resource.Get(),
@@ -166,13 +166,13 @@ void CommandContext_DX12::TransitionBarrier(TextureHandle handle, RGResourceStat
 	m_commandList->ResourceBarrier(1, &barrier);
 }
 
-void CommandContext_DX12::ClearRenderTarget(TextureHandle handle, const float clearValue[4])
+void CommandContext_DX12::ClearRenderTarget(GPUTextureHandle handle, const float clearValue[4])
 {
 	const auto& rtvHandle = m_pDevice->m_textures[handle.id].rtv;
 	m_commandList->ClearRenderTargetView(rtvHandle.cpu, clearValue, 0, nullptr);
 }
 
-void CommandContext_DX12::ClearRenderTargets(UINT numRT, TextureHandle* renderTargets, const float clearValue[4])
+void CommandContext_DX12::ClearRenderTargets(UINT numRT, GPUTextureHandle* renderTargets, const float clearValue[4])
 {
 	for (UINT i = 0; i < numRT; i++)
 	{
@@ -181,7 +181,7 @@ void CommandContext_DX12::ClearRenderTargets(UINT numRT, TextureHandle* renderTa
 	}
 }
 
-void CommandContext_DX12::ClearDepthStencil(TextureHandle handle, float depth, int faceIdx)
+void CommandContext_DX12::ClearDepthStencil(GPUTextureHandle handle, float depth, int faceIdx)
 {
 	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle{};
 	if (handle.IsValid())
@@ -191,7 +191,7 @@ void CommandContext_DX12::ClearDepthStencil(TextureHandle handle, float depth, i
 	m_commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, depth, 0, 0, nullptr);
 }
 
-void CommandContext_DX12::SetRenderTarget(UINT numRT, TextureHandle* renderTargets, TextureHandle depth, int faceIdx)
+void CommandContext_DX12::SetRenderTarget(UINT numRT, GPUTextureHandle* renderTargets, GPUTextureHandle depth, int faceIdx)
 {
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT] = {};
 	for (UINT i = 0; i < numRT; i++)

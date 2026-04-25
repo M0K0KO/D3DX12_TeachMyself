@@ -18,8 +18,8 @@ struct MeshRendererComponent
 	//MeshHandle mesh;
 	//MaterialHandle material;
 
-	BufferHandle vertexBuffer;
-	BufferHandle indexBuffer;
+	GPUBufferHandle vertexBuffer;
+	GPUBufferHandle indexBuffer;
 	uint32_t indexOffset = 0;
 	uint32_t indexCount = 0;
 	GPUMaterial material;

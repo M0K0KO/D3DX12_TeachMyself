@@ -256,6 +256,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="GPUTimestampProfiler.h" />
     <ClInclude Include="GraphicsDevice.h" />
     <ClInclude Include="GraphicsDevice_DX12.h" />
+    <ClInclude Include="HandlePool.h" />
     <ClInclude Include="HirerarchyComponent.h" />
     <ClInclude Include="HRException.h" />
     <ClInclude Include="IComponentPool.h" />

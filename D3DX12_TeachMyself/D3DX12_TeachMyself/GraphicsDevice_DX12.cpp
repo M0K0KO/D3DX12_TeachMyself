@@ -138,7 +138,7 @@ void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uin
 
 			InternalTexture tex = {};
 			tex.resource = m_renderTargets[n];
-			tex.desc = { m_width, m_height, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+			tex.desc = { m_width, m_height, 1, 1, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget, false };
 			tex.rtv = rtvHandle;
 
 			m_backBufferHandles[n].id = static_cast<uint32_t>(m_textures.size());
@@ -306,7 +306,7 @@ void GraphicsDevice_DX12::Shutdown()
 	CloseHandle(m_fenceEvent);
 }
 
-BufferHandle GraphicsDevice_DX12::CreateBuffer(const BufferDesc desc, const void* initialData)
+GPUBufferHandle GraphicsDevice_DX12::CreateBuffer(const BufferDesc desc, const void* initialData)
 {
 	InternalBuffer internalBuffer;
 	internalBuffer.desc = desc;
@@ -345,10 +345,70 @@ BufferHandle GraphicsDevice_DX12::CreateBuffer(const BufferDesc desc, const void
 	uint32_t id = m_buffers.size();
 	m_buffers.push_back(internalBuffer);
 
-	return BufferHandle{ id };
+	return GPUBufferHandle{ id };
 }
 
-TextureHandle GraphicsDevice_DX12::CreateRTTexture(const TextureDesc& desc)
+GPUTextureHandle GraphicsDevice_DX12::CreateTexture(const TextureInitDesc& init)
+{
+	D3D12_RESOURCE_DESC rd{};
+	rd.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	rd.Width = init.desc.width;
+	rd.Height = init.desc.height;
+	rd.DepthOrArraySize = (UINT16)init.desc.arraySize;
+	rd.MipLevels = (UINT16)init.desc.mipLevels;
+	rd.Format = DX12Helpers::ToDXGIFormat(init.desc.format);
+	rd.SampleDesc = { 1, 0 };
+	rd.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+	ComPtr<ID3D12Resource> resource;
+	auto heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+	HR_CHECK(m_device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &rd, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&resource)));
+
+	const uint32_t subCount = init.desc.mipLevels * init.desc.arraySize;
+	std::vector<D3D12_SUBRESOURCE_DATA> dxSubs(subCount);
+	for (uint32_t i = 0; i < subCount; i++)
+	{
+		dxSubs[i].pData = init.subresources[i].data;
+		dxSubs[i].RowPitch = init.subresources[i].rowPitch;
+		dxSubs[i].SlicePitch = init.subresources[i].slicePitch;
+	}
+
+	m_uploadQueue->UploadTexture(resource.Get(), dxSubs.data(), (uint32_t)dxSubs.size());
+
+	DescriptorHandle srvHandle = m_cbvSrvUavAllocator.Allocate();
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+	srvDesc.Format = rd.Format;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	if (init.desc.isCubemap)
+	{
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+		srvDesc.TextureCube.MipLevels = init.desc.mipLevels;
+	}
+	else if (init.desc.arraySize > 1)
+	{
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
+		srvDesc.Texture2DArray.MipLevels = init.desc.mipLevels;
+		srvDesc.Texture2DArray.ArraySize = init.desc.arraySize;
+	}
+	else
+	{
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MipLevels = init.desc.mipLevels;
+	}
+	m_device->CreateShaderResourceView(resource.Get(), &srvDesc, srvHandle.cpu);
+
+	InternalTexture internal;
+	internal.resource = resource;
+	internal.srv = srvHandle;
+	internal.desc = {static_cast<uint32_t>(rd.Width), static_cast<uint32_t>(rd.Height), rd.MipLevels, rd.DepthOrArraySize, init.desc.format, TextureUsage::ShaderResource, init.desc.isCubemap };
+
+	uint32_t id = m_textures.size();
+	m_textures.push_back(internal);
+
+	return GPUTextureHandle{ id };
+}
+
+GPUTextureHandle GraphicsDevice_DX12::CreateRTTexture(const TextureDesc& desc)
 {
 	InternalTexture internalTexture;
 	internalTexture.desc = desc;
@@ -404,68 +464,10 @@ TextureHandle GraphicsDevice_DX12::CreateRTTexture(const TextureDesc& desc)
 	uint32_t id = m_textures.size();
 	m_textures.push_back(internalTexture);
 
-	return TextureHandle{ id };
+	return GPUTextureHandle{ id };
 }
 
-TextureHandle GraphicsDevice_DX12::CreateSRTexture(const TextureDesc& desc, const void* initialData)
-{
-	InternalTexture internalTexture;
-	internalTexture.desc = desc;
-
-	ComPtr<ID3D12Resource> texture;
-
-	D3D12_RESOURCE_DESC textureDesc = {};
-	textureDesc.MipLevels =		     1;
-	textureDesc.Format =			 DX12Helpers::ToDXGIFormat(desc.format);
-	textureDesc.Width =				 desc.width;
-	textureDesc.Height =			 desc.height;
-	textureDesc.Flags =				 D3D12_RESOURCE_FLAG_NONE;
-	textureDesc.DepthOrArraySize =   1;
-	textureDesc.SampleDesc.Count =   1;
-	textureDesc.SampleDesc.Quality = 0;
-	textureDesc.Dimension =			 D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-
-	auto defaultHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-
-	HR_CHECK(m_device->CreateCommittedResource(
-		&defaultHeapProps, D3D12_HEAP_FLAG_NONE, &textureDesc,
-		D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&texture)));
-
-	if (initialData)
-	{
-		D3D12_SUBRESOURCE_DATA sub{};
-		sub.pData = initialData;
-		sub.RowPitch = desc.width * DX12Helpers::GetBytesPerPixel(desc.format);
-		sub.SlicePitch = sub.RowPitch * desc.height;
-
-		m_uploadQueue->UploadTexture(texture.Get(), &sub, 1);
-
-		m_pendingTransitions.push_back(
-			CD3DX12_RESOURCE_BARRIER::Transition(
-				texture.Get(),
-				D3D12_RESOURCE_STATE_COMMON,
-				D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
-				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
-	}
-
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = textureDesc.Format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MipLevels = 1;
-
-	auto srvHandle = AllocateSRV();
-	m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle.cpu);
-
-	internalTexture.resource = texture;
-	internalTexture.srv = srvHandle;
-
-	uint32_t id = m_textures.size();
-	m_textures.push_back(internalTexture);
-	return TextureHandle{ id };
-}
-
-TextureHandle GraphicsDevice_DX12::CreateDSTexture(const TextureDesc& desc)
+GPUTextureHandle GraphicsDevice_DX12::CreateDSTexture(const TextureDesc& desc)
 {
 	InternalTexture internalTexture;
 	internalTexture.desc = desc;
@@ -524,10 +526,10 @@ TextureHandle GraphicsDevice_DX12::CreateDSTexture(const TextureDesc& desc)
 	uint32_t id = m_textures.size();
 	m_textures.push_back(internalTexture);
 
-	return TextureHandle{ id };
+	return GPUTextureHandle{ id };
 }
 
-TextureHandle GraphicsDevice_DX12::CreateUAVTexture(const TextureDesc& desc)
+GPUTextureHandle GraphicsDevice_DX12::CreateUAVTexture(const TextureDesc& desc)
 {
 	InternalTexture internalTexture;
 	internalTexture.desc = desc;
@@ -578,102 +580,10 @@ TextureHandle GraphicsDevice_DX12::CreateUAVTexture(const TextureDesc& desc)
 
 	uint32_t id = static_cast<uint32_t>(m_textures.size());
 	m_textures.push_back(internalTexture);
-	return TextureHandle{ id };
+	return GPUTextureHandle{ id };
 }
 
-TextureHandle GraphicsDevice_DX12::CreateTexture(const TextureDesc desc, const void* initialData)
-{
-	switch (desc.usage)
-	{
-	case(TextureUsage::RenderTarget):	 return CreateRTTexture(desc);
-	case(TextureUsage::ShaderResource):  return CreateSRTexture(desc, initialData);
-	case(TextureUsage::DepthStencil):	 return CreateDSTexture(desc);
-	case(TextureUsage::UnorderedAccess): return CreateUAVTexture(desc);
-	default:							 return TextureHandle{};
-	}
-}
-
-TextureHandle GraphicsDevice_DX12::CreateCubemapTexture(const CubemapTextureDesc desc, const void* initialData)
-{
-	switch (desc.usage)
-	{
-	case(TextureUsage::ShaderResource):  return CreateSRCubemapTexture(desc, initialData);
-	case(TextureUsage::DepthStencil):	 return CreateDSCubemapTexture(desc);
-	case(TextureUsage::UnorderedAccess): return CreateUAVCubemapTexture(desc);
-	default:							 return TextureHandle{};
-	}
-}
-
-TextureHandle GraphicsDevice_DX12::CreateSRCubemapTexture(const CubemapTextureDesc& desc, const void* initialData)
-{
-	InternalTexture internalTexture;
-	internalTexture.cubeDesc = desc;
-
-	D3D12_RESOURCE_DESC textureDesc = {};
-	textureDesc.MipLevels = desc.mipLevels;
-	textureDesc.Format = DX12Helpers::ToDXGIFormat(desc.format);
-	textureDesc.Width = desc.width;
-	textureDesc.Height = desc.height;
-	textureDesc.Flags = DX12Helpers::ToResourceFlags(desc.usage);
-	textureDesc.DepthOrArraySize = 6;
-	textureDesc.SampleDesc.Count = 1;
-	textureDesc.SampleDesc.Quality = 0;
-	textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-
-	ComPtr<ID3D12Resource> texture;
-
-	auto defaultHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-	HR_CHECK(m_device->CreateCommittedResource(
-		&defaultHeapProps, D3D12_HEAP_FLAG_NONE, &textureDesc,
-		D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&texture)));
-
-	if (initialData)
-	{
-		const uint32_t bytesPerPixel = DX12Helpers::GetBytesPerPixel(desc.format);
-		const UINT64 rowPitch = static_cast<UINT64>(desc.width) * bytesPerPixel;
-		const UINT64 slicePitch = rowPitch * desc.height;
-		const uint8_t* base = static_cast<const uint8_t*>(initialData);
-
-		std::array<D3D12_SUBRESOURCE_DATA, 6> subresources{};
-		for (uint32_t face = 0; face < 6; ++face)
-		{
-			subresources[face].pData = base + slicePitch * face;
-			subresources[face].RowPitch = static_cast<LONG_PTR>(rowPitch);
-			subresources[face].SlicePitch = static_cast<LONG_PTR>(slicePitch);
-		}
-
-		m_uploadQueue->UploadTexture(texture.Get(), subresources.data(), 6, 0);
-		UINT64 uploadFence = m_uploadQueue->Flush();
-		if (uploadFence > 0)
-		{
-			m_uploadQueue->InsertWaitOnQueue(m_commandQueue.Get(), uploadFence);
-		}
-
-		m_pendingTransitions.push_back(
-			CD3DX12_RESOURCE_BARRIER::Transition(
-				texture.Get(),
-				D3D12_RESOURCE_STATE_COMMON,
-				D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
-				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
-	}
-
-	auto srvHandle = AllocateSRV();
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = textureDesc.Format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
-	srvDesc.TextureCube.MipLevels = desc.mipLevels;
-	m_device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle.cpu);
-
-	internalTexture.resource = texture;
-	internalTexture.srv = srvHandle;
-
-	uint32_t id = static_cast<uint32_t>(m_textures.size());
-	m_textures.push_back(internalTexture);
-	return TextureHandle{ id };
-}
-
-TextureHandle GraphicsDevice_DX12::CreateDSCubemapTexture(const CubemapTextureDesc& desc)
+GPUTextureHandle GraphicsDevice_DX12::CreateDSCubemapTexture(const CubemapTextureDesc& desc)
 {
 	InternalTexture internalTexture;
 	internalTexture.cubeDesc = desc;
@@ -732,10 +642,10 @@ TextureHandle GraphicsDevice_DX12::CreateDSCubemapTexture(const CubemapTextureDe
 
 	uint32_t id = static_cast<uint32_t>(m_textures.size());
 	m_textures.push_back(internalTexture);
-	return TextureHandle{ id };
+	return GPUTextureHandle{ id };
 }
 
-TextureHandle GraphicsDevice_DX12::CreateUAVCubemapTexture(const CubemapTextureDesc& desc)
+GPUTextureHandle GraphicsDevice_DX12::CreateUAVCubemapTexture(const CubemapTextureDesc& desc)
 {
 	InternalTexture internalTexture;
 	internalTexture.cubeDesc = desc;
@@ -790,7 +700,7 @@ TextureHandle GraphicsDevice_DX12::CreateUAVCubemapTexture(const CubemapTextureD
 
 	uint32_t id = static_cast<uint32_t>(m_textures.size());
 	m_textures.push_back(internalTexture);
-	return TextureHandle{ id };
+	return GPUTextureHandle{ id };
 }
 
 PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
@@ -970,12 +880,12 @@ ComPtr<ID3D12RootSignature> GraphicsDevice_DX12::BuildRootSignature(const RootSi
 	return rs;
 }
 
-DescriptorHandle GraphicsDevice_DX12::GetSRVHandle(TextureHandle handle)
+DescriptorHandle GraphicsDevice_DX12::GetSRVHandle(GPUTextureHandle handle)
 {
 	return m_textures[handle.id].srv;
 }
 
-DescriptorHandle GraphicsDevice_DX12::GetUAVHandle(TextureHandle handle, uint32_t mip)
+DescriptorHandle GraphicsDevice_DX12::GetUAVHandle(GPUTextureHandle handle, uint32_t mip)
 {
 	const auto& tex = m_textures[handle.id];
 
@@ -990,7 +900,7 @@ DescriptorHandle GraphicsDevice_DX12::GetUAVHandle(TextureHandle handle, uint32_
 	return tex.uav;
 }
 
-void GraphicsDevice_DX12::DestroyBuffer(BufferHandle handle)
+void GraphicsDevice_DX12::DestroyBuffer(GPUBufferHandle handle)
 {
 	if (!handle.IsValid()) return;
 
@@ -1018,7 +928,7 @@ void GraphicsDevice_DX12::DestroyBuffer(BufferHandle handle)
 	}
 }
 
-void GraphicsDevice_DX12::DestroyTexture(TextureHandle handle)
+void GraphicsDevice_DX12::DestroyTexture(GPUTextureHandle handle)
 {
 	if (!handle.IsValid()) return;
 
@@ -1050,7 +960,7 @@ void GraphicsDevice_DX12::BeginTextureUpload()
 		m_commandAllocators[m_frameIndex].Get(), nullptr));
 }
 
-TextureHandle GraphicsDevice_DX12::LoadTexture(const std::wstring& path)
+GPUTextureHandle GraphicsDevice_DX12::LoadTexture(const std::wstring& path)
 {
 	auto result = m_pTextureLoader->LoadDDS(m_commandList.Get(), path);
 
@@ -1074,7 +984,7 @@ TextureHandle GraphicsDevice_DX12::LoadTexture(const std::wstring& path)
 
 	uint32_t id = (uint32_t)m_textures.size();
 	m_textures.push_back(internal);
-	return TextureHandle{ id };
+	return GPUTextureHandle{ id };
 }
 
 void GraphicsDevice_DX12::FlushTextureUploads()
@@ -1089,17 +999,17 @@ void GraphicsDevice_DX12::FlushTextureUploads()
 	m_pTextureLoader->CleanupUploads();
 }
 
-const ComPtr<ID3D12Resource> GraphicsDevice_DX12::GetTextureResource(TextureHandle handle)
+const ComPtr<ID3D12Resource> GraphicsDevice_DX12::GetTextureResource(GPUTextureHandle handle)
 {
 	return m_textures[handle.id].resource;
 }
 
-TextureHandle* GraphicsDevice_DX12::GetCurrentBackBufferPtr()
+GPUTextureHandle* GraphicsDevice_DX12::GetCurrentBackBufferPtr()
 {
 	return &(m_backBufferHandles[m_frameIndex]);
 }
 
-TextureHandle GraphicsDevice_DX12::GetCurrentBackBuffer()
+GPUTextureHandle GraphicsDevice_DX12::GetCurrentBackBuffer()
 {
 	return m_backBufferHandles[m_frameIndex];
 }
