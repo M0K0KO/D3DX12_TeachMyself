@@ -49,10 +49,6 @@ public:
 	void DestroyBuffer(GPUBufferHandle handle) override;
 	void DestroyTexture(GPUTextureHandle handle) override;
 
-	void BeginTextureUpload() override;
-	GPUTextureHandle LoadTexture(const std::wstring& path) override;
-	void FlushTextureUploads() override;
-
 	void ExecuteImmediate(std::function<void(CommandContext&)> fn) override;
 	CommandContext& BeginFrame() override;
 	void EndFrame() override;

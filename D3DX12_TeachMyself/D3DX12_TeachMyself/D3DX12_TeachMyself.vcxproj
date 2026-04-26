@@ -300,7 +300,6 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="SystemManager.h" />
     <ClInclude Include="Texture.h" />
-    <ClInclude Include="TextureLoader.h" />
     <ClInclude Include="TextureManager.h" />
     <ClInclude Include="tiny_gltf.h" />
     <ClInclude Include="TransformComponent.h" />
@@ -362,7 +361,6 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="SystemManager.cpp" />
-    <ClCompile Include="TextureLoader.cpp" />
     <ClCompile Include="TextureManager.cpp" />
     <ClCompile Include="TransformComponentOperations.cpp" />
     <ClCompile Include="TransformSystem.cpp" />

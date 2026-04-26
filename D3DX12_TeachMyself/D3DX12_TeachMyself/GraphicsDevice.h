@@ -32,10 +32,6 @@ public:
 	virtual void DestroyBuffer(GPUBufferHandle handle) = 0;
 	virtual void DestroyTexture(GPUTextureHandle handle) = 0;
 
-	virtual void BeginTextureUpload() = 0;
-	virtual GPUTextureHandle LoadTexture(const std::wstring& path) = 0;
-	virtual void FlushTextureUploads() = 0;
-
 	virtual void ExecuteImmediate(std::function<void(CommandContext&)> fn) = 0;
 	virtual CommandContext& BeginFrame() = 0;
 	virtual void EndFrame() = 0;

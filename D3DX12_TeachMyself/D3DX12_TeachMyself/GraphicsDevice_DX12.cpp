@@ -953,52 +953,6 @@ void GraphicsDevice_DX12::DestroyTexture(GPUTextureHandle handle)
 	EnqueueResourceRelease(std::move(resourceToRelease), m_nextFenceValue);
 }
 
-void GraphicsDevice_DX12::BeginTextureUpload()
-{
-	HR_CHECK(m_commandAllocators[m_frameIndex]->Reset());
-	HR_CHECK(m_commandList->Reset(
-		m_commandAllocators[m_frameIndex].Get(), nullptr));
-}
-
-GPUTextureHandle GraphicsDevice_DX12::LoadTexture(const std::wstring& path)
-{
-	auto result = m_pTextureLoader->LoadDDS(m_commandList.Get(), path);
-
-	InternalTexture internal = {};
-	internal.resource = result.resource;
-	internal.desc.width = result.width;
-	internal.desc.height = result.height;
-	internal.desc.format = DX12Helpers::ToRHIFormat(result.format);
-
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Format = result.format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Texture2D.MipLevels = result.mipLevels;
-
-	auto srvHandle = AllocateSRV();
-	internal.srv = srvHandle;
-
-	m_device->CreateShaderResourceView(
-		result.resource.Get(), &srvDesc, srvHandle.cpu);
-
-	uint32_t id = (uint32_t)m_textures.size();
-	m_textures.push_back(internal);
-	return GPUTextureHandle{ id };
-}
-
-void GraphicsDevice_DX12::FlushTextureUploads()
-{
-	HR_CHECK(m_commandList->Close());
-
-	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
-	m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
-
-	WaitForGpu();
-
-	m_pTextureLoader->CleanupUploads();
-}
-
 const ComPtr<ID3D12Resource> GraphicsDevice_DX12::GetTextureResource(GPUTextureHandle handle)
 {
 	return m_textures[handle.id].resource;

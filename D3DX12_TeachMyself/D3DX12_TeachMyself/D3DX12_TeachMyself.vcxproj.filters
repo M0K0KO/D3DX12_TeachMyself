@@ -150,9 +150,6 @@
     <ClCompile Include="UploadHeapRingAllocator.cpp">
       <Filter>Source Files\Allocator</Filter>
     </ClCompile>
-    <ClCompile Include="TextureLoader.cpp">
-      <Filter>Source Files\Assets</Filter>
-    </ClCompile>
     <ClCompile Include="DX12Helpers.cpp">
       <Filter>Source Files\RHI\DX12</Filter>
     </ClCompile>
@@ -346,9 +343,6 @@
     </ClInclude>
     <ClInclude Include="UploadHeapRingAllocator.h">
       <Filter>Header Files\Allocator</Filter>
-    </ClInclude>
-    <ClInclude Include="TextureLoader.h">
-      <Filter>Header Files\Asset</Filter>
     </ClInclude>
     <ClInclude Include="GPUTimestampProfiler.h">
       <Filter>Header Files\Profile</Filter>
