@@ -124,10 +124,37 @@ TextureHandle TextureManager::Load(const LoadDesc & desc)
 
 TextureHandle TextureManager::CreateRaw(const RawDesc& desc)
 {
+	if (desc.width == 0 || desc.height == 0)
+	{
+		MOKOLOG_ERROR("CreateRaw failed: invalid size {}x{}", desc.width, desc.height);
+		return {};
+	}
+	if (!desc.data || desc.dataSize == 0)
+	{
+		MOKOLOG_ERROR("CreateRaw failed: empty texture data ({}x{})", desc.width, desc.height);
+		return {};
+	}
+
+	const size_t bytesPerPixel = DX12Helpers::GetBytesPerPixel(desc.format);
+	if (bytesPerPixel == 0)
+	{
+		MOKOLOG_ERROR("CreateRaw failed: unsupported format {}", static_cast<int>(desc.format));
+		return {};
+	}
+
+	const size_t expectedRowPitch = static_cast<size_t>(desc.width) * bytesPerPixel;
+	const size_t expectedSlicePitch = static_cast<size_t>(desc.width) * static_cast<size_t>(desc.height) * bytesPerPixel;
+	if (desc.dataSize < expectedSlicePitch)
+	{
+		MOKOLOG_ERROR("CreateRaw failed: dataSize({}) < expected({}) for {}x{}",
+			desc.dataSize, expectedSlicePitch, desc.width, desc.height);
+		return {};
+	}
+
 	SubresourceData sub{
 			.data = desc.data,
-			.rowPitch = (size_t)desc.width * DX12Helpers::GetBytesPerPixel(desc.format),
-			.slicePitch = (size_t)desc.width * desc.height * DX12Helpers::GetBytesPerPixel(desc.format),
+			.rowPitch = expectedRowPitch,
+			.slicePitch = expectedSlicePitch,
 	};
 
 	TextureInitDesc init{
@@ -159,6 +186,19 @@ TextureHandle TextureManager::CreateRaw(const RawDesc& desc)
 
 TextureHandle TextureManager::CreateFromEmbedded(const Mesh::Texture& tex, bool sRGB)
 {
+	if (!tex.embedded || tex.width <= 0 || tex.height <= 0 || tex.channels <= 0 || tex.bytesPerChannel <= 0)
+	{
+		MOKOLOG_ERROR("Invalid embedded texture metadata: embedded={}, size={}x{}, ch={}, bpc={}",
+			tex.embedded, tex.width, tex.height, tex.channels, tex.bytesPerChannel);
+		return {};
+	}
+	if (tex.data.empty())
+	{
+		MOKOLOG_ERROR("Embedded texture data is empty ({}x{}, ch={}, bpc={})",
+			tex.width, tex.height, tex.channels, tex.bytesPerChannel);
+		return {};
+	}
+
 	std::vector<uint8_t> rgba;
 	const void* data;
 	int finalChannels;
