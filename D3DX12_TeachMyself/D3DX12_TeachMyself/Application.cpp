@@ -163,32 +163,51 @@ void Application::Render()
 RenderScene Application::ExtractRenderScene()
 {
 	RenderScene rs;
-	rs.renderObjects.reserve(m_ecsScene.GetRegistry().GetView<TransformComponent, MeshRendererComponent>().SizeHint());
 	rs.sceneAABBMax = m_ecsScene.GetSceneAABBMax();
 	rs.sceneAABBMin = m_ecsScene.GetSceneAABBMin();
 
 	auto meshView = m_ecsScene.GetRegistry().GetView<TransformComponent, MeshRendererComponent>();
+	rs.renderObjects.reserve(meshView.SizeHint());
+
 	for (auto [e, t, mr] : meshView)
 	{
 		if (!mr.visible) continue;
+		if (!mr.mesh.IsValid()) continue;
 
-		const Material* mat = m_assetManager->Materials().Get(mr.material);
-		if (!mat)
+		const MeshAsset* mesh = m_assetManager->Meshes().Get(mr.mesh);
+		if (!mesh) continue;
+
+		XMFLOAT4X4 worldT;
+		XMStoreFloat4x4(&worldT, XMMatrixTranspose(XMLoadFloat4x4(&t.worldMatrix)));
+
+		for (size_t i = 0; i < mr.submeshIndices.size(); i++)
 		{
-			mat = m_assetManager->Materials().Get(BuiltinAssets::GetDefaultMaterial());
-			if (!mat) continue;
-		}
+			uint32_t subIdx = mr.submeshIndices[i];
+			if (subIdx >= mesh->submeshes.size()) continue;
+			const Submesh& sub = mesh->submeshes[subIdx];
 
-		RenderObject obj;
-		XMStoreFloat4x4(&obj.world, XMMatrixTranspose(XMLoadFloat4x4(&t.worldMatrix)));
-		obj.vertexBuffer = mr.vertexBuffer;
-		obj.indexBuffer = mr.indexBuffer;
-		obj.indexOffset = mr.indexOffset;
-		obj.indexCount = mr.indexCount;
-		obj.material = m_assetManager->Materials().ToGPU(*mat);
-		obj.aabbMin = mr.aabbMin;
-		obj.aabbMax = mr.aabbMax;
-		rs.renderObjects.push_back(obj);
+			const Material* mat = nullptr;
+			if (i < mr.materials.size())
+			{
+				mat = m_assetManager->Materials().Get(mr.materials[i]);
+			}
+			if (!mat)
+			{
+				mat = m_assetManager->Materials().Get(BuiltinAssets::GetDefaultMaterial());
+				if (!mat) continue;
+			}
+
+			RenderObject obj;
+			obj.world = worldT;
+			obj.vertexBuffer = mesh->vb;
+			obj.indexBuffer = mesh->ib;
+			obj.indexOffset = sub.indexOffset;
+			obj.indexCount = sub.indexCount;
+			obj.material = m_assetManager->Materials().ToGPU(*mat);
+			obj.aabbMin = sub.aabb.min;
+			obj.aabbMax = sub.aabb.max;
+			rs.renderObjects.push_back(obj);
+		}
 	}
 
 	auto dirLightView = m_ecsScene.GetRegistry().GetView<DirectionalLightComponent>();

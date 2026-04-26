@@ -15,17 +15,9 @@ struct MeshSource
 
 struct MeshRendererComponent
 {
-	// TODO
-	//MeshHandle mesh;
-	//MaterialHandle material;
-
-	GPUBufferHandle vertexBuffer;
-	GPUBufferHandle indexBuffer;
-	uint32_t indexOffset = 0;
-	uint32_t indexCount = 0;
-	MaterialHandle material;
-	XMFLOAT3 aabbMin = { FLT_MAX,  FLT_MAX,  FLT_MAX };
-	XMFLOAT3 aabbMax = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
+	MeshHandle mesh;
+	std::vector<uint32_t> submeshIndices;
+	std::vector<MaterialHandle> materials;
 	bool visible = true;
 
 	MeshSource source;

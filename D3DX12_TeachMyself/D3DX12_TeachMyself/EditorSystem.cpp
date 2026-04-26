@@ -527,13 +527,37 @@ void EditorSystem::DrawInspector(EntityScene& scene)
 	DrawComponent<MeshRendererComponent>("Mesh Renderer", registry, e, [&](auto& mr) {
 		DrawProperty("Visible", [&]() { ImGui::Checkbox("##V", &mr.visible); });
 
-		Material* mat = m_assetManager->Materials().Get(mr.material);
-		DrawSection("Material Settings");
-		DrawProperty("Metallic", [&]() { ImGui::SliderFloat("##M", &mat->factors.metallicFactor, 0.0f, 1.0f); }, true);
-		DrawProperty("Roughness", [&]() { ImGui::SliderFloat("##R", &mat->factors.roughnessFactor, 0.0f, 1.0f); }, true);
+		for (size_t i = 0; i < mr.materials.size(); ++i)
+		{
+			if (mr.materials.size() > 1)
+			{
+				ImGui::Text("Submesh %zu", i);
+			}
+			else
+			{
+				DrawSection("Material");
+			}
 
-		DrawSection("Statistics");
-		DrawProperty("Indices", [&]() { ImGui::Text("%u", mr.indexCount); }, true);
+
+
+			Material* mat = m_assetManager->Materials().Get(mr.materials[i]);
+			if (!mat) continue;
+
+			char metallicLabel[32];
+			char roughnessLabel[32];
+			snprintf(metallicLabel, sizeof(metallicLabel), "##M_%zu", i);
+			snprintf(roughnessLabel, sizeof(roughnessLabel), "##R_%zu", i);
+
+			if (mat)
+			{
+				DrawProperty("Metallic", [&]() {
+					ImGui::SliderFloat("##M", &mat->factors.metallicFactor, 0.0f, 1.0f);
+					}, true);
+				DrawProperty("Roughness", [&]() {
+					ImGui::SliderFloat("##R", &mat->factors.roughnessFactor, 0.0f, 1.0f);
+					}, true);
+			}
+		}
 		});
 
 	// Directional Light
