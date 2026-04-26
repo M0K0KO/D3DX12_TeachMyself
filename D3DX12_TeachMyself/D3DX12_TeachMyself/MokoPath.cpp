@@ -47,6 +47,14 @@ namespace MokoPath
         return result;
     }
 
+    std::wstring ToWString(const std::string& str)
+    {
+        int len = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, nullptr, 0);
+        std::wstring result(len - 1, 0);
+        MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, result.data(), len);
+        return result;
+    }
+
     bool IsLoadableGLTF(std::filesystem::path path)
     {
         auto ext = path.extension().string();
