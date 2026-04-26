@@ -232,6 +232,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="..\..\external\imgui\backends\imgui_impl_win32.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="AssetLoader.h" />
+    <ClInclude Include="AssetManager.h" />
     <ClInclude Include="BuiltinAssets.h" />
     <ClInclude Include="CameraComponent.h" />
     <ClInclude Include="CameraControllerSystem.h" />
@@ -270,6 +271,8 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="JobTime.h" />
     <ClInclude Include="json.hpp" />
     <ClInclude Include="Keyboard.h" />
+    <ClInclude Include="Material.h" />
+    <ClInclude Include="MaterialManager.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="MeshRendererComponent.h" />
     <ClInclude Include="MokoImGui.h" />
@@ -319,6 +322,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="..\..\external\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Application.cpp" />
     <ClCompile Include="AssetLoader.cpp" />
+    <ClCompile Include="AssetManager.cpp" />
     <ClCompile Include="BuiltinAssets.cpp" />
     <ClCompile Include="CameraComponentOperations.cpp" />
     <ClCompile Include="CameraControllerSystem.cpp" />
@@ -340,6 +344,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="JobSystem.cpp" />
     <ClCompile Include="Keyboard.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="MaterialManager.cpp" />
     <ClCompile Include="MokoLogger.cpp" />
     <ClCompile Include="MokoLoggerHelper.cpp" />
     <ClCompile Include="MokoPath.cpp" />

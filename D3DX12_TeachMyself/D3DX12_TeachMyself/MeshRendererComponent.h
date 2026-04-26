@@ -1,6 +1,7 @@
 #pragma once
 #include "RHITypes.h"
 #include <DirectXMath.h>
+#include "Material.h"
 
 using namespace DirectX;
 
@@ -22,7 +23,7 @@ struct MeshRendererComponent
 	GPUBufferHandle indexBuffer;
 	uint32_t indexOffset = 0;
 	uint32_t indexCount = 0;
-	GPUMaterial material;
+	MaterialHandle material;
 	XMFLOAT3 aabbMin = { FLT_MAX,  FLT_MAX,  FLT_MAX };
 	XMFLOAT3 aabbMax = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
 	bool visible = true;

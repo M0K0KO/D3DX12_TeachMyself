@@ -2,10 +2,12 @@
 #include <cstdint>
 #include <DirectXMath.h>
 #include "RHITypes.h"
+#include "HandlePool.h"
 
 using namespace DirectX;
 
 class GraphicsDevice;
+class AssetManager;
 
 class BuiltinAssets
 {
@@ -21,16 +23,18 @@ public:
 	};
 
 public:
-	static void Initialize(GraphicsDevice& device);
-	static void Shutdown(GraphicsDevice& device);
+	static void Initialize(GraphicsDevice& device, AssetManager* assets);
+	static void Shutdown(GraphicsDevice& device, AssetManager* assets);
 	static bool IsInitialized();
 
 	static const MeshData& GetCube();
 	static const MeshData& GetSphere();
 
-	static GPUTextureHandle GetDefaultWhite();
-	static GPUTextureHandle GetDefaultNormal();
-	static GPUTextureHandle GetDefaultMR();
+	static TextureHandle GetDefaultWhite();
+	static TextureHandle GetDefaultNormal();
+	static TextureHandle GetDefaultMR();
+
+	static MaterialHandle GetDefaultMaterial();
 
 private:
 	BuiltinAssets() = delete;

@@ -2,6 +2,7 @@
 #include "EntityScene.h"
 #include "Window.h"
 #include "InputState.h"
+#include "AssetManager.h"
 
 struct SystemContext
 {
@@ -9,6 +10,7 @@ struct SystemContext
 	Window* window;
 	const InputState* input;
 	EntityScene* scene;
+	AssetManager* assetManager;
 };
 
 

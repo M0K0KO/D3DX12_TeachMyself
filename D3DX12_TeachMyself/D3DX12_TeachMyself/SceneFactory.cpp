@@ -8,6 +8,7 @@
 #include "PointLightComponent.h"
 #include "BuiltinAssets.h"
 #include "MokoPath.h"
+#include "AssetManager.h"
 
 
 namespace SceneFactory
@@ -109,13 +110,7 @@ namespace SceneFactory
         mr.aabbMin = cube.aabbMin;
         mr.aabbMax = cube.aabbMax;
 
-        mr.material.baseColor = BuiltinAssets::GetDefaultWhite();
-        mr.material.normal = BuiltinAssets::GetDefaultNormal();
-        mr.material.metallicRoughness = BuiltinAssets::GetDefaultMR();
-        mr.material.metallicFactor = 0.0f;
-        mr.material.roughnessFactor = 1.0f;
-        mr.material.alphaMode = AlphaMode::Opaque;
-        mr.material.alphaCutoff = 0.5f;
+        mr.material = BuiltinAssets::GetDefaultMaterial();
         mr.visible = true;
 
         mr.source = { MeshSource::Type::Builtin, "Cube", 0 };
@@ -143,13 +138,7 @@ namespace SceneFactory
         mr.aabbMin = sphere.aabbMin;
         mr.aabbMax = sphere.aabbMax;
 
-        mr.material.baseColor = BuiltinAssets::GetDefaultWhite();
-        mr.material.normal = BuiltinAssets::GetDefaultNormal();
-        mr.material.metallicRoughness = BuiltinAssets::GetDefaultMR();
-        mr.material.metallicFactor = 0.0f;
-        mr.material.roughnessFactor = 1.0f;
-        mr.material.alphaMode = AlphaMode::Opaque;
-        mr.material.alphaCutoff = 0.5f;
+        mr.material = BuiltinAssets::GetDefaultMaterial();
         mr.visible = true;
 
         mr.source = { MeshSource::Type::Builtin, "Sphere", 0 };
@@ -195,7 +184,7 @@ namespace SceneFactory
 		return e;
 	}
 
-    bool LoadGLTFToScene(EntityScene& ecsScene, GraphicsDevice& device, const std::filesystem::path& path, Entity parent)
+    bool LoadGLTFToScene(EntityScene& ecsScene, AssetManager& assets, GraphicsDevice& device, const std::filesystem::path& path, Entity parent)
     {
         std::vector<Entity> createdEntities;
         createdEntities.reserve(256);
@@ -262,75 +251,60 @@ namespace SceneFactory
                 return false;
             }
 
-            std::vector<GPUTextureHandle> gpuTextures;
-            gpuTextures.reserve(loadedScene.textures.size());
-
-            GPUTextureHandle defaultWhite = BuiltinAssets::GetDefaultWhite();
-            GPUTextureHandle defaultNormal = BuiltinAssets::GetDefaultNormal();
-            GPUTextureHandle defaultMR = BuiltinAssets::GetDefaultMR();
-
-            device.BeginTextureUpload();
-            try
+            std::unordered_map<int, bool> texSrgb;
+            for (const auto& mat : loadedScene.materials)
             {
-                for (size_t i = 0; i < loadedScene.textures.size(); ++i)
+                if (mat.baseColorTexture >= 0 && !texSrgb.count(mat.baseColorTexture))
+                    texSrgb[mat.baseColorTexture] = true;
+                if (mat.normalTexture >= 0 && !texSrgb.count(mat.normalTexture))
+                    texSrgb[mat.normalTexture] = false;
+                if (mat.metallicRoughnessTexture >= 0 && !texSrgb.count(mat.metallicRoughnessTexture))
+                    texSrgb[mat.metallicRoughnessTexture] = false;
+            }
+
+            std::vector<TextureHandle> textureHandles;
+            textureHandles.reserve(loadedScene.textures.size());
+
+            for (size_t i = 0; i < loadedScene.textures.size(); ++i)
+            {
+                const auto& tex = loadedScene.textures[i];
+                const bool sRGB = texSrgb.count((int)i) ? texSrgb[(int)i] : false;
+
+                TextureHandle handle{};
+                try
                 {
-                    const auto& tex = loadedScene.textures[i];
-
-                    GPUTextureHandle handle{};
-                    try
+                    if (tex.embedded)
                     {
-                        if (tex.embedded)
+                        handle = assets.Textures().CreateFromEmbedded(tex, sRGB);
+                        if (!handle.IsValid())
                         {
-                            handle = CreateTextureFromEmbedded(tex, device);
-                            if (!handle.IsValid())
-                            {
-                                MOKOLOG_WARN("Embedded texture load failed (idx={}) in scene [{}]. Fallback will be used.", i, path.string());
-                            }
-                        }
-                        else
-                        {
-                            handle = device.LoadTexture(tex.path);
-                            if (!handle.IsValid())
-                            {
-                                MOKOLOG_WARN("Texture load failed [{}] in scene [{}]. Fallback will be used.", MokoPath::ToString(tex.path), path.string());
-                            }
+                            MOKOLOG_WARN("Embedded texture load failed (idx={}) in [{}]. Fallback will apply.",
+                                i, path.string());
                         }
                     }
-                    catch (const std::exception& e)
+                    else
                     {
-                        if (tex.embedded)
+                        handle = assets.Textures().GetOrLoad(MokoPath::ToString(tex.path), sRGB);
+                        if (!handle.IsValid())
                         {
-                            MOKOLOG_WARN("Exception while loading embedded texture (idx={}) in scene [{}]: {}", i, path.string(), e.what());
-                        }
-                        else
-                        {
-                            MOKOLOG_WARN("Exception while loading texture [{}] in scene [{}]: {}", MokoPath::ToString(tex.path), path.string(), e.what());
+                            MOKOLOG_WARN("Texture load failed [{}] in [{}]. Fallback will apply.",
+                                MokoPath::ToString(tex.path), path.string());
                         }
                     }
-                    catch (...)
-                    {
-                        if (tex.embedded)
-                        {
-                            MOKOLOG_WARN("Unknown exception while loading embedded texture (idx={}) in scene [{}].", i, path.string());
-                        }
-                        else
-                        {
-                            MOKOLOG_WARN("Unknown exception while loading texture [{}] in scene [{}].", MokoPath::ToString(tex.path), path.string());
-                        }
-                    }
-
-                    gpuTextures.push_back(handle);
                 }
+                catch (const std::exception& e)
+                {
+                    MOKOLOG_WARN("Texture load exception (idx={}) in [{}]: {}", i, path.string(), e.what());
+                }
+                catch (...)
+                {
+                    MOKOLOG_WARN("Unknown texture load exception (idx={}) in [{}].", i, path.string());
+                }
+
+                textureHandles.push_back(handle);
             }
-            catch (...)
-            {
-                device.FlushTextureUploads();
-                throw;
-            }
-            device.FlushTextureUploads();
 
             const Entity gltfRoot = (parent == INVALID_ENTITY) ? ecsScene.GetRoot() : parent;
-
             std::vector<Entity> nodeEntities(loadedScene.nodes.size(), INVALID_ENTITY);
 
             for (size_t i = 0; i < loadedScene.nodes.size(); ++i)
@@ -396,65 +370,53 @@ namespace SceneFactory
                 }
             }
 
+            auto resolveTexture = [&](int texIndex) -> TextureHandle {
+                if (texIndex < 0) return {};
+                if (texIndex >= (int)textureHandles.size()) return {};
+                return textureHandles[texIndex];  
+                };
+
             for (size_t i = 0; i < loadedScene.subMeshes.size(); ++i)
             {
                 const auto& subMesh = loadedScene.subMeshes[i];
 
                 if (subMesh.indexCount <= 0)
                 {
-                    MOKOLOG_WARN("Skipping submesh [{}] with zero indexCount in [{}].", subMesh.name, path.string());
+                    MOKOLOG_WARN("Skipping submesh [{}] with zero indexCount in [{}].",
+                        subMesh.name, path.string());
                     continue;
                 }
-
                 if (subMesh.indexOffset + subMesh.indexCount > loadedScene.indices.size())
                 {
-                    MOKOLOG_ERROR(
-                        "Submesh [{}] has invalid index range (offset={}, count={}) in [{}].",
-                        subMesh.name,
-                        subMesh.indexOffset,
-                        subMesh.indexCount,
-                        path.string()
-                    );
-                    rollback();
-                    return false;
+                    MOKOLOG_ERROR("Submesh [{}] invalid index range in [{}].",
+                        subMesh.name, path.string());
+                    rollback(); return false;
                 }
 
                 Entity e = ecsScene.CreateSceneEntity(subMesh.name.empty() ? "GLTF_SubMesh" : subMesh.name);
                 if (e == INVALID_ENTITY)
                 {
-                    MOKOLOG_ERROR("Failed to create submesh entity [{}] in [{}].", subMesh.name, path.string());
-                    rollback();
-                    return false;
+                    MOKOLOG_ERROR("Failed to create submesh entity [{}] in [{}].",
+                        subMesh.name, path.string());
+                    rollback(); return false;
                 }
-
                 createdEntities.push_back(e);
 
                 if (subMesh.nodeIndex >= 0)
                 {
-                    if (subMesh.nodeIndex >= static_cast<int>(nodeEntities.size()))
+                    if (subMesh.nodeIndex >= (int)nodeEntities.size())
                     {
-                        MOKOLOG_ERROR(
-                            "Submesh [{}] has invalid nodeIndex {} in [{}].",
-                            subMesh.name,
-                            subMesh.nodeIndex,
-                            path.string()
-                        );
-                        rollback();
-                        return false;
+                        MOKOLOG_ERROR("Submesh [{}] invalid nodeIndex {} in [{}].",
+                            subMesh.name, subMesh.nodeIndex, path.string());
+                        rollback(); return false;
                     }
-
                     Entity parentEntity = nodeEntities[subMesh.nodeIndex];
                     if (parentEntity == INVALID_ENTITY)
                     {
-                        MOKOLOG_ERROR(
-                            "Submesh [{}] references invalid parent node entity in [{}].",
-                            subMesh.name,
-                            path.string()
-                        );
-                        rollback();
-                        return false;
+                        MOKOLOG_ERROR("Submesh [{}] invalid parent node entity in [{}].",
+                            subMesh.name, path.string());
+                        rollback(); return false;
                     }
-
                     ecsScene.SetParent(e, parentEntity);
                 }
                 else
@@ -473,67 +435,29 @@ namespace SceneFactory
                 mr.visible = true;
                 mr.aabbMin = subMesh.aabbMin;
                 mr.aabbMax = subMesh.aabbMax;
-                mr.source = { MeshSource::Type::GLTF, path.generic_string(), static_cast<int>(i) };
+                mr.source = { MeshSource::Type::GLTF, path.generic_string(), (int)i };
 
-                if (subMesh.materialIndex < 0 || subMesh.materialIndex >= static_cast<int>(loadedScene.materials.size()))
+                // Material Á¶¸³
+                if (subMesh.materialIndex < 0 ||
+                    subMesh.materialIndex >= (int)loadedScene.materials.size())
                 {
-                    MOKOLOG_WARN(
-                        "Submesh [{}] has invalid material index {} in [{}]. Using default material.",
-                        subMesh.name,
-                        subMesh.materialIndex,
-                        path.string()
-                    );
-
-                    mr.material.baseColor = defaultWhite;
-                    mr.material.normal = defaultNormal;
-                    mr.material.metallicRoughness = defaultMR;
-                    mr.material.alphaMode = AlphaMode::Opaque;
-                    mr.material.alphaCutoff = 0.5f;
-                    mr.material.metallicFactor = 1.0f;
-                    mr.material.roughnessFactor = 1.0f;
+                    MOKOLOG_WARN("Submesh [{}] invalid material index. Using default.", subMesh.name);
+                    mr.material = BuiltinAssets::GetDefaultMaterial();
                     continue;
                 }
 
                 const auto& mat = loadedScene.materials[subMesh.materialIndex];
 
-                auto resolveTextureOrDefault = [&](int texIndex, GPUTextureHandle fallback, const char* slotName) -> GPUTextureHandle {
-                    if (texIndex < 0)
-                        return fallback;
+                MaterialManager::CreateDesc desc{};
+                desc.baseColor = resolveTexture(mat.baseColorTexture);
+                desc.normal = resolveTexture(mat.normalTexture);
+                desc.metallicRoughness = resolveTexture(mat.metallicRoughnessTexture);
+                desc.factors.metallicFactor = mat.metallicFactor;
+                desc.factors.roughnessFactor = mat.roughnessFactor;
+                desc.alphaMode = mat.alphaMode;
+                desc.alphaCutoff = mat.alphaCutoff;
 
-                    if (texIndex >= static_cast<int>(gpuTextures.size()))
-                    {
-                        MOKOLOG_WARN(
-                            "Material texture index out of range for submesh [{}], slot [{}], texIndex={} in [{}]. Using fallback.",
-                            subMesh.name,
-                            slotName,
-                            texIndex,
-                            path.string()
-                        );
-                        return fallback;
-                    }
-
-                    if (!gpuTextures[texIndex].IsValid())
-                    {
-                        MOKOLOG_WARN(
-                            "Material texture invalid for submesh [{}], slot [{}], texIndex={} in [{}]. Using fallback.",
-                            subMesh.name,
-                            slotName,
-                            texIndex,
-                            path.string()
-                        );
-                        return fallback;
-                    }
-
-                    return gpuTextures[texIndex];
-                    };
-
-                mr.material.baseColor = resolveTextureOrDefault(mat.baseColorTexture, defaultWhite, "BaseColor");
-                mr.material.normal = resolveTextureOrDefault(mat.normalTexture, defaultNormal, "Normal");
-                mr.material.metallicRoughness = resolveTextureOrDefault(mat.metallicRoughnessTexture, defaultMR, "MetallicRoughness");
-                mr.material.alphaMode = mat.alphaMode;
-                mr.material.alphaCutoff = mat.alphaCutoff;
-                mr.material.metallicFactor = mat.metallicFactor;
-                mr.material.roughnessFactor = mat.roughnessFactor;
+                mr.material = assets.Materials().Create(desc);
             }
 
             XMFLOAT3 scaledMin = {

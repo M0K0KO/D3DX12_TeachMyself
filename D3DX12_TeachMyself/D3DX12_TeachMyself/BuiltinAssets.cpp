@@ -7,7 +7,7 @@
 
 #include "GraphicsDevice.h"
 #include "MokoMath.h"
-
+#include "AssetManager.h"
 
 using namespace DirectX;
 
@@ -36,9 +36,12 @@ namespace
         BuiltinAssets::MeshData cube{};
         BuiltinAssets::MeshData sphere{};
 
-        GPUTextureHandle defaultWhite{};
-        GPUTextureHandle defaultNormal{};
-        GPUTextureHandle defaultMR{};
+        TextureHandle defaultWhite{};
+        TextureHandle defaultBlack{};
+        TextureHandle defaultNormal{};
+        TextureHandle defaultMR{};
+
+        MaterialHandle defaultMaterial{};
     };
 
     BuiltinStorage g_builtin;
@@ -272,33 +275,48 @@ namespace
 
         mesh = {};
     }
-
-    static void DestroyTexture(GraphicsDevice& device, GPUTextureHandle& tex)
-    {
-        if (tex.IsValid()) device.DestroyTexture(tex);
-        tex = {};
-    }
 }
 
-void BuiltinAssets::Initialize(GraphicsDevice& device)
+void BuiltinAssets::Initialize(GraphicsDevice& device, AssetManager* assets)
 {
     if (g_builtin.initialized)
         return;
 
+    auto& textures = assets->Textures();
+
     try
     {
+        uint8_t white[4] = { 255, 255, 255, 255 };
+        g_builtin.defaultWhite = textures.CreateRaw({
+            1, 1, Format::R8G8B8A8_UNORM, white, 4, true
+            });
+
+        uint8_t normalUp[4] = { 128, 128, 255, 255 };
+        g_builtin.defaultNormal = textures.CreateRaw({
+            1, 1, Format::R8G8B8A8_UNORM, normalUp, 4, false
+            });
+
+        uint8_t mr[4] = { 255, 255, 0, 255 };
+        g_builtin.defaultMR = textures.CreateRaw({
+            1, 1, Format::R8G8B8A8_UNORM, mr, 4, false
+            });
+
+        uint8_t black[4] = { 0, 0, 0, 255 };
+        g_builtin.defaultBlack = textures.CreateRaw({
+            1, 1, Format::R8G8B8A8_UNORM, black, 4, false
+            });
+
+        MaterialManager::CreateDesc desc;
+        desc.baseColor = g_builtin.defaultWhite;
+        desc.normal = g_builtin.defaultNormal;
+        desc.metallicRoughness = g_builtin.defaultMR;
+        desc.factors.metallicFactor = 0.0f;
+        desc.factors.roughnessFactor = 1.0f;
+        desc.alphaMode = AlphaMode::Opaque;
+        g_builtin.defaultMaterial = assets->Materials().Create(desc);
+
         g_builtin.cube = UploadMesh(device, GenerateCube());
         g_builtin.sphere = UploadMesh(device, GenerateSphere(32, 32));
-
-        g_builtin.defaultWhite = Create1x1TextureRGBA8(device, 255, 255, 255, 255);
-        g_builtin.defaultNormal = Create1x1TextureRGBA8(device, 128, 128, 255, 255);
-
-        // MR packed:
-        // R = metallic = 0
-        // G = roughness = 1
-        // B = unused = 0
-        // A = unused = 255
-        g_builtin.defaultMR = Create1x1TextureRGBA8(device, 0, 255, 0, 255);
 
         g_builtin.initialized = true;
     }
@@ -307,16 +325,18 @@ void BuiltinAssets::Initialize(GraphicsDevice& device)
         DestroyMesh(device, g_builtin.cube);
         DestroyMesh(device, g_builtin.sphere);
 
-        DestroyTexture(device, g_builtin.defaultWhite);
-        DestroyTexture(device, g_builtin.defaultNormal);
-        DestroyTexture(device, g_builtin.defaultMR);
+        auto& textures = assets->Textures();
+        textures.Destroy(g_builtin.defaultWhite);
+        textures.Destroy(g_builtin.defaultBlack);
+        textures.Destroy(g_builtin.defaultNormal);
+        textures.Destroy(g_builtin.defaultMR);
 
         g_builtin.initialized = false;
         throw;
     }
 }
 
-void BuiltinAssets::Shutdown(GraphicsDevice& device)
+void BuiltinAssets::Shutdown(GraphicsDevice& device, AssetManager* assets)
 {
     if (!g_builtin.initialized)
         return;
@@ -324,9 +344,11 @@ void BuiltinAssets::Shutdown(GraphicsDevice& device)
     DestroyMesh(device, g_builtin.cube);
     DestroyMesh(device, g_builtin.sphere);
 
-    DestroyTexture(device, g_builtin.defaultWhite);
-    DestroyTexture(device, g_builtin.defaultNormal);
-    DestroyTexture(device, g_builtin.defaultMR);
+    auto& textures = assets->Textures();
+    textures.Destroy(g_builtin.defaultWhite);
+    textures.Destroy(g_builtin.defaultBlack);
+    textures.Destroy(g_builtin.defaultNormal);
+    textures.Destroy(g_builtin.defaultMR);
 
     g_builtin.initialized = false;
 }
@@ -348,20 +370,25 @@ const BuiltinAssets::MeshData& BuiltinAssets::GetSphere()
     return g_builtin.sphere;
 }
 
-GPUTextureHandle BuiltinAssets::GetDefaultWhite()
+TextureHandle BuiltinAssets::GetDefaultWhite()
 {
     MOKO_ASSERT(g_builtin.initialized);
     return g_builtin.defaultWhite;
 }
 
-GPUTextureHandle BuiltinAssets::GetDefaultNormal()
+TextureHandle BuiltinAssets::GetDefaultNormal()
 {
     MOKO_ASSERT(g_builtin.initialized);
     return g_builtin.defaultNormal;
 }
 
-GPUTextureHandle BuiltinAssets::GetDefaultMR()
+TextureHandle BuiltinAssets::GetDefaultMR()
 {
     MOKO_ASSERT(g_builtin.initialized);
     return g_builtin.defaultMR;
+}
+
+MaterialHandle BuiltinAssets::GetDefaultMaterial()
+{
+    return MaterialHandle();
 }

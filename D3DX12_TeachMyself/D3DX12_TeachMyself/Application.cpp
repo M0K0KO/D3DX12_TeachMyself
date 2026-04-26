@@ -20,6 +20,7 @@
 #include "BuiltinAssets.h"
 #include "MokoPath.h"
 #include "GraphicsDevice_DX12.h"
+#include "AssetManager.h"
 
 Application::Application()
 	:
@@ -73,7 +74,7 @@ void Application::Init()
 	SystemContext ctx = {0.0f, &wnd, &m_inputState, &m_ecsScene};
 	m_systemManager->InitAll(ctx);
 
-	BuiltinAssets::Initialize(*m_device);
+	m_assetManager = std::make_unique<AssetManager>(m_device.get());
 
 	SceneFactory::CreateDirLight(m_ecsScene);
 	SceneFactory::CreatePointLight(m_ecsScene);
@@ -115,7 +116,14 @@ void Application::Update()
 
 	HandleKeyboardEvents();
 
-	SystemContext ctx = { .dt = MokoTime::GetDeltaTime(), .window = &wnd, .input = &m_inputState, .scene = &m_ecsScene};
+	SystemContext ctx =
+	{
+		.dt = MokoTime::GetDeltaTime(),
+		.window = &wnd,
+		.input = &m_inputState,
+		.scene = &m_ecsScene,
+		.assetManager = m_assetManager.get()
+	};
 	m_systemManager->UpdateAll(ctx);
 
 	uint32_t vw = 0, vh = 0;
@@ -164,13 +172,21 @@ RenderScene Application::ExtractRenderScene()
 	for (auto [e, t, mr] : meshView)
 	{
 		if (!mr.visible) continue;
+
+		const Material* mat = m_assetManager->Materials().Get(mr.material);
+		if (!mat)
+		{
+			mat = m_assetManager->Materials().Get(BuiltinAssets::GetDefaultMaterial());
+			if (!mat) continue;
+		}
+
 		RenderObject obj;
 		XMStoreFloat4x4(&obj.world, XMMatrixTranspose(XMLoadFloat4x4(&t.worldMatrix)));
 		obj.vertexBuffer = mr.vertexBuffer;
 		obj.indexBuffer = mr.indexBuffer;
 		obj.indexOffset = mr.indexOffset;
 		obj.indexCount = mr.indexCount;
-		obj.material = mr.material;
+		obj.material = m_assetManager->Materials().ToGPU(*mat);
 		obj.aabbMin = mr.aabbMin;
 		obj.aabbMax = mr.aabbMax;
 		rs.renderObjects.push_back(obj);

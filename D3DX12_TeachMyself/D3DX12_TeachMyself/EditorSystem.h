@@ -7,6 +7,7 @@
 #include "ConsoleSystem.h"
 #include "Renderer.h"
 #include <ImGuizmo.h>
+#include "AssetManager.h"
 #include <filesystem>
 
 constexpr const char* PAYLOAD_ENTITY = "MOKO_ENTITY";
@@ -88,6 +89,7 @@ private:
 	Renderer* m_renderer = nullptr;
 	HWND m_hwnd = nullptr;
 	MokoJob::JobSystem* m_jobSystem;
+	AssetManager* m_assetManager;
 	ConsoleSystem* m_consoleSystem;
 	bool m_initialized = false;
 	std::filesystem::path m_assetRoot;

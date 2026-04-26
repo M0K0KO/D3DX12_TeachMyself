@@ -3,6 +3,7 @@
 #include "Entity.h"
 #include "GraphicsDevice.h"
 #include "EntityScene.h"
+#include "AssetManager.h"
 #include <filesystem>
 
 namespace SceneFactory
@@ -13,5 +14,5 @@ namespace SceneFactory
 	Entity CreateDirLight(EntityScene&, const std::string& name = "Directional Light", Entity parent = INVALID_ENTITY);
 	Entity CreatePointLight(EntityScene&, const std::string& name = "Point Light", Entity parent = INVALID_ENTITY);
 
-	bool LoadGLTFToScene(EntityScene& ecsScene, GraphicsDevice& device, const std::filesystem::path& path, Entity parent = INVALID_ENTITY);
+	bool LoadGLTFToScene(EntityScene& ecsScene, AssetManager& assets, GraphicsDevice& device, const std::filesystem::path& path, Entity parent = INVALID_ENTITY);
 };

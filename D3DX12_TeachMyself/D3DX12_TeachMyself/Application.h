@@ -9,6 +9,7 @@
 #include "EditorSystem.h"
 #include "JobSystem.h"
 #include "SceneSerializer.h"
+#include "AssetManager.h"
 
 class GraphicsDevice;
 
@@ -35,6 +36,7 @@ private:
 	Window wnd;
 	EntityScene m_ecsScene;
 	std::unique_ptr<SystemManager> m_systemManager;
+	std::unique_ptr<AssetManager> m_assetManager;
 	InputState m_inputState;
 
 	Renderer m_renderer;

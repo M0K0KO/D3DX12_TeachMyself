@@ -520,9 +520,10 @@ void EditorSystem::DrawInspector(EntityScene& scene)
 	DrawComponent<MeshRendererComponent>("Mesh Renderer", registry, e, [&](auto& mr) {
 		DrawProperty("Visible", [&]() { ImGui::Checkbox("##V", &mr.visible); });
 
+		Material* mat = m_assetManager->Materials().Get(mr.material);
 		DrawSection("Material Settings");
-		DrawProperty("Metallic", [&]() { ImGui::SliderFloat("##M", &mr.material.metallicFactor, 0.0f, 1.0f); }, true);
-		DrawProperty("Roughness", [&]() { ImGui::SliderFloat("##R", &mr.material.roughnessFactor, 0.0f, 1.0f); }, true);
+		DrawProperty("Metallic", [&]() { ImGui::SliderFloat("##M", &mat->factors.metallicFactor, 0.0f, 1.0f); }, true);
+		DrawProperty("Roughness", [&]() { ImGui::SliderFloat("##R", &mat->factors.roughnessFactor, 0.0f, 1.0f); }, true);
 
 		DrawSection("Statistics");
 		DrawProperty("Indices", [&]() { ImGui::Text("%u", mr.indexCount); }, true);
@@ -859,7 +860,7 @@ void EditorSystem::HandleFileOpen(EntityScene& scene, std::filesystem::path path
 
 	try
 	{
-		const bool ok = SceneFactory::LoadGLTFToScene(scene, *m_device, path);
+		const bool ok = SceneFactory::LoadGLTFToScene(scene, *m_assetManager,*m_device, path);
 		if (!ok)
 		{
 			MOKOLOG_ERROR("Failed to load model: {}", path.string());
