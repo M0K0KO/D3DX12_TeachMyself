@@ -390,5 +390,5 @@ TextureHandle BuiltinAssets::GetDefaultMR()
 
 MaterialHandle BuiltinAssets::GetDefaultMaterial()
 {
-    return MaterialHandle();
+    return g_builtin.defaultMaterial;
 }

@@ -47,6 +47,18 @@ namespace DX12Helpers
 		case Format::D24_UNORM_S8_UINT:    return DXGI_FORMAT_D24_UNORM_S8_UINT;
 		case Format::D32_FLOAT:            return DXGI_FORMAT_D32_FLOAT;
 		case Format::R32_TYPELESS:		   return DXGI_FORMAT_R32_TYPELESS;
+
+		case Format::BC1_UNORM:		       return DXGI_FORMAT_BC1_UNORM;
+		case Format::BC1_UNORM_SRGB:       return DXGI_FORMAT_BC1_UNORM_SRGB;
+		case Format::BC3_UNORM:            return DXGI_FORMAT_BC3_UNORM;
+		case Format::BC3_UNORM_SRGB:       return DXGI_FORMAT_BC3_UNORM_SRGB;
+		case Format::BC4_UNORM:            return DXGI_FORMAT_BC4_UNORM;
+		case Format::BC5_UNORM:            return DXGI_FORMAT_BC5_UNORM;
+		case Format::BC5_SNORM:            return DXGI_FORMAT_BC5_SNORM;
+		case Format::BC6H_UF16:            return DXGI_FORMAT_BC6H_UF16;
+		case Format::BC6H_SF16:            return DXGI_FORMAT_BC6H_SF16;
+		case Format::BC7_UNORM:            return DXGI_FORMAT_BC7_UNORM;
+		case Format::BC7_UNORM_SRGB:       return DXGI_FORMAT_BC7_UNORM_SRGB;
 		default:                           return DXGI_FORMAT_UNKNOWN;
 		}
 	}
@@ -71,6 +83,18 @@ namespace DX12Helpers
 		case DXGI_FORMAT_D24_UNORM_S8_UINT:    return Format::D24_UNORM_S8_UINT;
 		case DXGI_FORMAT_D32_FLOAT:            return Format::D32_FLOAT;
 		case DXGI_FORMAT_R32_TYPELESS:         return Format::R32_TYPELESS;
+
+		case DXGI_FORMAT_BC1_UNORM:            return Format::BC1_UNORM;
+		case DXGI_FORMAT_BC1_UNORM_SRGB:       return Format::BC1_UNORM_SRGB;
+		case DXGI_FORMAT_BC3_UNORM:            return Format::BC3_UNORM;
+		case DXGI_FORMAT_BC3_UNORM_SRGB:       return Format::BC3_UNORM_SRGB;
+		case DXGI_FORMAT_BC4_UNORM:            return Format::BC4_UNORM;
+		case DXGI_FORMAT_BC5_UNORM:            return Format::BC5_UNORM;
+		case DXGI_FORMAT_BC5_SNORM:            return Format::BC5_SNORM;
+		case DXGI_FORMAT_BC6H_UF16:            return Format::BC6H_UF16;
+		case DXGI_FORMAT_BC6H_SF16:            return Format::BC6H_SF16;
+		case DXGI_FORMAT_BC7_UNORM:            return Format::BC7_UNORM;
+		case DXGI_FORMAT_BC7_UNORM_SRGB:       return Format::BC7_UNORM_SRGB;
 		default:                               return Format::UNKNOWN;
 		}
 	}

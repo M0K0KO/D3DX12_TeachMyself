@@ -60,6 +60,7 @@ void Application::Init()
 	m_device->Initialize(wnd.GetHWND(), wnd.GetWidth(), wnd.GetHeight());
 
 	m_systemManager = std::make_unique<SystemManager>();
+	m_assetManager = std::make_unique<AssetManager>(m_device.get());
 
 	m_jobSystem = m_systemManager->Add<MokoJob::JobSystem>(0);
 
@@ -71,10 +72,16 @@ void Application::Init()
 	auto* dx12 = static_cast<GraphicsDevice_DX12*>(m_device.get());
 	m_editorSystem = m_systemManager->Add<EditorSystem>(dx12, &m_renderer, wnd.GetHWND(), m_jobSystem, consoleSystem);
 
-	SystemContext ctx = {0.0f, &wnd, &m_inputState, &m_ecsScene};
+	SystemContext ctx =
+	{
+		.dt = 0.0f,
+		.window = &wnd,
+		.input = &m_inputState,
+		.scene = &m_ecsScene,
+		.assetManager = m_assetManager.get()
+	};
 	m_systemManager->InitAll(ctx);
 
-	m_assetManager = std::make_unique<AssetManager>(m_device.get());
 
 	SceneFactory::CreateDirLight(m_ecsScene);
 	SceneFactory::CreatePointLight(m_ecsScene);

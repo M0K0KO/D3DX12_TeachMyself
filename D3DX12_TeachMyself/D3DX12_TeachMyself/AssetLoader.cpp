@@ -475,6 +475,8 @@ float* AssetLoader::LoadHDR(
     if (desiredChannels != 0)
         channels = desiredChannels;
 
+    stbi_set_flip_vertically_on_load(false);
+
     return data;
 }
 

@@ -41,7 +41,13 @@ static std::string ToLower(std::string value)
 }
 
 EditorSystem::EditorSystem(GraphicsDevice_DX12* device, Renderer* renderer, HWND hwnd, MokoJob::JobSystem* jobSystem, ConsoleSystem* consoleSystem)
-	: m_device(device), m_renderer(renderer), m_hwnd(hwnd), m_jobSystem(jobSystem), m_consoleSystem(consoleSystem)
+	:
+	m_device(device),
+	m_renderer(renderer),
+	m_hwnd(hwnd),
+	m_jobSystem(jobSystem),
+	m_consoleSystem(consoleSystem),
+	m_assetManager(nullptr)
 {
 	m_assetRoot = MokoPath::GetAssetRoot();
 	m_currentDirectory = "";
@@ -50,6 +56,7 @@ EditorSystem::EditorSystem(GraphicsDevice_DX12* device, Renderer* renderer, HWND
 void EditorSystem::Init(SystemContext& ctx)
 {
 	s_srvAllocator = &m_device->GetCbvSrvUavAllocator();
+	m_assetManager = ctx.assetManager;
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();

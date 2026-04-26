@@ -275,6 +275,7 @@ namespace SceneFactory
                 {
                     if (tex.embedded)
                     {
+                        auto* texMgr = &assets.Textures();
                         handle = assets.Textures().CreateFromEmbedded(tex, sRGB);
                         if (!handle.IsValid())
                         {

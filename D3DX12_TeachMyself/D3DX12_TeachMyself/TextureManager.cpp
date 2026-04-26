@@ -124,6 +124,12 @@ TextureHandle TextureManager::Load(const LoadDesc & desc)
 
 TextureHandle TextureManager::CreateRaw(const RawDesc& desc)
 {
+	if (!m_device)
+	{
+		MOKOLOG_ERROR("CreateRaw failed: GraphicsDevice is null");
+		return {};
+	}
+
 	if (desc.width == 0 || desc.height == 0)
 	{
 		MOKOLOG_ERROR("CreateRaw failed: invalid size {}x{}", desc.width, desc.height);
