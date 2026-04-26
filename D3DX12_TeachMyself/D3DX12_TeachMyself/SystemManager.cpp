@@ -9,11 +9,11 @@ void SystemManager::InitAll(SystemContext& ctx)
 	}
 }
 
-void SystemManager::UpdateAll(SystemContext& ctx)
+void SystemManager::UpdateAll(EntityScene& scene, float dt, SystemContext& ctx)
 {
 	for (auto& sys : systems)
 	{
-		sys->Update(ctx);
+		sys->Update(scene, dt, ctx);
 	}
 }
 

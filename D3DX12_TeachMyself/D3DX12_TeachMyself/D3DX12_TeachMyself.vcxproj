@@ -274,6 +274,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="Material.h" />
     <ClInclude Include="MaterialManager.h" />
     <ClInclude Include="Mesh.h" />
+    <ClInclude Include="MeshManager.h" />
     <ClInclude Include="MeshRendererComponent.h" />
     <ClInclude Include="MokoImGui.h" />
     <ClInclude Include="MokoLog.h" />
@@ -345,6 +346,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="Keyboard.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MaterialManager.cpp" />
+    <ClCompile Include="MeshManager.cpp" />
     <ClCompile Include="MokoLogger.cpp" />
     <ClCompile Include="MokoLoggerHelper.cpp" />
     <ClCompile Include="MokoPath.cpp" />

@@ -4,9 +4,9 @@
 #include "TransformComponent.h"
 #include "HirerarchyComponent.h"
 
-void TransformSystem::Update(SystemContext& ctx)
+void TransformSystem::Update(EntityScene& scene, float dt, SystemContext& ctx)
 {
-	UpdateRecursive(*ctx.scene, (*ctx.scene).GetRoot(), XMMatrixIdentity(), false);
+	UpdateRecursive(scene, scene.GetRoot(), XMMatrixIdentity(), false);
 }
 
 void TransformSystem::UpdateRecursive(EntityScene & scene, Entity entity, const XMMATRIX & parentWorld, bool parentDirty)

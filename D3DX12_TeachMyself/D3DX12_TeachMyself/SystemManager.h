@@ -17,6 +17,6 @@ public:
 	}
 
 	void InitAll(SystemContext& ctx);
-	void UpdateAll(SystemContext& ctx);
+	void UpdateAll(EntityScene& scene, float dt, SystemContext& ctx);
 	void ShutdownAll(SystemContext& ctx);
 };

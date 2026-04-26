@@ -8,7 +8,7 @@ void ConsoleSystem::Init(SystemContext& ctx)
     MokoLogger::Get().AddSink(m_sink);
 }
 
-void ConsoleSystem::Update(SystemContext & ctx)
+void ConsoleSystem::Update(EntityScene& scene, float dt, SystemContext& ctx)
 {}
 
 void ConsoleSystem::Shutdown(SystemContext & ctx)

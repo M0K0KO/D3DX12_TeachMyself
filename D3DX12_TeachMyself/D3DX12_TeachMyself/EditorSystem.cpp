@@ -107,7 +107,7 @@ void EditorSystem::Init(SystemContext& ctx)
 	m_initialized = true;
 }
 
-void EditorSystem::Update(SystemContext& ctx)
+void EditorSystem::Update(EntityScene& scene, float dt, SystemContext& ctx)
 {
 	if (!m_initialized) return;
 
@@ -119,19 +119,19 @@ void EditorSystem::Update(SystemContext& ctx)
 	ImGuiDockNodeFlags dockFlags = ImGuiDockNodeFlags_PassthruCentralNode;
 	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), dockFlags);
 
-	DrawHierarchy(*ctx.scene);
-	DrawInspector(*ctx.scene);
+	DrawHierarchy(scene);
+	DrawInspector(scene);
 
 	DrawProfilerPanel();
 	DrawJobSystemPanel();
 
-	DrawViewportPanel(*ctx.scene);
+	DrawViewportPanel(scene);
 
-	DrawContentBrowserPanel(*ctx.scene);
+	DrawContentBrowserPanel(scene);
 
 	m_consoleSystem->DrawUI();
 
-	FlushPendingDestroy(*ctx.scene);
+	FlushPendingDestroy(scene);
 
 	ImGui::Render();
 }

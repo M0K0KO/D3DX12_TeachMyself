@@ -5,8 +5,8 @@
 AssetManager::AssetManager(GraphicsDevice* device)
 	:
 	textures(device),
-	materials(&textures)
-	//meshes(device)
+	materials(&textures),
+	meshes(device)
 {
 	Initialize(device);
 }

@@ -44,7 +44,7 @@ namespace MokoJob
 		~JobSystem() override;
 
 		void Init(SystemContext& ctx) override;
-		void Update(SystemContext& ctx) override {}
+		void Update(EntityScene& scene, float dt, SystemContext& ctx) override {}
 		void Shutdown(SystemContext& ctx) override;
 
 		void	  Submit(std::function<void()> func);

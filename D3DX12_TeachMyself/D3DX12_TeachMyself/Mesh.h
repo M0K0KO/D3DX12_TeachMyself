@@ -10,6 +10,30 @@
 
 using namespace DirectX;
 
+struct AABB
+{
+	XMFLOAT3 min;
+	XMFLOAT3 max;
+};
+
+struct Submesh
+{
+	uint32_t indexOffset;
+	uint32_t indexCount;
+	uint32_t materialSlot;
+	AABB aabb;
+};
+
+struct MeshAsset
+{
+	GPUBufferHandle vb;
+	GPUBufferHandle ib;
+	uint32_t vertexCount;
+	uint32_t indexCount;
+	std::vector<Submesh> submeshes;
+	AABB bounds;
+};
+
 namespace Mesh
 {
 	struct Vertex

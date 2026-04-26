@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "MaterialManager.h"
 #include "BuiltinAssets.h"
+#include "MeshManager.h"
 
 MaterialManager::MaterialManager(TextureManager* textures)
     : m_textures(textures)

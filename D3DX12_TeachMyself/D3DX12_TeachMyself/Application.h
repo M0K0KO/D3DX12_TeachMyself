@@ -42,6 +42,7 @@ private:
 	Renderer m_renderer;
 	RenderScene m_renderScene;
 
+	SystemContext m_systemContext;
 	MokoJob::JobSystem* m_jobSystem;
 	EditorSystem* m_editorSystem;
 

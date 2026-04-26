@@ -22,7 +22,7 @@ class EditorSystem : public ISystem
 public:
 	EditorSystem(GraphicsDevice_DX12* device, Renderer* renderer, HWND hwnd, MokoJob::JobSystem* jobSystem, ConsoleSystem* consoleSystem);
 	void Init(SystemContext& ctx) override;
-	void Update(SystemContext& ctx) override;
+	void Update(EntityScene& scene, float dt, SystemContext& ctx) override;
 	void Shutdown(SystemContext& ctx) override;
 
 public:

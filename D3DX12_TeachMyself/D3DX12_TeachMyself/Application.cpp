@@ -32,7 +32,7 @@ Application::Application()
 Application::~Application()
 {
 	m_device->WaitForGpu();
-	SystemContext ctx = { .dt = MokoTime::GetDeltaTime(), .window = &wnd, .input = &m_inputState, .scene = &m_ecsScene };
+	SystemContext ctx = { .window = &wnd, .input = &m_inputState, .assetManager = m_assetManager.get()};
 	m_systemManager->ShutdownAll(ctx);
 }
 
@@ -59,8 +59,10 @@ void Application::Init()
 	m_device = std::make_unique<GraphicsDevice_DX12>();
 	m_device->Initialize(wnd.GetHWND(), wnd.GetWidth(), wnd.GetHeight());
 
-	m_systemManager = std::make_unique<SystemManager>();
 	m_assetManager = std::make_unique<AssetManager>(m_device.get());
+	m_assetManager->Initialize(m_device.get());
+
+	m_systemManager = std::make_unique<SystemManager>();
 
 	m_jobSystem = m_systemManager->Add<MokoJob::JobSystem>(0);
 
@@ -72,15 +74,10 @@ void Application::Init()
 	auto* dx12 = static_cast<GraphicsDevice_DX12*>(m_device.get());
 	m_editorSystem = m_systemManager->Add<EditorSystem>(dx12, &m_renderer, wnd.GetHWND(), m_jobSystem, consoleSystem);
 
-	SystemContext ctx =
-	{
-		.dt = 0.0f,
-		.window = &wnd,
-		.input = &m_inputState,
-		.scene = &m_ecsScene,
-		.assetManager = m_assetManager.get()
-	};
-	m_systemManager->InitAll(ctx);
+	m_systemContext.window = &wnd;
+	m_systemContext.input = &m_inputState;
+	m_systemContext.assetManager = m_assetManager.get();
+	m_systemManager->InitAll(m_systemContext);
 
 
 	SceneFactory::CreateDirLight(m_ecsScene);
@@ -123,15 +120,10 @@ void Application::Update()
 
 	HandleKeyboardEvents();
 
-	SystemContext ctx =
-	{
-		.dt = MokoTime::GetDeltaTime(),
-		.window = &wnd,
-		.input = &m_inputState,
-		.scene = &m_ecsScene,
-		.assetManager = m_assetManager.get()
-	};
-	m_systemManager->UpdateAll(ctx);
+	m_systemContext.window = &wnd;
+	m_systemContext.input = &m_inputState;
+	m_systemContext.assetManager = m_assetManager.get();
+	m_systemManager->UpdateAll(m_ecsScene, MokoTime::GetDeltaTime(), m_systemContext);
 
 	uint32_t vw = 0, vh = 0;
 	if (m_editorSystem->TryGetPendingViewportResize(vw, vh))
