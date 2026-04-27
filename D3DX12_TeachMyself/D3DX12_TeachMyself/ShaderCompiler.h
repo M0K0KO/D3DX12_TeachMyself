@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include <dxcapi.h>
+#pragma comment(lib, "dxcompiler.lib")
 
 #include "RHITypes.h"
 #include "HRException.h"
@@ -92,24 +94,71 @@ public:
     }
 
 private:
+    inline static ComPtr<IDxcUtils>          s_utils;
+    inline static ComPtr<IDxcCompiler3>      s_compiler;
+    inline static ComPtr<IDxcIncludeHandler> s_includeHandler;
+
+    static void InitDxc()
+    {
+        if (s_compiler) return; 
+
+        DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&s_utils));
+        DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&s_compiler));
+        s_utils->CreateDefaultIncludeHandler(&s_includeHandler);
+    }
+
+private:
     static ComPtr<ID3DBlob> Compile(
         const std::wstring& path,
         const std::string& entryPoint,
         const std::string& target)
     {
-        UINT flags = 0;
+        InitDxc();
+
+        ComPtr<IDxcBlobEncoding> sourceBlob;
+        HR_CHECK(s_utils->LoadFile(path.c_str(), nullptr, &sourceBlob));
+
+        DxcBuffer source = {
+            .Ptr = sourceBlob->GetBufferPointer(),
+            .Size = sourceBlob->GetBufferSize(),
+            .Encoding = DXC_CP_UTF8,
+        };
+
+        std::wstring wEntry(entryPoint.begin(), entryPoint.end());
+        std::wstring wTarget(target.begin(), target.end());
+
+        std::vector<LPCWSTR> args = {
+            L"-E", wEntry.c_str(),
+            L"-T", wTarget.c_str(),
+            L"-HV", L"2021",
+        };
+
 #ifdef _DEBUG
-        flags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+        args.push_back(L"-Zi");
+        args.push_back(L"-Qembed_debug");
+        args.push_back(L"-Od");
+#else
+        args.push_back(L"-03");
 #endif
-        ComPtr<ID3DBlob> shader, error;
-        HRESULT hr = D3DCompileFromFile(
-            path.c_str(), nullptr, nullptr,
-            entryPoint.c_str(), target.c_str(),
-            flags, 0, &shader, &error);
-        if (error)
-            OutputDebugStringA((const char*)error->GetBufferPointer());
-        HR_CHECK(hr);
-        return shader;
+
+        ComPtr<IDxcResult> result;
+        HR_CHECK(s_compiler->Compile(&source, args.data(), (UINT32)args.size(), s_includeHandler.Get(), IID_PPV_ARGS(&result)));
+
+        ComPtr<IDxcBlobUtf8> errors;
+        result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&errors), nullptr);
+        if (errors && errors->GetStringLength() > 0)
+            OutputDebugStringA(errors->GetStringPointer());
+
+        HRESULT status;
+        result->GetStatus(&status);
+        HR_CHECK(status);
+
+        ComPtr<IDxcBlob> shaderBlob;
+        HR_CHECK(result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shaderBlob), nullptr));
+
+        ComPtr<ID3DBlob> ret;
+        HR_CHECK(shaderBlob.As(&ret));
+        return ret;
     }
 
     inline static std::vector<Shader> m_shaders;

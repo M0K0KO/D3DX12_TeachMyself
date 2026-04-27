@@ -30,7 +30,8 @@ public:
 	void Shutdown() override;
 
 	GPUBufferHandle CreateBuffer(const BufferDesc desc, const void* initialData = nullptr) override;
-
+	void UpdateBuffer(GPUBufferHandle h, const void* data, size_t size, size_t offset = 0) override;
+	
 	GPUTextureHandle CreateTexture(const TextureInitDesc& init) override;
 
 	GPUTextureHandle CreateRTTexture(const TextureDesc& desc) override;
@@ -43,6 +44,7 @@ public:
 	PipelineHandle CreateComputePipeline(const ComputePipelineDesc desc) override;
 
 	DescriptorHandle GetSRVHandle(GPUTextureHandle handle) override;
+	DescriptorHandle GetSRVHandle(GPUBufferHandle handle) override;
 	DescriptorHandle GetUAVHandle(GPUTextureHandle handle, uint32_t mip = 0) override;
 
 	void DestroyBuffer(GPUBufferHandle handle) override;
@@ -135,6 +137,8 @@ private:
 	struct InternalBuffer
 	{
 		ComPtr<ID3D12Resource> resource;
+		DescriptorHandle srv;
+
 		ComPtr<ID3D12Resource> frameResources[FRAMECOUNT];
 		UINT8* mappedPointers[FRAMECOUNT] = {};
 		BufferDesc desc;

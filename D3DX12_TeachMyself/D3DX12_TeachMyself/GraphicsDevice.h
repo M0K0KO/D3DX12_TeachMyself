@@ -15,6 +15,8 @@ public:
 	virtual void Shutdown() = 0;
 
 	virtual GPUBufferHandle CreateBuffer(const BufferDesc desc, const void* initialData = nullptr) = 0;
+	virtual void UpdateBuffer(GPUBufferHandle h, const void* data, size_t size, size_t offset = 0) = 0;
+
 
 	virtual GPUTextureHandle CreateTexture(const TextureInitDesc& init) = 0;
 	virtual GPUTextureHandle CreateRTTexture(const TextureDesc& desc) = 0;
@@ -27,6 +29,7 @@ public:
 	virtual PipelineHandle CreateComputePipeline(const ComputePipelineDesc desc) = 0;
 
 	virtual DescriptorHandle GetSRVHandle(GPUTextureHandle handle) = 0;
+	virtual DescriptorHandle GetSRVHandle(GPUBufferHandle handle) = 0;
 	virtual DescriptorHandle GetUAVHandle(GPUTextureHandle handle, uint32_t mip = 0) = 0;
 
 	virtual void DestroyBuffer(GPUBufferHandle handle) = 0;

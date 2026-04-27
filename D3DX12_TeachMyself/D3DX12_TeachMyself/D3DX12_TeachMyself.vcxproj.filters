@@ -500,9 +500,6 @@
     <ClInclude Include="UploadStagingRingAllocator.h">
       <Filter>Header Files\Allocator</Filter>
     </ClInclude>
-    <ClInclude Include="HandlePool.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="TextureManager.h">
       <Filter>Header Files\Asset</Filter>
     </ClInclude>
@@ -519,6 +516,9 @@
       <Filter>Header Files\Asset</Filter>
     </ClInclude>
     <ClInclude Include="MeshManager.h">
+      <Filter>Header Files\Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="HandlePool.h">
       <Filter>Header Files\Asset</Filter>
     </ClInclude>
   </ItemGroup>
@@ -594,5 +594,6 @@
     <None Include="DirectXTex\DirectXTex.inl">
       <Filter>Header Files\DirectXTex</Filter>
     </None>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>

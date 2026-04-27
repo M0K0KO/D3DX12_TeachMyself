@@ -52,7 +52,8 @@ enum class BufferUsage
 {
 	Vertex,
 	Index,
-	Constant
+	Constant,
+	Structured
 };
 
 enum class MemoryAccess

@@ -32,7 +32,7 @@ void Renderer::Init(GraphicsDevice* device)
 	m_fullscreenVS = ShaderCompiler::CompileFromFile(
 		L"shaders_FullScreen_VS.hlsl",
 		"main",
-		"vs_5_0"
+		"vs_6_6"
 	);
 
 	InitDepthPrePass(device);
@@ -300,7 +300,7 @@ void Renderer::CreateCubeMap(GraphicsDevice* device)
 	m_equirectConvertCS = ShaderCompiler::CompileFromFile(
 		L"shaders_Skybox_CS.hlsl",
 		"CSMain",
-		"cs_5_1"
+		"cs_6_6"
 	);
 
 	ComputePipelineDesc equirectConvertPSODesc = {};
@@ -367,7 +367,7 @@ void Renderer::CreateIrradianceMap(GraphicsDevice* device)
 	m_irradianceMapCS = ShaderCompiler::CompileFromFile(
 		L"shaders_IrradianceMap_CS.hlsl",
 		"CSMain",
-		"cs_5_1"
+		"cs_6_6"
 	);
 
 	ComputePipelineDesc irradianceMapPSODesc = {};
@@ -407,7 +407,7 @@ void Renderer::CreatePrefilteredEnvironmentMap(GraphicsDevice* device)
 	m_prefilteredEnvironmentMapCS = ShaderCompiler::CompileFromFile(
 		L"shaders_PrefilteredEnvironmentMap_CS.hlsl",
 		"CSMain",
-		"cs_5_1"
+		"cs_6_6"
 	);
 
 	ComputePipelineDesc prefilteredEnvironmentMapPSODesc = {};
@@ -461,7 +461,7 @@ void Renderer::CreateBRDFLUT(GraphicsDevice* device)
 	m_brdfLUTCS = ShaderCompiler::CompileFromFile(
 		L"shaders_brdfLUT_CS.hlsl",
 		"CSMain",
-		"cs_5_1"
+		"cs_6_6"
 	);
 
 	RootSignatureDesc brdfLUTRSDesc = {};
@@ -862,7 +862,7 @@ void Renderer::InitDepthPrePass(GraphicsDevice* device)
 	m_depthVS = ShaderCompiler::CompileFromFile(
 		L"shaders_Depth_VS.hlsl",
 		"main",
-		"vs_5_0"
+		"vs_6_6"
 	);
 
 	std::vector<VertexAttribute> vertexAttributes;
@@ -921,13 +921,13 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 	m_gBufferVS = ShaderCompiler::CompileFromFile(
 		L"shaders_GBuffer_VS.hlsl",
 		"main",
-		"vs_5_0"
+		"vs_6_6"
 	);
 
 	m_gBufferOpaquePS = ShaderCompiler::CompileFromFile(
 		L"shaders_GBufferOpaque_PS.hlsl",
 		"main",
-		"ps_5_0"
+		"ps_6_6"
 	);
 
 
@@ -958,7 +958,7 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 	m_gBufferAlphaPS = ShaderCompiler::CompileFromFile(
 		L"shaders_GBufferAlpha_PS.hlsl",
 		"main",
-		"ps_5_0"
+		"ps_6_6"
 	);
 
 	m_gBufferAlphaPassPipelineDesc = {
@@ -988,7 +988,7 @@ void Renderer::InitDirectionalShadowPass(GraphicsDevice* device)
 	m_shadowMapVS = ShaderCompiler::CompileFromFile(
 		L"shaders_shadowMap_VS.hlsl",
 		"main",
-		"vs_5_0"
+		"vs_6_6"
 	);
 
 
@@ -1026,7 +1026,7 @@ void Renderer::InitPointShadowPass(GraphicsDevice* device)
 	m_pointShadowMapVS = ShaderCompiler::CompileFromFile(
 		L"shaders_pointShadowMap_VS.hlsl",
 		"main",
-		"vs_5_0"
+		"vs_6_6"
 	);
 
 
@@ -1072,12 +1072,12 @@ void Renderer::InitSSAOPass(GraphicsDevice* device)
 	m_ssaoVS = ShaderCompiler::CompileFromFile(
 		L"shaders_FullScreen_VS.hlsl",
 		"main",
-		"vs_5_0"
+		"vs_6_6"
 	);
 	m_ssaoPS = ShaderCompiler::CompileFromFile(
 		L"shaders_SSAO_PS.hlsl",
 		"main",
-		"ps_5_0"
+		"ps_6_6"
 	);
 
 	m_SSAOPipelineDesc = {
@@ -1135,7 +1135,7 @@ void Renderer::InitGTAOPass(GraphicsDevice* device)
 	m_GTAOCS = ShaderCompiler::CompileFromFile(
 		L"shaders_GTAO_CS.hlsl",
 		"CSMain",
-		"cs_5_1"
+		"cs_6_6"
 	);
 
 	m_GTAOComputePipelineDesc = {};
@@ -1156,13 +1156,13 @@ void Renderer::InitSSAOBilateralBlurPass(GraphicsDevice* device)
 	m_bilateralBlurPS_Vertical = ShaderCompiler::CompileFromFile(
 		L"shaders_BilateralBlurVertical_PS.hlsl",
 		"main",
-		"ps_5_0"
+		"ps_6_6"
 	);
 
 	m_bilateralBlurPS_Horizontal = ShaderCompiler::CompileFromFile(
 		L"shaders_BilateralBlurHorizontal_PS.hlsl",
 		"main",
-		"ps_5_0"
+		"ps_6_6"
 	);
 
 	std::vector<VertexAttribute> vertexAttributes;
@@ -1198,7 +1198,7 @@ void Renderer::InitGTAOBilateralBlurPass(GraphicsDevice* device)
 	m_bilateralBlurCS = ShaderCompiler::CompileFromFile(
 		L"shaders_BilateralBlur_CS.hlsl",
 		"CSMain",
-		"cs_5_1"
+		"cs_6_6"
 	);
 
 	RootSignatureDesc bilateralBlurPassRSDesc = {};
@@ -1253,7 +1253,7 @@ void Renderer::InitPBRLightingPass(GraphicsDevice* device)
 	m_PBRlightingPS = ShaderCompiler::CompileFromFile(
 		L"shaders_PBRLighting_PS.hlsl",
 		"main",
-		"ps_5_1"
+		"ps_6_6"
 	);
 
 	m_PBRlightingPassPipelineDesc = {
@@ -1273,7 +1273,7 @@ void Renderer::InitSkyboxPass(GraphicsDevice* device)
 	skyboxPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Clamp, 0, ShaderVisibility::Pixel });
 
 	m_skyboxPS = ShaderCompiler::CompileFromFile(
-		L"shaders_Skybox_PS.hlsl", "main", "ps_5_0"
+		L"shaders_Skybox_PS.hlsl", "main", "ps_6_6"
 	);
 
 	PipelineDesc skyboxPSODesc = {};
@@ -1295,7 +1295,7 @@ void Renderer::InitPresentPass(GraphicsDevice* device)
 	presentPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Clamp, 0, ShaderVisibility::Pixel });
 
 	m_presentPS = ShaderCompiler::CompileFromFile(
-		L"shaders_Present_PS.hlsl", "main", "ps_5_0"
+		L"shaders_Present_PS.hlsl", "main", "ps_6_6"
 	);
 
 	PipelineDesc presentPSODesc = {};
@@ -1318,13 +1318,13 @@ void Renderer::InitDebugPass(GraphicsDevice* device)
 	m_debugPS = ShaderCompiler::CompileFromFile(
 		L"debugshaders_PS.hlsl",
 		"main",
-		"ps_5_0"
+		"ps_6_6"
 	);
 
 	m_depthDebugPS = ShaderCompiler::CompileFromFile(
 		L"debugshaders_Depth_PS.hlsl",
 		"main",
-		"ps_5_0"
+		"ps_6_6"
 	);
 
 	RootSignatureDesc debugPassRSDesc = {};

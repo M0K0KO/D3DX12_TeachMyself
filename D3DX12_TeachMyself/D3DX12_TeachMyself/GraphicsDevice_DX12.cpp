@@ -339,12 +339,31 @@ GPUBufferHandle GraphicsDevice_DX12::CreateBuffer(const BufferDesc desc, const v
 			buffer->Unmap(0, nullptr);
 		}
 	}
+
+	if (desc.usage == BufferUsage::Structured)
+	{
+		internalBuffer.srv = m_cbvSrvUavAllocator.Allocate();
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		srvDesc.Buffer.NumElements = desc.size / desc.stride;
+		srvDesc.Buffer.StructureByteStride = desc.stride;
+		srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+		m_device->CreateShaderResourceView(buffer.Get(), &srvDesc, internalBuffer.srv.cpu);
+	}
+
 	internalBuffer.resource = buffer;
 
 	uint32_t id = m_buffers.size();
 	m_buffers.push_back(internalBuffer);
 
 	return GPUBufferHandle{ id };
+}
+
+void GraphicsDevice_DX12::UpdateBuffer(GPUBufferHandle h, const void* data, size_t size, size_t offset)
+{
+	auto& buf = m_buffers[h.id];
+	m_uploadQueue->UploadBuffer(buf.resource.Get(), offset, data, size);
 }
 
 GPUTextureHandle GraphicsDevice_DX12::CreateTexture(const TextureInitDesc& init)
@@ -882,6 +901,11 @@ ComPtr<ID3D12RootSignature> GraphicsDevice_DX12::BuildRootSignature(const RootSi
 DescriptorHandle GraphicsDevice_DX12::GetSRVHandle(GPUTextureHandle handle)
 {
 	return m_textures[handle.id].srv;
+}
+
+DescriptorHandle GraphicsDevice_DX12::GetSRVHandle(GPUBufferHandle handle)
+{
+	return m_buffers[handle.id].srv;
 }
 
 DescriptorHandle GraphicsDevice_DX12::GetUAVHandle(GPUTextureHandle handle, uint32_t mip)

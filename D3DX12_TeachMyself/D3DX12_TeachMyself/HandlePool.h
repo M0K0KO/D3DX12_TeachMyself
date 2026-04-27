@@ -65,6 +65,11 @@ public:
 			&& m_generations[h.index] == h.generation;
 	}
 
+	const uint32_t Size() const
+	{
+		return m_items.size();
+	}
+
 	void Destroy(HandleType h)
 	{
 		if (!IsValid(h)) return;

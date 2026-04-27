@@ -142,21 +142,13 @@ void Application::Update()
 void Application::Render()
 {
 	auto& ctx = m_device->BeginFrame();
-
-	/*
-	auto t0 = std::chrono::high_resolution_clock::now();
-	RenderScene renderScene = ExtractRenderScene();
-	auto t1 = std::chrono::high_resolution_clock::now();
-	double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
-	MOKOLOG_INFO("ExtractRenderScene: {:.3f} ms", ms);
-	*/
+	m_assetManager->Materials().UploadIfDirty(ctx);
 	RenderScene renderScene = ExtractRenderScene();
 
 	m_renderer.Render(m_device.get(), ctx, renderScene);
 	m_editorSystem->Render(ctx);
 
 	m_device->EndFrame();
-
 }
 
 RenderScene Application::ExtractRenderScene()
