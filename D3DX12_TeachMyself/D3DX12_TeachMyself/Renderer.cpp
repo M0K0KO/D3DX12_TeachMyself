@@ -921,7 +921,7 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 	RootSignatureDesc gBufferPassRSDesc = {};
 	gBufferPassRSDesc.cbvSrvUavHeapDirectlyIndexed = true;
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV,        RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
-	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV,        RangeType::CBV, 1, 0, 1, ShaderVisibility::Vertex });
+	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 1, 0, 1, ShaderVisibility::Vertex });
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants,  RangeType::CBV, 2, 0, 2, ShaderVisibility::All });
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
 	gBufferPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear,		SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
@@ -961,7 +961,7 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 	RootSignatureDesc gBufferAlphaPassRSDesc = {};
 	gBufferAlphaPassRSDesc.cbvSrvUavHeapDirectlyIndexed = true;
 	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV,        RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
-	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV,        RangeType::CBV, 1, 0, 1, ShaderVisibility::Vertex });
+	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 1, 0, 1, ShaderVisibility::Vertex });
 	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants,  RangeType::CBV, 2, 0, 2, ShaderVisibility::All });
 	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
 	gBufferAlphaPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear,		 SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
