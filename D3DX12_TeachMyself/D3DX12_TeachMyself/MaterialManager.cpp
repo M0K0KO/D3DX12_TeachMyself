@@ -15,6 +15,7 @@ void MaterialManager::InitDefaults()
     m_defaultBaseColor = BuiltinAssets::GetDefaultWhite();
     m_defaultNormal = BuiltinAssets::GetDefaultNormal();
     m_defaultMR = BuiltinAssets::GetDefaultMR();
+    m_defaultBlack = BuiltinAssets::GetDefaultBlack();
 }
 
 MaterialHandle MaterialManager::Create(const CreateDesc & desc)
@@ -40,18 +41,25 @@ void MaterialManager::Destroy(MaterialHandle h)
 
 GPUMaterial MaterialManager::ToGPU(const Material& mat)
 {
-    auto getGpu = [&](TextureHandle h) -> GPUTextureHandle {
-        const Texture* t = m_textures->Get(h);
+    auto getGpuOrFallback = [&](TextureHandle h, TextureHandle fallback) -> GPUTextureHandle {
+        TextureHandle resolved = h.IsValid() ? h : fallback;
+        const Texture* t = m_textures->Get(resolved);
         return t ? t->gpu : GPUTextureHandle{};
         };
 
     GPUMaterial g{};
-    g.baseColor = getGpu(mat.baseColor);
-    g.normal = getGpu(mat.normal);
-    g.metallicRoughness = getGpu(mat.metallicRoughness);
+    g.baseColor = getGpuOrFallback(mat.baseColor, BuiltinAssets::GetDefaultWhite());
+    g.normal = getGpuOrFallback(mat.normal, BuiltinAssets::GetDefaultNormal());
+    g.metallicRoughness = getGpuOrFallback(mat.metallicRoughness, BuiltinAssets::GetDefaultMR());
+    g.emissive = getGpuOrFallback(mat.emissive, BuiltinAssets::GetDefaultBlack());
+    g.occlusion = getGpuOrFallback(mat.occlusion, BuiltinAssets::GetDefaultWhite());
+
+    g.baseColorFactor = mat.factors.baseColorFactor;
+    g.emissiveFactor = mat.factors.emissiveFactor;
     g.alphaMode = mat.alphaMode;
     g.alphaCutoff = mat.alphaCutoff;
     g.metallicFactor = mat.factors.metallicFactor;
     g.roughnessFactor = mat.factors.roughnessFactor;
+    g.occlusionStrength = mat.factors.occlusionStrength;
     return g;
 }

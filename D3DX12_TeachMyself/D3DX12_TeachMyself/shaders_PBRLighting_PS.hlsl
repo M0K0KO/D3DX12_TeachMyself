@@ -261,6 +261,8 @@ float4 main(PSInput input) : SV_TARGET
     float4 mr = gMetallicRoughness.Sample(gSamplerPoint, uv);
     float metallic = mr.b;
     float roughness = mr.g;
+    
+    float3 emissive = gEmissive.Sample(gSamplerPoint, uv).rgb;
 
     float depth = gDepth.Sample(gSamplerPoint, uv).r;
 
@@ -358,9 +360,11 @@ float4 main(PSInput input) : SV_TARGET
 
     // --- Final ---
     float3 ambient = (diffuseIBL * ao + specularIBL) * ambientIntensity;
-    float3 color = ambient + totalLighting;
+    float3 color = ambient + totalLighting + emissive;
 
     return float4(color, 1.0);
+    
+    //return float4(emissive, 1.0);
     
     //return float4(1.0 - shadow, 1.0 - shadow, 1.0 - shadow, 1.0f);
     

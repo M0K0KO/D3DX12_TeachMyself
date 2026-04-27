@@ -106,6 +106,7 @@ void Renderer::Resize(GraphicsDevice* device)
 	if (m_gbufferAlbedo.IsValid()) device->DestroyTexture(m_gbufferAlbedo);
 	if (m_gbufferNormal.IsValid()) device->DestroyTexture(m_gbufferNormal);
 	if (m_gbufferMR.IsValid()) device->DestroyTexture(m_gbufferMR);
+	if (m_gbufferEmissive.IsValid()) device->DestroyTexture(m_gbufferEmissive);
 	if (m_depthTexture.IsValid()) device->DestroyTexture(m_depthTexture);
 	if (m_ssaoTexture.IsValid()) device->DestroyTexture(m_ssaoTexture);
 	if (m_ssaoTempTexture.IsValid()) device->DestroyTexture(m_ssaoTempTexture);
@@ -128,6 +129,9 @@ void Renderer::Resize(GraphicsDevice* device)
 
 	gbufferDesc.format = Format::R8G8B8A8_UNORM;
 	m_gbufferMR = device->CreateRTTexture(gbufferDesc);
+
+	gbufferDesc.format = Format::R11G11B10_FLOAT;
+	m_gbufferEmissive = device->CreateRTTexture(gbufferDesc);
 
 	TextureDesc depthDesc = 
 	{ 
@@ -1424,18 +1428,18 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 						matConst.alphaCutoff = obj.material.alphaCutoff;
 						matConst.alphaMode = static_cast<UINT>(AlphaMode::Opaque);
 
-						passCtx.SetRootConstants(5, &matConst, 7);
+						passCtx.SetRootConstants(2, &matConst, 12);
 
 						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(&obj.world, sizeof(PerObjectCB));
 						passCtx.SetVertexBuffer(obj.vertexBuffer);
 						passCtx.SetIndexBuffer(obj.indexBuffer);
 
 						passCtx.BindConstantBuffer(1, perObjectCBHandle);
-						passCtx.BindTexture(2, obj.material.baseColor);
-						passCtx.BindTexture(3, obj.material.normal);
-						passCtx.BindTexture(4, obj.material.metallicRoughness);
-						passCtx.BindTexture(5, obj.material.emissive);
-						passCtx.BindTexture(6, obj.material.occlusion);
+						passCtx.BindTexture(3, obj.material.baseColor);
+						passCtx.BindTexture(4, obj.material.normal);
+						passCtx.BindTexture(5, obj.material.metallicRoughness);
+						passCtx.BindTexture(6, obj.material.emissive);
+						passCtx.BindTexture(7, obj.material.occlusion);
 
 						passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
 					}
@@ -1475,7 +1479,7 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 						matConst.occlusionStrength = obj.material.occlusionStrength;
 						matConst.alphaCutoff = obj.material.alphaCutoff;
 						matConst.alphaMode = static_cast<UINT>(AlphaMode::Mask);
-						passCtx.SetRootConstants(5, &matConst, 7);
+						passCtx.SetRootConstants(2, &matConst, 12);
 
 						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(&obj.world, sizeof(PerObjectCB));
 
@@ -1483,11 +1487,11 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 						passCtx.SetIndexBuffer(obj.indexBuffer);
 
 						passCtx.BindConstantBuffer(1, perObjectCBHandle);
-						passCtx.BindTexture(2, obj.material.baseColor);
-						passCtx.BindTexture(3, obj.material.normal);
-						passCtx.BindTexture(4, obj.material.metallicRoughness);
-						passCtx.BindTexture(5, obj.material.emissive);
-						passCtx.BindTexture(6, obj.material.occlusion);
+						passCtx.BindTexture(3, obj.material.baseColor);
+						passCtx.BindTexture(4, obj.material.normal);
+						passCtx.BindTexture(5, obj.material.metallicRoughness);
+						passCtx.BindTexture(6, obj.material.emissive);
+						passCtx.BindTexture(7, obj.material.occlusion);
 
 						passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
 					}
@@ -1884,6 +1888,7 @@ void Renderer::AddPresentPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 			builder.Write(fc.backBuffer, RGResourceState::RenderTarget);
 		},
 		[this, &fc, device](CommandContext& passCtx) {
+
 			passCtx.SetRenderTarget(1, device->GetCurrentBackBufferPtr(), {});
 			passCtx.SetPipeline(m_presentPipeline);
 			passCtx.SetViewport(0, 0, (float)m_viewportWidth, (float)m_viewportHeight);

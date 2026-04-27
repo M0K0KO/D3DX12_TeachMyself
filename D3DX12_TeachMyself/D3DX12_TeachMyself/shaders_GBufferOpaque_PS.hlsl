@@ -46,7 +46,9 @@ PSOutput main(PSInput input)
     PSOutput output;
     
     output.albedo = baseColorTex.Sample(samp, input.uv) * baseColorFactor;
-
+    
+    float aoSample = occlusionTex.Sample(samp, input.uv);
+    output.albedo.a = lerp(1.0, aoSample, occlusionStrength);
     
     float3 N = SafeNormalize(input.worldNormal, float3(0.0f, 1.0f, 0.0f));
 
@@ -71,11 +73,10 @@ PSOutput main(PSInput input)
     output.normal = float4(worldNormal * 0.5f + 0.5f, 1.0f);
     
     float4 mrSample = metallicRoughnessTex.Sample(samp, input.uv);
-    float aoSample = occlusionTex.Sample(samp, input.uv);
     output.mr =
         float4
         (
-            aoSample.r * occlusionStrength,
+            0,
             mrSample.g * roughnessFactor,
             mrSample.b * metallicFactor,
             0
