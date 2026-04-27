@@ -173,7 +173,6 @@ void GraphicsDevice_DX12::Initialize(void* hWnd, const uint32_t width, const uin
 
 	uploadHeapAllocator = std::make_unique<UploadHeapRingAllocator>(m_device.Get(), m_fence.Get());
 	m_uploadQueue = std::make_unique<UploadQueue>(m_device.Get());
-	m_pTextureLoader = std::make_unique<TextureLoader>(m_device.Get());
 
 	m_profiler.Initialize(m_device.Get(), m_commandQueue.Get());
 }

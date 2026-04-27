@@ -1,20 +1,34 @@
 #pragma once
 #include "stdafx.h"
 
+namespace
+{
+	struct float2 { float x, y; };
+	struct float3 { float x, y, z; };
+	struct float4 { float x, y, z, w; };
+	struct float4x4 { float m[16]; };
+}
+
 enum class Format
 {
 	UNKNOWN,
+
 	R8_UNORM,
 	R8G8B8A8_UNORM,
 	R8G8B8A8_UNORM_SRGB,
+
+	R11G11B10_FLOAT,
+
 	R16G16_FLOAT,
 	R16G16B16A16_FLOAT,
 	R16G16B16A16_SNORM,
 	R16G16B16A16_UNORM,
+
 	R32_FLOAT,
 	R32G32_FLOAT,
 	R32G32B32_FLOAT,
 	R32G32B32A32_FLOAT,
+
 	R16_UINT,
 	R32_UINT,
 	D24_UNORM_S8_UINT,
@@ -216,10 +230,16 @@ struct GPUMaterial
 	GPUTextureHandle baseColor;
 	GPUTextureHandle normal;
 	GPUTextureHandle metallicRoughness;
+	GPUTextureHandle emissive;
+	GPUTextureHandle occlusion;
+
 	AlphaMode alphaMode = AlphaMode::Opaque;
 	float alphaCutoff = 0.5f;
 	float metallicFactor = 1.0f;
 	float roughnessFactor = 1.0f;
+	float occlusionStrength = 1.0f;
+	float3 emissiveFactor = { 0.0f, 0.0f, 0.0f };
+	float4 baseColorFactor = { 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
 struct RootParamDesc

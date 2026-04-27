@@ -11,17 +11,18 @@ Texture2D gDepth : register(t0); // Depth buffer (SRV)
 Texture2D gAlbedoAO : register(t1); // RGB=Albedo, A=AO
 Texture2D gNormalMap : register(t2); // RG=WorldNormal XY (BC5)
 Texture2D gMetallicRoughness : register(t3); // R=Metallic, G=Roughness
+Texture2D gEmissive : register(t4); 
 
-TextureCube<float4> gIrradianceMap : register(t4);
-TextureCube<float4> gPrefilteredEnvMap : register(t5);
-Texture2D<float2> gBRDF_LUT : register(t6);
+TextureCube<float4> gIrradianceMap : register(t5);
+TextureCube<float4> gPrefilteredEnvMap : register(t6);
+Texture2D<float2> gBRDF_LUT : register(t7);
 
-Texture2D<float> gShadowMap : register(t7);
+Texture2D<float> gShadowMap : register(t8);
 
-Texture2D gSSAOTex : register(t8);
-Texture2D gGTAOTex : register(t9);
+Texture2D gSSAOTex : register(t9);
+Texture2D gGTAOTex : register(t10);
 
-TextureCube<float> pointShadowMaps[MAX_POINT_LIGHTS] : register(t10);
+TextureCube<float> pointShadowMaps[MAX_POINT_LIGHTS] : register(t11);
 
 
 SamplerState gSamplerPoint : register(s0); 

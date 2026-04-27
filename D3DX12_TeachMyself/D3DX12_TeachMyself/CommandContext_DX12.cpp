@@ -102,7 +102,12 @@ void CommandContext_DX12::BindComputeConstantBuffer(uint32_t slot, CBHandle hand
 
 void CommandContext_DX12::BindTexture(uint32_t slot, GPUTextureHandle handle)
 {
+	assert(handle.IsValid());
+	assert(handle.id < m_pDevice->m_textures.size());
+
 	const auto& texture = m_pDevice->m_textures[handle.id];
+
+	assert(texture.srv.IsValid());
 
 	m_commandList->SetGraphicsRootDescriptorTable(slot, texture.srv.gpu);
 }

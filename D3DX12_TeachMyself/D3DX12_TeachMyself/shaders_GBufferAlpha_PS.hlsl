@@ -1,14 +1,21 @@
 cbuffer MaterialConstants : register(b2)
 {
-    float alphaCutoff;
+    float4 baseColorFactor;
     float metallicFactor;
     float roughnessFactor;
-    float _pad;
+    float3 emissiveFactor;
+    float occlusionStrength;
+    
+    float alphaCutoff;
+    uint alphaMode;
 };
 
 Texture2D baseColorTex : register(t0);
 Texture2D normalTex : register(t1);
 Texture2D metallicRoughnessTex : register(t2);
+Texture2D emissiveTex : register(t3);
+Texture2D occlusionTex : register(t4);
+
 SamplerState samp : register(s0);
 
 struct PSInput
@@ -22,9 +29,10 @@ struct PSInput
 
 struct PSOutput
 {
-    float4 albedo : SV_TARGET0;
-    float4 normal : SV_TARGET1;
-    float4 mr : SV_TARGET2;
+    float4 albedo   : SV_TARGET0;
+    float4 normal   : SV_TARGET1;
+    float4 mr       : SV_TARGET2;
+    float3 emissive : SV_TARGET3;
 };
 
 float3 SafeNormalize(float3 v, float3 fallback)
@@ -63,11 +71,18 @@ PSOutput main(PSInput input)
     output.normal = float4(worldNormal * 0.5f + 0.5f, 1.0f);
     
     float4 mrSample = metallicRoughnessTex.Sample(samp, input.uv);
-    output.mr = float4(0,
-        mrSample.g * roughnessFactor,
-        mrSample.b * metallicFactor,
-        0
-    );
+    float aoSample = occlusionTex.Sample(samp, input.uv);
+    output.mr =
+        float4
+        (
+            aoSample.r * occlusionStrength,
+            mrSample.g * roughnessFactor,
+            mrSample.b * metallicFactor,
+            0
+        );
+    
+    float3 emissiveSample = emissiveTex.Sample(samp, input.uv);
+    output.emissive = emissiveSample * emissiveFactor;
     
     return output;
 }

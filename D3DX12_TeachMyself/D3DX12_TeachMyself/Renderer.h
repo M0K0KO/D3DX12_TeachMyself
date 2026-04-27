@@ -28,6 +28,7 @@ struct FrameContext
 	RGResourceHandle gbufferAlbedo;
 	RGResourceHandle gbufferNormal;
 	RGResourceHandle gbufferMR;
+	RGResourceHandle gbufferEmissive;
 	RGResourceHandle depthTexture;
 	RGResourceHandle skyboxTexture;
 	RGResourceHandle irradianceMap;
@@ -209,6 +210,7 @@ private:
 	GPUTextureHandle m_gbufferAlbedo;
 	GPUTextureHandle m_gbufferNormal;
 	GPUTextureHandle m_gbufferMR;
+	GPUTextureHandle m_gbufferEmissive;
 
 	GPUTextureHandle m_equirectTexture;
 	GPUTextureHandle m_cubemapTexture;
@@ -349,10 +351,15 @@ private:
 
 	struct MaterialConstants
 	{
-		float alphaCutoff;
-		float metallicFactor;
-		float roughnessFactor;
-		float padding0;
+		XMFLOAT4 baseColorFactor;
+
+		float  metallicFactor;
+		float  roughnessFactor;
+		XMFLOAT3 emissiveFactor;
+		float  occlusionStrength;
+
+		float  alphaCutoff;
+		UINT   alphaMode;
 	};
 
 	DebugMode debugMode;

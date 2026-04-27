@@ -13,19 +13,21 @@ class BuiltinAssets
 {
 public:
 	static void Initialize(GraphicsDevice& device, AssetManager* assets);
-	static void Shutdown(GraphicsDevice& device, AssetManager* assets);
+	static void Shutdown(AssetManager* assets);
 
 	static MeshHandle GetCubeMesh();
 	static MeshHandle GetSphereMesh();
 	static TextureHandle GetDefaultWhite();
 	static TextureHandle GetDefaultNormal();
 	static TextureHandle GetDefaultMR();
+	static TextureHandle GetDefaultEmmisive();
+	static TextureHandle GetDefaultOcclusion();
 	static MaterialHandle GetDefaultMaterial();
 
 private:
 	BuiltinAssets() = delete;
 	inline static MeshHandle     s_cubeMesh;
 	inline static MeshHandle     s_sphereMesh;
-	inline static TextureHandle  s_defaultWhite, s_defaultNormal, s_defaultMR;
+	inline static TextureHandle  s_defaultWhite, s_defaultNormal, s_defaultMR, s_defaultEmissive, s_defaultOcclusion;
 	inline static MaterialHandle s_defaultMaterial;
 };

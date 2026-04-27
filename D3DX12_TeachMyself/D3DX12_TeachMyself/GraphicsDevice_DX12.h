@@ -14,7 +14,6 @@
 #include "DescriptorHandle.h"
 #include "UploadHeapRingAllocator.h"
 #include "UploadQueue.h"
-#include "TextureLoader.h"
 #include "GPUTimestampProfiler.h"
 
 using namespace Microsoft::WRL;
@@ -174,8 +173,6 @@ private:
 	std::deque<PendingResourceRelease> m_pendingResourceReleases;
 
 	GPUTextureHandle m_backBufferHandles[FRAMECOUNT];
-
-	std::unique_ptr<TextureLoader> m_pTextureLoader;
 
 	GPUTimestampProfiler m_profiler;
 };

@@ -195,6 +195,16 @@ void BuiltinAssets::Initialize(GraphicsDevice& device, AssetManager* assets)
         .format = Format::R8G8B8A8_UNORM,
         .data = mr, .dataSize = 4, .sRGB = false
         });
+    s_defaultEmissive = textures.CreateRaw({
+        .width = 1, .height = 1,
+        .format = Format::R8G8B8A8_UNORM_SRGB,
+        .data = white, .dataSize = 4, .sRGB = false
+        });
+    s_defaultOcclusion = textures.CreateRaw({
+        .width = 1, .height = 1,
+        .format = Format::R8G8B8A8_UNORM_SRGB,
+        .data = white, .dataSize = 4, .sRGB = false
+        });
 
 
     MaterialManager::CreateDesc matDesc{};
@@ -247,12 +257,14 @@ void BuiltinAssets::Initialize(GraphicsDevice& device, AssetManager* assets)
     }
 }
 
-void BuiltinAssets::Shutdown(GraphicsDevice& device, AssetManager* assets)
+void BuiltinAssets::Shutdown(AssetManager* assets)
 {
     auto& textures = assets->Textures();
     textures.Destroy(s_defaultWhite);
     textures.Destroy(s_defaultNormal);
     textures.Destroy(s_defaultMR);
+    textures.Destroy(s_defaultEmissive);
+    textures.Destroy(s_defaultOcclusion);
 }
 
 MeshHandle BuiltinAssets::GetCubeMesh()
@@ -278,6 +290,16 @@ TextureHandle BuiltinAssets::GetDefaultNormal()
 TextureHandle BuiltinAssets::GetDefaultMR()
 {
     return s_defaultMR;
+}
+
+TextureHandle BuiltinAssets::GetDefaultEmmisive()
+{
+    return s_defaultEmissive;
+}
+
+TextureHandle BuiltinAssets::GetDefaultOcclusion()
+{
+    return s_defaultOcclusion;
 }
 
 MaterialHandle BuiltinAssets::GetDefaultMaterial()

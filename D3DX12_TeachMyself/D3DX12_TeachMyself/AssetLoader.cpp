@@ -8,6 +8,7 @@
 #include "AssetLoader.h"
 #include "DirectXTex/DirectXTex.h"
 #include "JobSystem.h"
+#include "BuiltinAssets.h"
 #include <cctype>
 
 namespace
@@ -133,6 +134,18 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
             mat.metallicRoughnessTexture = model.textures[texIndex].source;
         }
 
+        if (gltfMat.emissiveTexture.index >= 0)
+        {
+            int texIndex = gltfMat.emissiveTexture.index;
+            mat.emissiveTexture = model.textures[texIndex].source;
+        }
+
+        if (gltfMat.occlusionTexture.index >= 0)
+        {
+            int texIndex = gltfMat.occlusionTexture.index;
+            mat.occlusionTexture = model.textures[texIndex].source;
+        }
+
         if (gltfMat.alphaMode == "MASK")
         {
             mat.alphaMode = AlphaMode::Mask;
@@ -143,8 +156,34 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
             mat.alphaMode = AlphaMode::Blend;
         }
 
+        if (gltfMat.pbrMetallicRoughness.baseColorFactor.size() >= 4)
+        {
+            mat.baseColorFactor = XMFLOAT4(
+                static_cast<float>(gltfMat.pbrMetallicRoughness.baseColorFactor[0]),
+                static_cast<float>(gltfMat.pbrMetallicRoughness.baseColorFactor[1]),
+                static_cast<float>(gltfMat.pbrMetallicRoughness.baseColorFactor[2]),
+                static_cast<float>(gltfMat.pbrMetallicRoughness.baseColorFactor[3])
+            );
+        }
+        else
+        {
+            mat.baseColorFactor = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
+        }
         mat.metallicFactor = static_cast<float>(gltfMat.pbrMetallicRoughness.metallicFactor);
         mat.roughnessFactor = static_cast<float>(gltfMat.pbrMetallicRoughness.roughnessFactor);
+        if (gltfMat.emissiveFactor.size() >= 3)
+        {
+            mat.emissiveFactor = XMFLOAT3(
+                static_cast<float>(gltfMat.emissiveFactor[0]),
+                static_cast<float>(gltfMat.emissiveFactor[1]),
+                static_cast<float>(gltfMat.emissiveFactor[2])
+            );
+        }
+        else
+        {
+            mat.emissiveFactor = XMFLOAT3(0.0f, 0.0f, 0.0f);
+        }
+        mat.occlusionStrength = static_cast<float>(gltfMat.occlusionTexture.strength);
 
         scene.materials.push_back(mat);
     }
