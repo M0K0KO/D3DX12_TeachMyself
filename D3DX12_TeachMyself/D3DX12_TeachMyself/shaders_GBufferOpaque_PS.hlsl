@@ -1,11 +1,11 @@
 cbuffer MaterialConstants : register(b2)
 {
     float4 baseColorFactor;
-    float metallicFactor;
-    float roughnessFactor;
     float3 emissiveFactor;
     float occlusionStrength;
     
+    float metallicFactor;
+    float roughnessFactor;
     float alphaCutoff;
     uint alphaMode;
 };

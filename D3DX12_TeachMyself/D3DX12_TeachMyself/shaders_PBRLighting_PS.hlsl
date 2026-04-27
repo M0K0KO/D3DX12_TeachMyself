@@ -364,8 +364,6 @@ float4 main(PSInput input) : SV_TARGET
 
     return float4(color, 1.0);
     
-    //return float4(emissive, 1.0);
-    
     //return float4(1.0 - shadow, 1.0 - shadow, 1.0 - shadow, 1.0f);
     
     //float ssao = gSSAOTex.Sample(gSamplerLinear, uv);

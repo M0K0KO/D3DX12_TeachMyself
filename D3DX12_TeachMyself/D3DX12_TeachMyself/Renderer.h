@@ -352,12 +352,11 @@ private:
 	struct MaterialConstants
 	{
 		XMFLOAT4 baseColorFactor;
-
-		float  metallicFactor;
-		float  roughnessFactor;
 		XMFLOAT3 emissiveFactor;
 		float  occlusionStrength;
 
+		float  metallicFactor;
+		float  roughnessFactor;
 		float  alphaCutoff;
 		UINT   alphaMode;
 	};

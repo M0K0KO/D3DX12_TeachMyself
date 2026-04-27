@@ -659,7 +659,7 @@ FrameContext Renderer::BuildFrameContext(GraphicsDevice* device, CommandContext&
 	RGResourceHandle gbufferMR = graph.ImportTexture(m_gbufferMR, gbufferMRDesc, RGResourceState::RenderTarget);
 
 	RGResourceDesc gbufferEmissiveDesc = { m_viewportWidth, m_viewportHeight, Format::R11G11B10_FLOAT, TextureUsage::RenderTarget };
-	RGResourceHandle gbufferEmissive = graph.ImportTexture(m_gbufferEmissive, gbufferMRDesc, RGResourceState::RenderTarget);
+	RGResourceHandle gbufferEmissive = graph.ImportTexture(m_gbufferEmissive, gbufferEmissiveDesc, RGResourceState::RenderTarget);
 
 	RGResourceDesc depthTextrueDesc = { m_viewportWidth, m_viewportHeight, Format::R32_TYPELESS, TextureUsage::DepthStencil };
 	RGResourceHandle depthTexture = graph.ImportTexture(m_depthTexture, depthTextrueDesc, RGResourceState::DepthWrite);
