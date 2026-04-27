@@ -865,15 +865,19 @@ void EditorSystem::ManipulateSelectedEntity(EntityScene& scene)
 		}
 	}
 
-	XMFLOAT4X4 localF;
-	XMStoreFloat4x4(&localF, newLocal);
+	XMVECTOR scaleV, rotV, transV;
+	if (XMMatrixDecompose(&scaleV, &rotV, &transV, newLocal))
+	{
+		XMFLOAT3 t, s;
+		XMFLOAT4 r;
+		XMStoreFloat3(&t, transV);
+		XMStoreFloat3(&s, scaleV);
+		XMStoreFloat4(&r, XMQuaternionNormalize(rotV));
 
-	float t[3], r[3], s[3];
-	ImGuizmo::DecomposeMatrixToComponents((const float*)&localF, t, r, s);
-
-	Transform::SetPosition(reg, m_state.selected, { t[0], t[1], t[2] });
-	Transform::SetRotation(reg, m_state.selected, { DegToRad(r[0]), DegToRad(r[1]), DegToRad(r[2]) });
-	Transform::SetScale(reg, m_state.selected, { s[0], s[1], s[2] });
+		Transform::SetPosition(reg, m_state.selected, t);
+		Transform::SetRotation(reg, m_state.selected, NormalizeSafeQuat(r));
+		Transform::SetScale(reg, m_state.selected, s);
+	}
 
 	XMStoreFloat4x4(&tf->localMatrix, newLocal);
 	XMStoreFloat4x4(&tf->worldMatrix, newWorld);

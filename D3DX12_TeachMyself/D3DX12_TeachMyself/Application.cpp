@@ -186,8 +186,6 @@ RenderScene Application::ExtractRenderScene()
 			WIT = XMMatrixTranspose(WI);
 		}
 
-		MOKOLOG_INFO("world[0]: {}, {}, {}, {}", world._11, world._12, world._13, world._14);
-
 		GPUTransformData td;
 		td.world = world;
 		XMStoreFloat4x4(&td.worldInvTranspose, WIT);

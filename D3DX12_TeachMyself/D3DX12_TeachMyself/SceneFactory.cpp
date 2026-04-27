@@ -9,6 +9,7 @@
 #include "BuiltinAssets.h"
 #include "MokoPath.h"
 #include "AssetManager.h"
+#include "MokoMath.h"
 
 
 namespace SceneFactory
@@ -350,7 +351,7 @@ namespace SceneFactory
 
                 auto& t = ecsScene.GetRegistry().Get<TransformComponent>(e);
                 t.position = node.translation;
-                t.rotation = node.rotation;
+                t.rotation = NormalizeSafeQuat(node.rotation);
                 t.scale = node.scale;
                 t.dirty = true;
             }

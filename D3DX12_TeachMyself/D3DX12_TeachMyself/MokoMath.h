@@ -25,6 +25,31 @@ inline float DegToRad(float deg)
 	return deg * XM_PI / 180.0f;
 }
 
+inline bool IsFiniteFloat(float v)
+{
+	return std::isfinite(v);
+}
+
+inline bool IsFiniteQuaternion(const XMFLOAT4& q)
+{
+	return IsFiniteFloat(q.x) && IsFiniteFloat(q.y) && IsFiniteFloat(q.z) && IsFiniteFloat(q.w);
+}
+
+inline XMFLOAT4 NormalizeSafeQuat(const XMFLOAT4& q, const XMFLOAT4& fallback = XMFLOAT4{ 0,0,0,1 })
+{
+	if (!IsFiniteQuaternion(q))
+		return fallback;
+
+	XMVECTOR v = XMLoadFloat4(&q);
+	const float lenSq = XMVectorGetX(XMQuaternionLengthSq(v));
+	if (!std::isfinite(lenSq) || lenSq < 1e-12f)
+		return fallback;
+
+	XMFLOAT4 out;
+	XMStoreFloat4(&out, XMQuaternionNormalize(v));
+	return out;
+}
+
 inline XMVECTOR EulerToQuaternion(const XMFLOAT3& euler, bool isRadian = false)
 {
 	if (isRadian)
@@ -66,7 +91,8 @@ inline XMMATRIX GetLocalMatrix(const XMFLOAT3& position,
 	const XMFLOAT3& scale)
 {
 	XMVECTOR p = XMLoadFloat3(&position);
-	XMVECTOR q = XMLoadFloat4(&quaternion);
+	const XMFLOAT4 safeQ = NormalizeSafeQuat(quaternion);
+	XMVECTOR q = XMLoadFloat4(&safeQ);
 	XMVECTOR s = XMLoadFloat3(&scale);
 
 	XMMATRIX S = XMMatrixScalingFromVector(s);
@@ -78,13 +104,15 @@ inline XMMATRIX GetLocalMatrix(const XMFLOAT3& position,
 
 inline XMFLOAT3 QuatToEuler(const XMFLOAT4& q)
 {
-	XMVECTOR quat = XMLoadFloat4(&q);
+	const XMFLOAT4 safeQ = NormalizeSafeQuat(q);
+	XMVECTOR quat = XMLoadFloat4(&safeQ);
 
 	XMMATRIX m = XMMatrixRotationQuaternion(quat);
 
 	XMFLOAT3 euler;
 
-	euler.x = asinf(-m.r[2].m128_f32[1]);
+	const float sinPitch = std::clamp(-m.r[2].m128_f32[1], -1.0f, 1.0f);
+	euler.x = asinf(sinPitch);
 
 	if (cosf(euler.x) > 1e-6f)
 	{
@@ -109,8 +137,8 @@ inline XMFLOAT4 EulerToQuat(const XMFLOAT3& euler)
 	);
 
 	XMFLOAT4 result;
-	XMStoreFloat4(&result, q);
-	return result;
+	XMStoreFloat4(&result, XMQuaternionNormalize(q));
+	return NormalizeSafeQuat(result);
 }
 
 inline XMFLOAT3 Normalize3(const XMFLOAT3& v)

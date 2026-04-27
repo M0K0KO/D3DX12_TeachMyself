@@ -9,6 +9,7 @@
 #include "DirectXTex/DirectXTex.h"
 #include "JobSystem.h"
 #include "BuiltinAssets.h"
+#include "MokoMath.h"
 #include <cctype>
 
 namespace
@@ -236,7 +237,8 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
             XMVECTOR s, r, t;
             XMMatrixDecompose(&s, &r, &t, local);
             XMStoreFloat3(&sceneNode.scale, s);
-            XMStoreFloat4(&sceneNode.rotation, r);
+            XMStoreFloat4(&sceneNode.rotation, XMQuaternionNormalize(r));
+            sceneNode.rotation = NormalizeSafeQuat(sceneNode.rotation);
             XMStoreFloat3(&sceneNode.translation, t);
         }
         else
@@ -257,6 +259,7 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
                     (float)node.rotation[2],
                     (float)node.rotation[3]
                 };
+                sceneNode.rotation = NormalizeSafeQuat(sceneNode.rotation);
             }
             if (node.scale.size() == 3)
             {
@@ -265,6 +268,15 @@ Mesh::Scene AssetLoader::LoadGLTF(const std::string& path)
                     (float)node.scale[1],
                     (float)node.scale[2]
                 };
+            }
+            else
+            {
+                sceneNode.scale = { 1.0f, 1.0f, 1.0f };
+            }
+
+            if (node.rotation.size() != 4)
+            {
+                sceneNode.rotation = { 0.0f, 0.0f, 0.0f, 1.0f };
             }
 
             XMVECTOR s = XMLoadFloat3(&sceneNode.scale);

@@ -20,7 +20,7 @@ namespace Transform
 	void SetRotation(Registry& reg, Entity e, const XMFLOAT4& q)
 	{
 		auto& t = reg.Get<TransformComponent>(e);
-		t.rotation = q;
+		t.rotation = NormalizeSafeQuat(q);
 		t.dirty = true;
 	}
 	void SetScale(Registry& reg, Entity e, const XMFLOAT3& s)
