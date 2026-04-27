@@ -26,6 +26,14 @@ void Renderer::Init(GraphicsDevice* device, AssetManager* asset)
 {
 	m_assetManager = asset;
 
+	BufferDesc bufferDesc{};
+	bufferDesc.size = MAX_TRANSFORMS * sizeof(GPUTransformData);
+	bufferDesc.stride = sizeof(GPUTransformData);
+	bufferDesc.access = MemoryAccess::GpuOnly;
+	bufferDesc.usage = BufferUsage::Structured;
+	m_transformBuffer = device->CreateBuffer(bufferDesc);
+
+
 	m_viewportWidth = 1280;
 	m_viewportHeight = 720;
 
@@ -91,6 +99,13 @@ void Renderer::Render(GraphicsDevice* device, CommandContext& ctx, const RenderS
 
 	if (m_needsResize)
 		Resize(device);
+
+	if (!renderScene.transforms.empty())
+	{
+		device->UpdateBuffer(m_transformBuffer,
+			renderScene.transforms.data(),
+			renderScene.transforms.size() * sizeof(GPUTransformData));
+	}
 
 	RenderGraph graph(device);
 	FrameContext fc = BuildFrameContext(device, ctx, graph, renderScene);
@@ -876,7 +891,8 @@ void Renderer::InitDepthPrePass(GraphicsDevice* device)
 
 	RootSignatureDesc depthPassRSDesc = {};
 	depthPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
-	depthPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 0, 1, ShaderVisibility::Vertex });
+	depthPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV, RangeType::SRV, 0, 0, 1, ShaderVisibility::Vertex });
+	depthPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 1, 0, 1, ShaderVisibility::Vertex });
 
 	m_depthPrePassPipelinDesc = {
 		depthPassRSDesc,
@@ -906,7 +922,7 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 	gBufferPassRSDesc.cbvSrvUavHeapDirectlyIndexed = true;
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV,        RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV,        RangeType::CBV, 1, 0, 1, ShaderVisibility::Vertex });
-	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants,  RangeType::CBV, 2, 0, 1, ShaderVisibility::Pixel });
+	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants,  RangeType::CBV, 2, 0, 2, ShaderVisibility::All });
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
 	gBufferPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear,		SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
 
@@ -946,7 +962,7 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 	gBufferAlphaPassRSDesc.cbvSrvUavHeapDirectlyIndexed = true;
 	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV,        RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
 	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV,        RangeType::CBV, 1, 0, 1, ShaderVisibility::Vertex });
-	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants,  RangeType::CBV, 2, 0, 1, ShaderVisibility::Pixel });
+	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants,  RangeType::CBV, 2, 0, 2, ShaderVisibility::All });
 	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
 	gBufferAlphaPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear,		 SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
 
@@ -977,8 +993,8 @@ void Renderer::InitDirectionalShadowPass(GraphicsDevice* device)
 	RootSignatureDesc shadowMapRSDesc = {};
 	shadowMapRSDesc.allowIA = true;
 	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
-	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 0, 1, ShaderVisibility::Vertex });
-	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 2, 0, 1, ShaderVisibility::Vertex });
+	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV, RangeType::SRV, 0, 0, 1, ShaderVisibility::Vertex });
+	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 1, 0, 1, ShaderVisibility::Vertex });
 
 	m_shadowMapVS = ShaderCompiler::CompileFromFile(
 		L"shaders_shadowMap_VS.hlsl",
@@ -1015,8 +1031,8 @@ void Renderer::InitPointShadowPass(GraphicsDevice* device)
 	RootSignatureDesc pointShadowMapRSDesc = {};
 	pointShadowMapRSDesc.allowIA = true;
 	pointShadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
-	pointShadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 0, 1, ShaderVisibility::Vertex });
-	pointShadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 2, 0, 2, ShaderVisibility::Vertex });
+	pointShadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV, RangeType::SRV, 0, 0, 1, ShaderVisibility::Vertex });
+	pointShadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 1, 0, 3, ShaderVisibility::Vertex });
 
 	m_pointShadowMapVS = ShaderCompiler::CompileFromFile(
 		L"shaders_pointShadowMap_VS.hlsl",
@@ -1368,13 +1384,15 @@ void Renderer::AddDepthPrePass(GraphicsDevice* device, RenderGraph& graph, Frame
 				passCtx.SetScissorRect(0, 0, (LONG)m_viewportWidth, (LONG)m_viewportHeight);
 
 				passCtx.BindConstantBuffer(0, fc.perFrameCB);
+				passCtx.BindRootSRV(1, m_transformBuffer);
 
 				for (const auto& obj : scene.renderObjects)
 				{
 					if (m_assetManager->Materials().Get(obj.material)->alphaMode == AlphaMode::Opaque)
 					{
-						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(&obj.world, sizeof(PerObjectCB));
-						passCtx.BindConstantBuffer(1, perObjectCBHandle);
+						uint32_t transformIdx = obj.transformIdx;
+						passCtx.SetRootConstants(2, &transformIdx, 1);
+
 						passCtx.SetVertexBuffer(obj.vertexBuffer);
 						passCtx.SetIndexBuffer(obj.indexBuffer);
 						passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
@@ -1408,19 +1426,19 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 				passCtx.SetScissorRect(0, 0, (LONG)m_viewportWidth, (LONG)m_viewportHeight);
 
 				passCtx.BindConstantBuffer(0, fc.perFrameCB);
+				passCtx.BindRootSRV(1, m_transformBuffer);
 				passCtx.BindRootSRV(3, m_assetManager->Materials().GetGPUBuffer());
+
 				for (const auto& obj : scene.renderObjects)
 				{
 					if (m_assetManager->Materials().Get(obj.material)->alphaMode == AlphaMode::Opaque)
 					{
-						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(&obj.world, sizeof(PerObjectCB));
+						struct DrawConstants { uint32_t objIdx; uint32_t matIdx; };
+						DrawConstants dc{ obj.transformIdx, obj.material.index };
+						passCtx.SetRootConstants(2, &dc, 2);
+
 						passCtx.SetVertexBuffer(obj.vertexBuffer);
 						passCtx.SetIndexBuffer(obj.indexBuffer);
-						passCtx.BindConstantBuffer(1, perObjectCBHandle);
-
-						uint32_t matIdx = obj.material.index;
-						passCtx.SetRootConstants(2, &matIdx, 1);
-
 						passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
 					}
 				}
@@ -1444,20 +1462,20 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 				GPUTextureHandle renderTargets[] = { m_gbufferAlbedo, m_gbufferNormal, m_gbufferMR, m_gbufferEmissive };
 				passCtx.SetRenderTarget(4, renderTargets, m_depthTexture);
 				passCtx.SetPipeline(m_gBufferAlphaPassPipeline);
+
 				passCtx.BindConstantBuffer(0, fc.perFrameCB);
+				passCtx.BindRootSRV(1, m_transformBuffer);
 				passCtx.BindRootSRV(3, m_assetManager->Materials().GetGPUBuffer());
 				for (const auto& obj : scene.renderObjects)
 				{
 					if (m_assetManager->Materials().Get(obj.material)->alphaMode == AlphaMode::Mask)
 					{
-						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(&obj.world, sizeof(PerObjectCB));
+						struct DrawConstants { uint32_t objIdx; uint32_t matIdx; };
+						DrawConstants dc{ obj.transformIdx, obj.material.index };
+						passCtx.SetRootConstants(2, &dc, 2);
+
 						passCtx.SetVertexBuffer(obj.vertexBuffer);
 						passCtx.SetIndexBuffer(obj.indexBuffer);
-						passCtx.BindConstantBuffer(1, perObjectCBHandle);
-
-						uint32_t matIdx = obj.material.index;
-						passCtx.SetRootConstants(2, &matIdx, 1);
-
 						passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
 					}
 				}
@@ -1495,13 +1513,15 @@ void Renderer::AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& gra
 						XMStoreFloat4x4(&transposed, XMMatrixTranspose(fc.LightViewProj[c]));
 						auto cascadeCB = passCtx.UpdateConstantBuffer(&transposed, sizeof(XMFLOAT4X4));
 						passCtx.BindConstantBuffer(0, cascadeCB);
+						passCtx.BindRootSRV(1, m_transformBuffer);
 
 						for (const auto& obj : scene.renderObjects)
 						{
 							if (m_assetManager->Materials().Get(obj.material)->alphaMode == AlphaMode::Opaque)
 							{
-								auto perObjectCB = passCtx.UpdateConstantBuffer(&obj.world, sizeof(PerObjectCB));
-								passCtx.BindConstantBuffer(1, perObjectCB);
+								uint32_t transformIdx = obj.transformIdx;
+								passCtx.SetRootConstants(2, &transformIdx, 1);
+
 								passCtx.SetVertexBuffer(obj.vertexBuffer);
 								passCtx.SetIndexBuffer(obj.indexBuffer);
 								passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
@@ -1534,6 +1554,7 @@ void Renderer::AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, Fr
 					passCtx.SetPipeline(m_pointShadowMapPipeline);
 
 					passCtx.BindConstantBuffer(0, fc.pointShadowCB);
+					passCtx.BindRootSRV(1, m_transformBuffer);
 
 					for (int lightIdx = 0; lightIdx < fc.pointLightCount; lightIdx++)
 					{
@@ -1564,17 +1585,17 @@ void Renderer::AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, Fr
 							passCtx.SetViewport(0, 0, 1024, 1024);
 							passCtx.SetScissorRect(0, 0, 1024, 1024);
 
-							PointShadowConstants shadowConstants;
-							shadowConstants.lightIdx = lightIdx;
-							shadowConstants.faceIdx = face;
-							passCtx.SetRootConstants(2, &shadowConstants, 2);
+
 
 							for (const RenderObject* objPtr : visibleObjects)
 							{
 								const auto& obj = *objPtr;
 
-								auto perObjectCB = passCtx.UpdateConstantBuffer(&obj.world, sizeof(PerObjectCB));
-								passCtx.BindConstantBuffer(1, perObjectCB);
+								PointShadowConstants shadowConstants;
+								shadowConstants.lightIdx = lightIdx;
+								shadowConstants.faceIdx = face;
+								shadowConstants.transformIdx = obj.transformIdx;
+								passCtx.SetRootConstants(2, &shadowConstants, 3);
 
 								if (obj.vertexBuffer.id != lastVB)
 								{

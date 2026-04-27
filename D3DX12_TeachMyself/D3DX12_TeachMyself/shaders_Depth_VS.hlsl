@@ -9,10 +9,20 @@ cbuffer PerFrame : register(b0)
     float2 pad1;
 };
 
-cbuffer PerObject : register(b1)
+struct GPUTransformData
 {
     float4x4 World;
+    float4x4 WorldInvTranspose;
 };
+
+StructuredBuffer<GPUTransformData> g_Transforms : register(t0);
+
+struct DrawConstants
+{
+    uint transformIdx;
+};
+
+ConstantBuffer<DrawConstants> g_DrawConstants : register(b1);
 
 struct VSInput
 {
@@ -32,7 +42,7 @@ VSOutput main(VSInput input)
 {
     VSOutput output;
     
-    float4 worldPos = mul(float4(input.position, 1.0f), World);
+    float4 worldPos = mul(float4(input.position, 1.0f), g_Transforms[g_DrawConstants.transformIdx].World);
     output.position = mul(worldPos, ViewProj);
     output.uv = input.uv;
     

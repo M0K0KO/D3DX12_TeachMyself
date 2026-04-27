@@ -12,16 +12,21 @@ cbuffer PointShadowCB : register(b0)
     PointShadowData pointShadowData[MAX_POINT_LIGHTS];
 };
 
-cbuffer PerObjectCB : register(b1)
+struct GPUTransformData
 {
     float4x4 World;
+    float4x4 WorldInvTranspose;
 };
 
-cbuffer RootConstants : register(b2)
+StructuredBuffer<GPUTransformData> g_Transforms : register(t0);
+
+struct DrawConstants
 {
     uint lightIdx;
     uint faceIdx;
+    uint transformIdx;
 };
+ConstantBuffer<DrawConstants> g_DrawConstants : register(b1);
 
 struct VSInput
 {
@@ -41,8 +46,8 @@ VSOutput main(VSInput input)
 {
     VSOutput output;
     
-    float4 worldPos = mul(float4(input.position, 1.0f), World);
-    output.position = mul(worldPos, pointShadowData[lightIdx].faceVP[faceIdx]);
+    float4 worldPos = mul(float4(input.position, 1.0f), g_Transforms[g_DrawConstants.transformIdx].World);
+    output.position = mul(worldPos, pointShadowData[g_DrawConstants.lightIdx].faceVP[g_DrawConstants.faceIdx]);
     output.uv = input.uv;
     
     return output;

@@ -124,6 +124,8 @@ private:
 
 private:
 	AssetManager* m_assetManager;
+	GPUBufferHandle m_transformBuffer;
+	static constexpr uint32_t MAX_TRANSFORMS = 4096;
 
 private:
 	static constexpr float clearColor[4] = { 0.0f, 0.0f,  0.0f,  0.0f };
@@ -255,6 +257,7 @@ private:
 	struct PerObjectCB
 	{
 		XMFLOAT4X4 World;
+		XMFLOAT4X4 WorldInvTranspose;
 	};
 	PerObjectCB m_perObjectCBData;
 
@@ -303,8 +306,9 @@ private:
 
 	struct PointShadowConstants
 	{
-		int lightIdx;
-		int faceIdx;
+		uint32_t lightIdx;
+		uint32_t faceIdx;
+		uint32_t transformIdx;
 	};
 
 	struct SSAOCB

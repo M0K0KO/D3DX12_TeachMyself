@@ -168,8 +168,16 @@ RenderScene Application::ExtractRenderScene()
 		const MeshAsset* mesh = m_assetManager->Meshes().Get(mr.mesh);
 		if (!mesh) continue;
 
-		XMFLOAT4X4 worldT;
-		XMStoreFloat4x4(&worldT, XMMatrixTranspose(XMLoadFloat4x4(&t.worldMatrix)));
+		XMFLOAT4X4 world = t.worldMatrix;
+		XMMATRIX W = XMLoadFloat4x4(&world);
+		XMMATRIX WIT = XMMatrixTranspose(XMMatrixInverse(nullptr, W));
+
+		GPUTransformData td;
+		td.world = world;
+		XMStoreFloat4x4(&td.worldInvTranspose, WIT);
+
+		uint32_t transformIdx = (uint32_t)rs.transforms.size();
+		rs.transforms.push_back(td);
 
 		for (size_t i = 0; i < mr.submeshIndices.size(); i++)
 		{
@@ -177,24 +185,20 @@ RenderScene Application::ExtractRenderScene()
 			if (subIdx >= mesh->submeshes.size()) continue;
 			const Submesh& sub = mesh->submeshes[subIdx];
 
-			const Material* mat = nullptr;
-			if (i < mr.materials.size())
-			{
-				mat = m_assetManager->Materials().Get(mr.materials[i]);
-			}
-			if (!mat)
-			{
-				mat = m_assetManager->Materials().Get(BuiltinAssets::GetDefaultMaterial());
-				if (!mat) continue;
-			}
+			MaterialHandle matHandle = (i < mr.materials.size())
+				? mr.materials[i]
+				: BuiltinAssets::GetDefaultMaterial();
+
+			const Material* mat = m_assetManager->Materials().Get(matHandle);
+			if (!mat) continue;
 
 			RenderObject obj;
-			obj.world = worldT;
+			obj.transformIdx = transformIdx;
 			obj.vertexBuffer = mesh->vb;
 			obj.indexBuffer = mesh->ib;
 			obj.indexOffset = sub.indexOffset;
 			obj.indexCount = sub.indexCount;
-			obj.material = mr.materials[subIdx];
+			obj.material = mr.materials[i];
 			obj.aabbMin = sub.aabb.min;
 			obj.aabbMax = sub.aabb.max;
 			rs.renderObjects.push_back(obj);

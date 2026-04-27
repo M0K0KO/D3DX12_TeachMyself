@@ -9,10 +9,20 @@ cbuffer PerFrame : register(b0)
     float2 pad1;
 };
 
-cbuffer PerObject : register(b1)
+struct GPUTransformData
 {
-    float4x4 World;
+    float4x4 world;
+    float4x4 worldInvTranspose;
 };
+
+struct DrawConstants
+{
+    uint objIdx;
+    uint matIdx;
+};
+ConstantBuffer<DrawConstants> g_DrawConstants : register(b2);
+
+StructuredBuffer<GPUTransformData> g_Transforms : register(t1);
 
 struct VSInput
 {
@@ -26,7 +36,6 @@ struct VSOutput
 {
     float4 position : SV_POSITION;
     float2 uv : TEXCOORD0;
-    
     float3 worldNormal : TEXCOORD1;
     float4 worldTangent : TEXCOORD2;
 };
@@ -41,16 +50,17 @@ VSOutput main(VSInput input)
 {
     VSOutput output;
     
-    float4 worldPos = mul(float4(input.position, 1.0f), World);
+    GPUTransformData t = g_Transforms[g_DrawConstants.objIdx];
+    
+    float4 worldPos = mul(float4(input.position, 1.0f), t.world);
+    
     output.position = mul(worldPos, ViewProj);
     output.uv = input.uv;
-    
-    output.worldNormal = SafeNormalize(mul(input.normal, (float3x3) World), float3(0.0f, 1.0f, 0.0f));
-
+    output.worldNormal = SafeNormalize(mul(input.normal, (float3x3)t.worldInvTranspose), float3(0.0f, 1.0f, 0.0f));
     output.worldTangent = float4(
-    mul(input.tangent.xyz, (float3x3) World),
-    input.tangent.w
-);
+        normalize(mul(input.tangent.xyz, (float3x3) t.world)),
+        input.tangent.w
+        );
     
     return output;
 }
