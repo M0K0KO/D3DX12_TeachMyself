@@ -34,6 +34,8 @@ public:
 	virtual void SetDescriptorTable(uint32_t slot, DescriptorHandle handle) = 0;
 	virtual void SetComputeDescriptorTable(uint32_t slot, DescriptorHandle handle) = 0;
 
+	virtual void BindRootSRV(uint32_t slot, GPUBufferHandle handle) = 0;
+
 	virtual void TransitionBarrier(GPUTextureHandle handle, RGResourceState before, RGResourceState after) = 0;
 
 	virtual void ClearRenderTarget(GPUTextureHandle handle, const float clearValue[4]) = 0;

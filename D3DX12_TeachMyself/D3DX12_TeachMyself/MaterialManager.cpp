@@ -38,7 +38,9 @@ MaterialHandle MaterialManager::Create(const CreateDesc & desc)
 
     mat.alphaMode = desc.alphaMode;
     mat.alphaCutoff = desc.alphaCutoff;
-    return m_pool.Create(std::move(mat));
+    auto handle = m_pool.Create(std::move(mat));
+    m_dirty = true;
+    return handle;
 }
 
 void MaterialManager::Destroy(MaterialHandle h)

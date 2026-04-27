@@ -2,6 +2,7 @@
 #include <vector>
 #include <DirectXMath.h>
 #include "FrameData.h"
+#include "HandlePool.h"
 
 using namespace DirectX;
 
@@ -11,7 +12,7 @@ struct RenderObject
 	GPUBufferHandle indexBuffer;
 	uint32_t indexOffset;
 	uint32_t indexCount;
-	GPUMaterial material;
+	MaterialHandle material;
 	XMFLOAT4X4 world;
 	XMFLOAT3 aabbMin = { FLT_MAX,  FLT_MAX,  FLT_MAX };
 	XMFLOAT3 aabbMax = { -FLT_MAX, -FLT_MAX, -FLT_MAX };

@@ -345,10 +345,13 @@ GPUBufferHandle GraphicsDevice_DX12::CreateBuffer(const BufferDesc desc, const v
 		internalBuffer.srv = m_cbvSrvUavAllocator.Allocate();
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+		srvDesc.Buffer.FirstElement = 0;
 		srvDesc.Buffer.NumElements = desc.size / desc.stride;
 		srvDesc.Buffer.StructureByteStride = desc.stride;
 		srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+
 		m_device->CreateShaderResourceView(buffer.Get(), &srvDesc, internalBuffer.srv.cpu);
 	}
 
@@ -871,6 +874,15 @@ ComPtr<ID3D12RootSignature> GraphicsDevice_DX12::BuildRootSignature(const RootSi
 				0,
 				DX12Helpers::ToVisibility(rootParamDesc.visibility));
 		}
+		else if (rootParamDesc.type == RootParamType::RootSRV)
+		{
+			rootParameters.push_back({});
+			rootParameters[i].InitAsShaderResourceView(
+				rootParamDesc.baseRegister,
+				rootParamDesc.registerSpace,
+				D3D12_ROOT_DESCRIPTOR_FLAG_NONE,
+				DX12Helpers::ToVisibility(rootParamDesc.visibility));
+		}
 	}
 
 
@@ -880,13 +892,19 @@ ComPtr<ID3D12RootSignature> GraphicsDevice_DX12::BuildRootSignature(const RootSi
 		staticSamplerDescs.push_back(DX12Helpers::ToStaticSampler(samplerDesc));
 	}
 
+	D3D12_ROOT_SIGNATURE_FLAGS flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+	if (desc.allowIA)
+		flags |= D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	if (desc.cbvSrvUavHeapDirectlyIndexed)
+		flags |= D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
+
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
 	rootSignatureDesc.Init_1_1(
 		rootParamCount,
 		rootParameters.data(),
 		staticSamplerDescs.size(),
 		staticSamplerDescs.data(),
-		desc.allowIA ? D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT : D3D12_ROOT_SIGNATURE_FLAG_NONE);
+		flags);
 
 	ComPtr<ID3D12RootSignature> rs;
 

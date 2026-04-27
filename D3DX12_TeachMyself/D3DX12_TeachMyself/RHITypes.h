@@ -109,6 +109,7 @@ enum class RootParamType
 {
 	DescriptorTable,
 	RootCBV,
+	RootSRV,
 	RootConstants,
 };
 
@@ -248,6 +249,7 @@ struct RootParamDesc
 	RootParamType type = RootParamType::DescriptorTable;
 	RangeType rangeType;
 	uint32_t baseRegister;
+	uint32_t registerSpace = 0;
 	uint32_t numDescriptors = 1;
 	ShaderVisibility visibility;
 };
@@ -263,6 +265,8 @@ struct StaticSamplerDesc
 struct RootSignatureDesc
 {
 	bool allowIA = true;
+	bool cbvSrvUavHeapDirectlyIndexed = false;
+	bool samplerHeapDirectlyIndexed = false;
 	std::vector<RootParamDesc> rootParamDescs;
 	std::vector<StaticSamplerDesc> staticSamplers;
 };

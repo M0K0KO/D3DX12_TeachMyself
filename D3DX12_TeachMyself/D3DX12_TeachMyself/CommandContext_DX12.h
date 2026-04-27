@@ -35,6 +35,8 @@ public:
 	void SetDescriptorTable(uint32_t slot, DescriptorHandle handle) override;
 	void SetComputeDescriptorTable(uint32_t slot, DescriptorHandle handle) override;
 
+	void BindRootSRV(uint32_t slot, GPUBufferHandle handle) override;
+
 	void TransitionBarrier(GPUTextureHandle handle, RGResourceState before, RGResourceState after) override;
 	void ClearRenderTarget(GPUTextureHandle handle, const float clearValue[4]) override;
 	void ClearDepthStencil(GPUTextureHandle handle, float depth, int faceIdx = -1) override;

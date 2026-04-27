@@ -161,6 +161,12 @@ void CommandContext_DX12::SetComputeDescriptorTable(uint32_t slot, DescriptorHan
 	m_commandList->SetComputeRootDescriptorTable(slot, handle.gpu);
 }
 
+void CommandContext_DX12::BindRootSRV(uint32_t slot, GPUBufferHandle handle)
+{
+	const auto& buffer = m_pDevice->m_buffers[handle.id];
+	m_commandList->SetGraphicsRootShaderResourceView(slot, buffer.resource->GetGPUVirtualAddress());
+}
+
 void CommandContext_DX12::TransitionBarrier(GPUTextureHandle handle, RGResourceState before, RGResourceState after)
 {
 	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(

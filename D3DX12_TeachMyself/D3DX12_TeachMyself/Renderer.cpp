@@ -22,8 +22,10 @@ static inline bool AABBIntersectsSphere(const XMFLOAT3& aabbMin, const XMFLOAT3&
 	return PointAABBDistanceSq(center, aabbMin, aabbMax) <= radius * radius;
 }
 
-void Renderer::Init(GraphicsDevice* device)
+void Renderer::Init(GraphicsDevice* device, AssetManager* asset)
 {
+	m_assetManager = asset;
+
 	m_viewportWidth = 1280;
 	m_viewportHeight = 720;
 
@@ -292,9 +294,9 @@ void Renderer::CreateCubeMap(GraphicsDevice* device)
 {
 	RootSignatureDesc equirectConvertRSDesc = {};
 	equirectConvertRSDesc.allowIA = false;
-	equirectConvertRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::All });
-	equirectConvertRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
-	equirectConvertRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 0, 1, ShaderVisibility::All });
+	equirectConvertRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 0, 1, ShaderVisibility::All });
+	equirectConvertRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 0, 1, ShaderVisibility::All });
+	equirectConvertRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 0, 0, 1, ShaderVisibility::All });
 	equirectConvertRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 0, ShaderVisibility::All });
 
 	m_equirectConvertCS = ShaderCompiler::CompileFromFile(
@@ -360,8 +362,8 @@ void Renderer::CreateIrradianceMap(GraphicsDevice* device)
 	// Irradiance Map
 	RootSignatureDesc irradianceMapRSDesc = {};
 	irradianceMapRSDesc.allowIA = false;
-	irradianceMapRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::All });
-	irradianceMapRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
+	irradianceMapRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 0, 1, ShaderVisibility::All });
+	irradianceMapRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 0, 1, ShaderVisibility::All });
 	irradianceMapRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 0, ShaderVisibility::All });
 
 	m_irradianceMapCS = ShaderCompiler::CompileFromFile(
@@ -399,9 +401,9 @@ void Renderer::CreatePrefilteredEnvironmentMap(GraphicsDevice* device)
 	// PreFiltered Environment Map
 	RootSignatureDesc perfilteredEnvironmentMapDesc = {};
 	perfilteredEnvironmentMapDesc.allowIA = false;
-	perfilteredEnvironmentMapDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::All });
-	perfilteredEnvironmentMapDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
-	perfilteredEnvironmentMapDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 0, 1, ShaderVisibility::All });
+	perfilteredEnvironmentMapDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 0, 1, ShaderVisibility::All });
+	perfilteredEnvironmentMapDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 0, 1, ShaderVisibility::All });
+	perfilteredEnvironmentMapDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 0, 0, 1, ShaderVisibility::All });
 	perfilteredEnvironmentMapDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 0, ShaderVisibility::All });
 
 	m_prefilteredEnvironmentMapCS = ShaderCompiler::CompileFromFile(
@@ -466,7 +468,7 @@ void Renderer::CreateBRDFLUT(GraphicsDevice* device)
 
 	RootSignatureDesc brdfLUTRSDesc = {};
 	brdfLUTRSDesc.allowIA = false;
-	brdfLUTRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
+	brdfLUTRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 0, 1, ShaderVisibility::All });
 
 	ComputePipelineDesc brdfLUTPipelineDesc = {};
 	brdfLUTPipelineDesc.cs = ShaderCompiler::GetBytecode(m_brdfLUTCS);
@@ -873,8 +875,8 @@ void Renderer::InitDepthPrePass(GraphicsDevice* device)
 
 
 	RootSignatureDesc depthPassRSDesc = {};
-	depthPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Vertex });
-	depthPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 1, ShaderVisibility::Vertex });
+	depthPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
+	depthPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 0, 1, ShaderVisibility::Vertex });
 
 	m_depthPrePassPipelinDesc = {
 		depthPassRSDesc,
@@ -901,15 +903,12 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 	m_gbufferEmissive = device->CreateRTTexture(emissiveTextureDesc);
 
 	RootSignatureDesc gBufferPassRSDesc = {};
-	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Vertex });
-	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 1, ShaderVisibility::Vertex });
-	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 2, 12, ShaderVisibility::Pixel });
-	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel }); 
-	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::Pixel }); 
-	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::Pixel }); 
-	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 3, 1, ShaderVisibility::Pixel }); 
-	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 4, 1, ShaderVisibility::Pixel }); 
-	gBufferPassRSDesc.staticSamplers.push_back({ SamplerFilter::Anisotropic, SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
+	gBufferPassRSDesc.cbvSrvUavHeapDirectlyIndexed = true;
+	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV,        RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
+	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV,        RangeType::CBV, 1, 0, 1, ShaderVisibility::Vertex });
+	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants,  RangeType::CBV, 2, 0, 1, ShaderVisibility::Pixel });
+	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
+	gBufferPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear,		SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
 
 	std::vector<VertexAttribute> vertexAttributes;
 	vertexAttributes.push_back({ Semantic::POSITION, Format::R32G32B32_FLOAT, 0 });
@@ -944,16 +943,12 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 
 
 	RootSignatureDesc gBufferAlphaPassRSDesc = {};
-	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Vertex });
-	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 1, ShaderVisibility::Vertex });
-	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 2, 12, ShaderVisibility::Pixel });
-	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
-	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::Pixel });
-	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::Pixel });
-	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 3, 1, ShaderVisibility::Pixel });
-	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 4, 1, ShaderVisibility::Pixel });
-	gBufferAlphaPassRSDesc.staticSamplers.push_back({ SamplerFilter::Anisotropic, SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
-
+	gBufferAlphaPassRSDesc.cbvSrvUavHeapDirectlyIndexed = true;
+	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV,        RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
+	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV,        RangeType::CBV, 1, 0, 1, ShaderVisibility::Vertex });
+	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants,  RangeType::CBV, 2, 0, 1, ShaderVisibility::Pixel });
+	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
+	gBufferAlphaPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear,		 SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
 
 	m_gBufferAlphaPS = ShaderCompiler::CompileFromFile(
 		L"shaders_GBufferAlpha_PS.hlsl",
@@ -981,9 +976,9 @@ void Renderer::InitDirectionalShadowPass(GraphicsDevice* device)
 
 	RootSignatureDesc shadowMapRSDesc = {};
 	shadowMapRSDesc.allowIA = true;
-	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Vertex });
-	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 1, ShaderVisibility::Vertex });
-	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 2, 1, ShaderVisibility::Vertex });
+	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
+	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 0, 1, ShaderVisibility::Vertex });
+	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 2, 0, 1, ShaderVisibility::Vertex });
 
 	m_shadowMapVS = ShaderCompiler::CompileFromFile(
 		L"shaders_shadowMap_VS.hlsl",
@@ -1019,9 +1014,9 @@ void Renderer::InitPointShadowPass(GraphicsDevice* device)
 
 	RootSignatureDesc pointShadowMapRSDesc = {};
 	pointShadowMapRSDesc.allowIA = true;
-	pointShadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Vertex });
-	pointShadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 1, ShaderVisibility::Vertex });
-	pointShadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 2, 2, ShaderVisibility::Vertex });
+	pointShadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
+	pointShadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 0, 1, ShaderVisibility::Vertex });
+	pointShadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 2, 0, 2, ShaderVisibility::Vertex });
 
 	m_pointShadowMapVS = ShaderCompiler::CompileFromFile(
 		L"shaders_pointShadowMap_VS.hlsl",
@@ -1055,11 +1050,11 @@ void Renderer::InitSSAOPass(GraphicsDevice* device)
 {
 	RootSignatureDesc ssaoPassRSDesc = {};
 	ssaoPassRSDesc.allowIA = true;
-	ssaoPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Pixel });
-	ssaoPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 1, ShaderVisibility::Pixel });
-	ssaoPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
-	ssaoPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::Pixel });
-	ssaoPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::Pixel });
+	ssaoPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 0, 1, ShaderVisibility::Pixel });
+	ssaoPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 0, 1, ShaderVisibility::Pixel });
+	ssaoPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
+	ssaoPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 0, 1, ShaderVisibility::Pixel });
+	ssaoPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 0, 1, ShaderVisibility::Pixel });
 	ssaoPassRSDesc.staticSamplers.push_back({ SamplerFilter::Point, SamplerAddressMode::Clamp, 0, ShaderVisibility::Pixel });
 	ssaoPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 1, ShaderVisibility::Pixel });
 
@@ -1126,10 +1121,10 @@ void Renderer::InitGTAOPass(GraphicsDevice* device)
 {
 	RootSignatureDesc GTAOPassRSDesc = {};
 	GTAOPassRSDesc.allowIA = false;
-	GTAOPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::All });
-	GTAOPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
-	GTAOPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::All });
-	GTAOPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::All });
+	GTAOPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 0, 1, ShaderVisibility::All });
+	GTAOPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 0, 1, ShaderVisibility::All });
+	GTAOPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 0, 1, ShaderVisibility::All });
+	GTAOPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 0, 1, ShaderVisibility::All });
 	GTAOPassRSDesc.staticSamplers.push_back({ SamplerFilter::Point, SamplerAddressMode::Clamp, 0, ShaderVisibility::All });
 
 	m_GTAOCS = ShaderCompiler::CompileFromFile(
@@ -1173,10 +1168,10 @@ void Renderer::InitSSAOBilateralBlurPass(GraphicsDevice* device)
 
 	RootSignatureDesc bilateralBluPassRSDesc = {};
 	bilateralBluPassRSDesc.allowIA = true;
-	bilateralBluPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Pixel });
-	bilateralBluPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
-	bilateralBluPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::Pixel });
-	bilateralBluPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::Pixel });
+	bilateralBluPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 0, 1, ShaderVisibility::Pixel });
+	bilateralBluPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
+	bilateralBluPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 0, 1, ShaderVisibility::Pixel });
+	bilateralBluPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 0, 1, ShaderVisibility::Pixel });
 	bilateralBluPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
 
 	m_bilateralBlurPipelineDesc = {
@@ -1203,11 +1198,11 @@ void Renderer::InitGTAOBilateralBlurPass(GraphicsDevice* device)
 
 	RootSignatureDesc bilateralBlurPassRSDesc = {};
 	bilateralBlurPassRSDesc.allowIA = false;
-	bilateralBlurPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::All });
-	bilateralBlurPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::All });
-	bilateralBlurPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::All });
-	bilateralBlurPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::All });
-	bilateralBlurPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 1, ShaderVisibility::All });
+	bilateralBlurPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 0, 1, ShaderVisibility::All });
+	bilateralBlurPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 0, 1, ShaderVisibility::All });
+	bilateralBlurPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 0, 1, ShaderVisibility::All });
+	bilateralBlurPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 0, 1, ShaderVisibility::All });
+	bilateralBlurPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::UAV, 0, 0, 1, ShaderVisibility::All });
 	bilateralBlurPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 0, ShaderVisibility::All });
 
 	m_bilateralBlurComputePipelineDesc = {};
@@ -1225,21 +1220,21 @@ void Renderer::InitGTAOBilateralBlurPass(GraphicsDevice* device)
 void Renderer::InitPBRLightingPass(GraphicsDevice* device)
 {
 	RootSignatureDesc PBRlightingPassRSDesc = {};
-	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Pixel });
-	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 1, ShaderVisibility::Pixel });
-	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 2, 1, ShaderVisibility::Pixel });
-	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
-	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 1, ShaderVisibility::Pixel });
-	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 1, ShaderVisibility::Pixel });
-	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 3, 1, ShaderVisibility::Pixel });
-	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 4, 1, ShaderVisibility::Pixel });
-	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 5, 1, ShaderVisibility::Pixel });
-	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 6, 1, ShaderVisibility::Pixel });
-	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 7, 1, ShaderVisibility::Pixel });
-	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 8, 1, ShaderVisibility::Pixel });
-	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 9, 1, ShaderVisibility::Pixel });
-	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 10, 1, ShaderVisibility::Pixel });
-	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 11, MAX_POINT_LIGHTS, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 0, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 1, 0, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 2, 0, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 0, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 0, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 3, 0, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 4, 0, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 5, 0, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 6, 0, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 7, 0, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 8, 0, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 9, 0, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 10, 0, 1, ShaderVisibility::Pixel });
+	PBRlightingPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 11, 0, MAX_POINT_LIGHTS, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.staticSamplers.push_back({ SamplerFilter::Point, SamplerAddressMode::Clamp, 0, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Wrap, 1, ShaderVisibility::Pixel });
 	PBRlightingPassRSDesc.staticSamplers.push_back({ SamplerFilter::Comparison, SamplerAddressMode::Border, 2, ShaderVisibility::Pixel });
@@ -1268,8 +1263,8 @@ void Renderer::InitPBRLightingPass(GraphicsDevice* device)
 void Renderer::InitSkyboxPass(GraphicsDevice* device)
 {
 	RootSignatureDesc skyboxPassRSDesc = {};
-	skyboxPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 1, ShaderVisibility::Pixel });
-	skyboxPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
+	skyboxPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 0, 1, ShaderVisibility::Pixel });
+	skyboxPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
 	skyboxPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Clamp, 0, ShaderVisibility::Pixel });
 
 	m_skyboxPS = ShaderCompiler::CompileFromFile(
@@ -1291,7 +1286,7 @@ void Renderer::InitSkyboxPass(GraphicsDevice* device)
 void Renderer::InitPresentPass(GraphicsDevice* device)
 {
 	RootSignatureDesc presentPassRSDesc = {};
-	presentPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
+	presentPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
 	presentPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Clamp, 0, ShaderVisibility::Pixel });
 
 	m_presentPS = ShaderCompiler::CompileFromFile(
@@ -1328,7 +1323,7 @@ void Renderer::InitDebugPass(GraphicsDevice* device)
 	);
 
 	RootSignatureDesc debugPassRSDesc = {};
-	debugPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 1, ShaderVisibility::Pixel });
+	debugPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
 	debugPassRSDesc.staticSamplers.push_back({ SamplerFilter::Anisotropic, SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
 
 
@@ -1376,7 +1371,7 @@ void Renderer::AddDepthPrePass(GraphicsDevice* device, RenderGraph& graph, Frame
 
 				for (const auto& obj : scene.renderObjects)
 				{
-					if (obj.material.alphaMode == AlphaMode::Opaque)
+					if (m_assetManager->Materials().Get(obj.material)->alphaMode == AlphaMode::Opaque)
 					{
 						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(&obj.world, sizeof(PerObjectCB));
 						passCtx.BindConstantBuffer(1, perObjectCBHandle);
@@ -1413,33 +1408,18 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 				passCtx.SetScissorRect(0, 0, (LONG)m_viewportWidth, (LONG)m_viewportHeight);
 
 				passCtx.BindConstantBuffer(0, fc.perFrameCB);
+				passCtx.BindRootSRV(3, m_assetManager->Materials().GetGPUBuffer());
 				for (const auto& obj : scene.renderObjects)
 				{
-					if (obj.material.alphaMode == AlphaMode::Opaque)
+					if (m_assetManager->Materials().Get(obj.material)->alphaMode == AlphaMode::Opaque)
 					{
-						MaterialConstants matConst;
-						auto& baseColorFactor = obj.material.baseColorFactor;
-						matConst.baseColorFactor = XMFLOAT4(baseColorFactor.x, baseColorFactor.y, baseColorFactor.z, baseColorFactor.w);
-						matConst.metallicFactor = obj.material.metallicFactor;
-						matConst.roughnessFactor = obj.material.roughnessFactor;
-						auto& emissiveFactor = obj.material.emissiveFactor;
-						matConst.emissiveFactor = XMFLOAT3(emissiveFactor.x, emissiveFactor.y, emissiveFactor.z);
-						matConst.occlusionStrength = obj.material.occlusionStrength;
-						matConst.alphaCutoff = obj.material.alphaCutoff;
-						matConst.alphaMode = static_cast<UINT>(AlphaMode::Opaque);
-
-						passCtx.SetRootConstants(2, &matConst, 12);
-
 						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(&obj.world, sizeof(PerObjectCB));
 						passCtx.SetVertexBuffer(obj.vertexBuffer);
 						passCtx.SetIndexBuffer(obj.indexBuffer);
-
 						passCtx.BindConstantBuffer(1, perObjectCBHandle);
-						passCtx.BindTexture(3, obj.material.baseColor);
-						passCtx.BindTexture(4, obj.material.normal);
-						passCtx.BindTexture(5, obj.material.metallicRoughness);
-						passCtx.BindTexture(6, obj.material.emissive);
-						passCtx.BindTexture(7, obj.material.occlusion);
+
+						uint32_t matIdx = obj.material.index;
+						passCtx.SetRootConstants(2, &matIdx, 1);
 
 						passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
 					}
@@ -1465,33 +1445,18 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 				passCtx.SetRenderTarget(4, renderTargets, m_depthTexture);
 				passCtx.SetPipeline(m_gBufferAlphaPassPipeline);
 				passCtx.BindConstantBuffer(0, fc.perFrameCB);
+				passCtx.BindRootSRV(3, m_assetManager->Materials().GetGPUBuffer());
 				for (const auto& obj : scene.renderObjects)
 				{
-					if (obj.material.alphaMode == AlphaMode::Mask)
+					if (m_assetManager->Materials().Get(obj.material)->alphaMode == AlphaMode::Mask)
 					{
-						MaterialConstants matConst;
-						auto& baseColorFactor = obj.material.baseColorFactor;
-						matConst.baseColorFactor = XMFLOAT4(baseColorFactor.x, baseColorFactor.y, baseColorFactor.z, baseColorFactor.w);
-						matConst.metallicFactor = obj.material.metallicFactor;
-						matConst.roughnessFactor = obj.material.roughnessFactor;
-						auto& emissiveFactor = obj.material.emissiveFactor;
-						matConst.emissiveFactor = XMFLOAT3(emissiveFactor.x, emissiveFactor.y, emissiveFactor.z);
-						matConst.occlusionStrength = obj.material.occlusionStrength;
-						matConst.alphaCutoff = obj.material.alphaCutoff;
-						matConst.alphaMode = static_cast<UINT>(AlphaMode::Mask);
-						passCtx.SetRootConstants(2, &matConst, 12);
-
 						auto perObjectCBHandle = passCtx.UpdateConstantBuffer(&obj.world, sizeof(PerObjectCB));
-
 						passCtx.SetVertexBuffer(obj.vertexBuffer);
 						passCtx.SetIndexBuffer(obj.indexBuffer);
-
 						passCtx.BindConstantBuffer(1, perObjectCBHandle);
-						passCtx.BindTexture(3, obj.material.baseColor);
-						passCtx.BindTexture(4, obj.material.normal);
-						passCtx.BindTexture(5, obj.material.metallicRoughness);
-						passCtx.BindTexture(6, obj.material.emissive);
-						passCtx.BindTexture(7, obj.material.occlusion);
+
+						uint32_t matIdx = obj.material.index;
+						passCtx.SetRootConstants(2, &matIdx, 1);
 
 						passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
 					}
@@ -1533,7 +1498,7 @@ void Renderer::AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& gra
 
 						for (const auto& obj : scene.renderObjects)
 						{
-							if (obj.material.alphaMode == AlphaMode::Opaque)
+							if (m_assetManager->Materials().Get(obj.material)->alphaMode == AlphaMode::Opaque)
 							{
 								auto perObjectCB = passCtx.UpdateConstantBuffer(&obj.world, sizeof(PerObjectCB));
 								passCtx.BindConstantBuffer(1, perObjectCB);
@@ -1579,7 +1544,7 @@ void Renderer::AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, Fr
 
 						for (const auto& obj : scene.renderObjects)
 						{
-							if (obj.material.alphaMode != AlphaMode::Opaque)
+							if (m_assetManager->Materials().Get(obj.material)->alphaMode != AlphaMode::Opaque)
 								continue;
 							if (!AABBIntersectsSphere(obj.aabbMin, obj.aabbMax, pointLight.Position, pointLight.Radius))
 								continue;

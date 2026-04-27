@@ -90,7 +90,7 @@ void Application::Init()
 		t.position = { 0.0f, 1.0f, -5.0f };
 	}
 
-	m_renderer.Init(m_device.get());
+	m_renderer.Init(m_device.get(), m_assetManager.get());
 
 	wnd.SetResizeCallback([this](uint32_t w, uint32_t h) {
 		if (w > 0 && h > 0 && m_initialized)
@@ -194,7 +194,7 @@ RenderScene Application::ExtractRenderScene()
 			obj.indexBuffer = mesh->ib;
 			obj.indexOffset = sub.indexOffset;
 			obj.indexCount = sub.indexCount;
-			obj.material = m_assetManager->Materials().ToGPU(*mat);
+			obj.material = mr.materials[subIdx];
 			obj.aabbMin = sub.aabb.min;
 			obj.aabbMax = sub.aabb.max;
 			rs.renderObjects.push_back(obj);

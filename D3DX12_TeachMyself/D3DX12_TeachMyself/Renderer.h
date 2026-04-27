@@ -5,6 +5,7 @@
 #include "RenderGraph.h"
 #include "RenderScene.h"
 #include "FrameData.h"
+#include "AssetManager.h"
 
 enum class DebugMode
 {
@@ -60,7 +61,7 @@ struct FrameContext
 class Renderer
 {
 public:
-	void Init(GraphicsDevice* device);
+	void Init(GraphicsDevice* device, AssetManager* assetManager);
 	void Render(GraphicsDevice* device, CommandContext& ctx, const RenderScene& renderScene);
 	void Shutdown();
 
@@ -120,6 +121,9 @@ private:
 	void AddPresentPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc);
 
 	void AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
+
+private:
+	AssetManager* m_assetManager;
 
 private:
 	static constexpr float clearColor[4] = { 0.0f, 0.0f,  0.0f,  0.0f };
