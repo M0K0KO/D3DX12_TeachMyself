@@ -924,7 +924,7 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 1, 0, 1, ShaderVisibility::Vertex });
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants,  RangeType::CBV, 2, 0, 2, ShaderVisibility::All });
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
-	gBufferPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear,		SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
+	gBufferPassRSDesc.staticSamplers.push_back({ SamplerFilter::Trilinear,		SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
 
 	std::vector<VertexAttribute> vertexAttributes;
 	vertexAttributes.push_back({ Semantic::POSITION, Format::R32G32B32_FLOAT, 0 });
@@ -964,7 +964,7 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 1, 0, 1, ShaderVisibility::Vertex });
 	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants,  RangeType::CBV, 2, 0, 2, ShaderVisibility::All });
 	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
-	gBufferAlphaPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear,		 SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
+	gBufferAlphaPassRSDesc.staticSamplers.push_back({ SamplerFilter::Trilinear,		 SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
 
 	m_gBufferAlphaPS = ShaderCompiler::CompileFromFile(
 		L"shaders_GBufferAlpha_PS.hlsl",

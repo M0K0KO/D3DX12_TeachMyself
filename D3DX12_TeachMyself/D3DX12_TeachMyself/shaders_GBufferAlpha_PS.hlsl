@@ -16,10 +16,13 @@ struct GPUMaterialData
     uint alphaMode;
 };
 
-cbuffer MaterialIndex : register(b2)
+struct DrawConstants
 {
+    uint objIdx;
     uint matIdx;
 };
+ConstantBuffer<DrawConstants> g_DrawConstants : register(b2);
+
 StructuredBuffer<GPUMaterialData> g_Materials : register(t0);
 
 SamplerState samp : register(s0);
@@ -49,7 +52,7 @@ float3 SafeNormalize(float3 v, float3 fallback)
 
 PSOutput main(PSInput input)
 {
-    GPUMaterialData mat = g_Materials[matIdx];
+    GPUMaterialData mat = g_Materials[g_DrawConstants.matIdx];
     
     Texture2D baseColorTex = ResourceDescriptorHeap[mat.baseColorIdx];
     Texture2D normalTex    = ResourceDescriptorHeap[mat.normalIdx];

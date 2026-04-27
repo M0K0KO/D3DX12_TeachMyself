@@ -170,7 +170,23 @@ RenderScene Application::ExtractRenderScene()
 
 		XMFLOAT4X4 world = t.worldMatrix;
 		XMMATRIX W = XMLoadFloat4x4(&world);
-		XMMATRIX WIT = XMMatrixTranspose(XMMatrixInverse(nullptr, W));
+		XMVECTOR det;
+		XMMATRIX WI = XMMatrixInverse(&det, W);
+
+		float detScalar;
+		XMStoreFloat(&detScalar, det);
+
+		XMMATRIX WIT;
+		if (fabsf(detScalar) < 1e-6f)
+		{
+			WIT = W;
+		}
+		else
+		{
+			WIT = XMMatrixTranspose(WI);
+		}
+
+		MOKOLOG_INFO("world[0]: {}, {}, {}, {}", world._11, world._12, world._13, world._14);
 
 		GPUTransformData td;
 		td.world = world;

@@ -154,6 +154,8 @@ namespace DX12Helpers
 		case SamplerFilter::Point:
 			out.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT; break;
 		case SamplerFilter::Bilinear:
+			out.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT; break;
+		case SamplerFilter::Trilinear:
 			out.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR; break;
 		case SamplerFilter::Anisotropic:
 			out.Filter = D3D12_FILTER_ANISOTROPIC; break;
