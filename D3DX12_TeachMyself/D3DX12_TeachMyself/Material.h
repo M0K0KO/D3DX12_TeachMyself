@@ -4,11 +4,11 @@
 
 struct MaterialFactors
 {
-	float baseColor[4] = { 1,1,1,1 };
+	float4 baseColorFactor = { 1,1,1,1 };
 	float metallicFactor = 1.0f;
 	float roughnessFactor = 1.0f;
-	float emissiveFactor[3] = { 1,1,1 };
-	float occlusionStrenght = 1.0f;
+	float3 emissiveFactor = { 1,1,1 };
+	float occlusionStrength = 1.0f;
 	float normalScale = 1.0f;
 };
 
@@ -17,6 +17,8 @@ struct Material
 	TextureHandle baseColor;
 	TextureHandle normal;
 	TextureHandle metallicRoughness;
+	TextureHandle emissive;
+	TextureHandle occlusion;
 
 	MaterialFactors factors;
 

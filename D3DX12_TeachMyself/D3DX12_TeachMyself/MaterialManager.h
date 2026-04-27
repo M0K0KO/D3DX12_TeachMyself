@@ -10,10 +10,12 @@ public:
 		TextureHandle baseColor;
 		TextureHandle normal;
 		TextureHandle metallicRoughness;
+		TextureHandle emissive;
+		TextureHandle occlusion;
+
 		MaterialFactors factors;
 		AlphaMode alphaMode = AlphaMode::Opaque;
 		float alphaCutoff = 0.5f;
-		bool doubleSided = false;
 	};
 
 	MaterialManager(TextureManager* textures);

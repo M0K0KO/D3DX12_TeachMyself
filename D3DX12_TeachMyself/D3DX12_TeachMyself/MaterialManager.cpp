@@ -19,15 +19,17 @@ void MaterialManager::InitDefaults()
 
 MaterialHandle MaterialManager::Create(const CreateDesc & desc)
 {
-    Material mat{
-        .baseColor = desc.baseColor.IsValid() ? desc.baseColor : m_defaultBaseColor,
-        .normal = desc.normal.IsValid() ? desc.normal : m_defaultNormal,
-        .metallicRoughness = desc.metallicRoughness.IsValid() ? desc.metallicRoughness : m_defaultMR,
-        .factors = desc.factors,
-        .alphaMode = desc.alphaMode,
-        .alphaCutoff = desc.alphaCutoff,
-        .doubleSided = desc.doubleSided,
-    };
+    Material mat;
+    mat.baseColor = desc.baseColor.IsValid() ? desc.baseColor : BuiltinAssets::GetDefaultWhite();
+    mat.normal = desc.normal.IsValid() ? desc.normal : BuiltinAssets::GetDefaultNormal();
+    mat.metallicRoughness = desc.metallicRoughness.IsValid() ? desc.metallicRoughness : BuiltinAssets::GetDefaultMR();
+    mat.emissive = desc.emissive.IsValid() ? desc.emissive : BuiltinAssets::GetDefaultBlack();
+    mat.occlusion = desc.occlusion.IsValid() ? desc.occlusion : BuiltinAssets::GetDefaultWhite();
+
+    mat.factors = desc.factors;
+
+    mat.alphaMode = desc.alphaMode;
+    mat.alphaCutoff = desc.alphaCutoff;
     return m_pool.Create(std::move(mat));
 }
 

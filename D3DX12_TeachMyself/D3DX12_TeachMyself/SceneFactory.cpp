@@ -218,6 +218,10 @@ namespace SceneFactory
                     texSrgb[mat.normalTexture] = false;
                 if (mat.metallicRoughnessTexture >= 0 && !texSrgb.count(mat.metallicRoughnessTexture))
                     texSrgb[mat.metallicRoughnessTexture] = false;
+                if (mat.emissiveTexture >= 0 && !texSrgb.count(mat.emissiveTexture))
+                    texSrgb[mat.emissiveTexture] = true;
+                if (mat.occlusionTexture >= 0 && !texSrgb.count(mat.occlusionTexture))
+                    texSrgb[mat.occlusionTexture] = false;
             }
 
             std::vector<TextureHandle> textureHandles;
@@ -277,8 +281,17 @@ namespace SceneFactory
                 desc.baseColor = resolveTexture(mat.baseColorTexture);
                 desc.normal = resolveTexture(mat.normalTexture);
                 desc.metallicRoughness = resolveTexture(mat.metallicRoughnessTexture);
+                desc.emissive = resolveTexture(mat.emissiveTexture);
+                desc.occlusion = resolveTexture(mat.occlusionTexture);
+
+                auto& baseColor = mat.baseColorFactor;
+                desc.factors.baseColorFactor = { baseColor.x, baseColor.y, baseColor.z, baseColor.w };
                 desc.factors.metallicFactor = mat.metallicFactor;
                 desc.factors.roughnessFactor = mat.roughnessFactor;
+                auto& emissive = mat.emissiveFactor;
+                desc.factors.emissiveFactor = { emissive.x, emissive.y, emissive.z };
+                desc.factors.occlusionStrength = mat.occlusionStrength;
+
                 desc.alphaMode = mat.alphaMode;
                 desc.alphaCutoff = mat.alphaCutoff;
                 materialHandles.push_back(assets.Materials().Create(desc));

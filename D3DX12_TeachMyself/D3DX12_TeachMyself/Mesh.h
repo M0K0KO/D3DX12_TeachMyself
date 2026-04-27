@@ -52,7 +52,7 @@ namespace Mesh
 		int emissiveTexture = -1;
 		int occlusionTexture = -1;
 
-		XMFLOAT4 baseColorFactor = { 0.0f, 0.0f, 0.0f, 0.0f };
+		XMFLOAT4 baseColorFactor = { 1.0f, 1.0f, 1.0f, 1.0f };
 		float metallicFactor = 1.0f;
 		float roughnessFactor = 1.0f;
 		XMFLOAT3 emissiveFactor = { 0.0f, 0.0f, 0.0f };

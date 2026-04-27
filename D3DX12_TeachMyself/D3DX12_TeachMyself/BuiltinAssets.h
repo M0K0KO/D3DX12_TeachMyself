@@ -18,16 +18,15 @@ public:
 	static MeshHandle GetCubeMesh();
 	static MeshHandle GetSphereMesh();
 	static TextureHandle GetDefaultWhite();
+	static TextureHandle GetDefaultBlack();
 	static TextureHandle GetDefaultNormal();
 	static TextureHandle GetDefaultMR();
-	static TextureHandle GetDefaultEmmisive();
-	static TextureHandle GetDefaultOcclusion();
 	static MaterialHandle GetDefaultMaterial();
 
 private:
 	BuiltinAssets() = delete;
 	inline static MeshHandle     s_cubeMesh;
 	inline static MeshHandle     s_sphereMesh;
-	inline static TextureHandle  s_defaultWhite, s_defaultNormal, s_defaultMR, s_defaultEmissive, s_defaultOcclusion;
+	inline static TextureHandle  s_defaultWhite, s_defaultBlack, s_defaultNormal, s_defaultMR;
 	inline static MaterialHandle s_defaultMaterial;
 };
