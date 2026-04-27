@@ -261,7 +261,7 @@ void EditorSystem::DrawViewportPanel(EntityScene& scene)
 		}
 	}
 
-	auto gpuHandle = m_device->GetSRVHandle(m_renderer->GetSceneColor()).gpu;
+	auto gpuHandle = m_device->GetSRVHandle(m_renderer->GetSceneColorLDR()).gpu;
 	ImGui::Image((ImTextureID)gpuHandle.ptr, size);
 
 	ImGuizmo::SetOrthographic(false);
@@ -623,6 +623,20 @@ void EditorSystem::DrawViewportStatusBar()
 		const float ms = dt * 1000.0f;
 		ImGui::SameLine();
 		ImGui::Text("FPS: %.1f  Frame: %.2f ms", fps, ms);
+
+		ImGui::SameLine();
+		ImGui::Text("|");
+		ImGui::SameLine();
+
+		static const char* debugModes[] = {
+			"Scene Color", "Albedo", "Normal", "MR", "Emissive", "Depth", "AO"
+		};
+		int currentMode = (int)m_renderer->GetDebugViewMode();
+		ImGui::SetNextItemWidth(160);
+		if (ImGui::Combo("##DebugView", &currentMode, debugModes, IM_ARRAYSIZE(debugModes)))
+		{
+			m_renderer->SetDebugViewMode((DebugViewMode)currentMode);
+		}
 	}
 }
 

@@ -56,7 +56,6 @@ void Renderer::Init(GraphicsDevice* device, AssetManager* asset)
 	InitPBRLightingPass(device);
 	InitSkyboxPass(device);
 	InitPresentPass(device);
-	InitDebugPass(device);
 
 
 	CreateCubeMap(device);
@@ -89,8 +88,6 @@ void Renderer::Init(GraphicsDevice* device, AssetManager* asset)
 
 		XMStoreFloat4(&hemisphereSamples[i], v);
 	}
-
-	debugMode = DebugMode::PBR_Enabled;
 }
 
 void Renderer::Render(GraphicsDevice* device, CommandContext& ctx, const RenderScene& renderScene)
@@ -130,6 +127,7 @@ void Renderer::Resize(GraphicsDevice* device)
 	if (m_gtaoTexture.IsValid()) device->DestroyTexture(m_gtaoTexture);
 	if (m_gtaoTempTexture.IsValid()) device->DestroyTexture(m_gtaoTempTexture);
 	if (m_sceneColorTexture.IsValid()) device->DestroyTexture(m_sceneColorTexture);
+	if (m_sceneColorLDRTexture.IsValid()) device->DestroyTexture(m_sceneColorLDRTexture);
 
 	TextureDesc gbufferDesc =
 	{
@@ -196,6 +194,17 @@ void Renderer::Resize(GraphicsDevice* device)
 	};
 	m_sceneColorTexture = device->CreateRTTexture(sceneColorTextureDesc);
 
+	TextureDesc sceneColorLDRTextureDesc =
+	{
+		m_resizeWidth,
+		m_resizeHeight,
+		1, 1,
+		Format::R8G8B8A8_UNORM_SRGB,
+		TextureUsage::RenderTarget,
+		false
+	};
+	m_sceneColorLDRTexture = device->CreateRTTexture(sceneColorLDRTextureDesc);
+
 	m_viewportWidth = m_resizeWidth;
 	m_viewportHeight = m_resizeHeight;
 
@@ -209,6 +218,16 @@ void Renderer::OnViewportResize(uint32_t width, uint32_t height)
 	m_needsResize = true;
 }
 
+DebugViewMode Renderer::GetDebugViewMode()
+{
+	return m_debugViewMode;
+}
+
+void Renderer::SetDebugViewMode(DebugViewMode viewMode)
+{
+	m_debugViewMode = viewMode;
+}	
+
 void Renderer::ReloadPSO(GraphicsDevice* device)
 {
 	ShaderCompiler::CheckForChanges();
@@ -219,8 +238,6 @@ void Renderer::ReloadPSO(GraphicsDevice* device)
 	bool dirtyGBufferAlpha = ShaderCompiler::IsDirty(m_gBufferAlphaPS);
 
 	bool dirtyFullscreenVS = ShaderCompiler::IsDirty(m_fullscreenVS);
-	bool dirtyDebugPS = ShaderCompiler::IsDirty(m_debugPS);
-	bool dirtyDepthDebugPS = ShaderCompiler::IsDirty(m_depthDebugPS);
 	bool dirtyPBRLightingPS = ShaderCompiler::IsDirty(m_PBRlightingPS);
 
 	bool dirtyGTAOCS = ShaderCompiler::IsDirty(m_GTAOCS);
@@ -253,23 +270,13 @@ void Renderer::ReloadPSO(GraphicsDevice* device)
 	}
 
 	// Debug
-	if (dirtyFullscreenVS || dirtyDebugPS || dirtyDepthDebugPS)
+	if (dirtyFullscreenVS)
 	{
 		if (dirtyFullscreenVS)
 		{
 			auto vs = ShaderCompiler::GetBytecode(m_fullscreenVS);
-			m_debugPipelineDesc.vs = vs;
 			m_depthDebugPipelineDesc.vs = vs;
 		}
-
-		if (dirtyDebugPS)
-			m_debugPipelineDesc.ps = ShaderCompiler::GetBytecode(m_debugPS);
-
-		if (dirtyDepthDebugPS)
-			m_depthDebugPipelineDesc.ps = ShaderCompiler::GetBytecode(m_depthDebugPS);
-
-		m_debugPipeline = device->CreatePipeline(m_debugPipelineDesc);
-		m_depthDebugPipeline = device->CreatePipeline(m_depthDebugPipelineDesc);
 	}
 
 	// PBR Lighting
@@ -298,8 +305,6 @@ void Renderer::ReloadPSO(GraphicsDevice* device)
 	if (dirtyGBufferAlpha)   ShaderCompiler::ClearDirty(m_gBufferAlphaPS);
 
 	if (dirtyFullscreenVS)   ShaderCompiler::ClearDirty(m_fullscreenVS);
-	if (dirtyDebugPS)        ShaderCompiler::ClearDirty(m_debugPS);
-	if (dirtyDepthDebugPS)   ShaderCompiler::ClearDirty(m_depthDebugPS);
 	if (dirtyPBRLightingPS)  ShaderCompiler::ClearDirty(m_PBRlightingPS);
 
 	if (dirtyGTAOCS)		 ShaderCompiler::ClearDirty(m_GTAOCS);
@@ -722,6 +727,9 @@ FrameContext Renderer::BuildFrameContext(GraphicsDevice* device, CommandContext&
 	RGResourceDesc sceneColorTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
 	RGResourceHandle sceneColorTexture = graph.ImportTexture(m_sceneColorTexture, sceneColorTextureDesc, RGResourceState::RenderTarget);
 
+	RGResourceDesc sceneColorLDRTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM_SRGB, TextureUsage::RenderTarget };
+	RGResourceHandle sceneColorLDRTexture = graph.ImportTexture(m_sceneColorLDRTexture, sceneColorLDRTextureDesc, RGResourceState::RenderTarget);
+
 	PerFrameCB perFrame;
 	XMMATRIX vp = XMLoadFloat4x4(&frameData.ViewMatrix) * XMLoadFloat4x4(&frameData.ProjMatrix);
 	XMStoreFloat4x4(&perFrame.ViewProj, XMMatrixTranspose(vp));
@@ -784,7 +792,7 @@ FrameContext Renderer::BuildFrameContext(GraphicsDevice* device, CommandContext&
 		importedPointLightCount,
 		std::move(fcPointLights),
 		ssaoTexture, ssaoNoiseTexture, ssaoTempTexture, gtaoTexture, gtaoTempTexture,
-		sceneColorTexture,
+		sceneColorTexture, sceneColorLDRTexture,
 		{}, {}, {}, {}, {}, {}
 	};
 
@@ -1303,6 +1311,13 @@ void Renderer::InitPresentPass(GraphicsDevice* device)
 {
 	RootSignatureDesc presentPassRSDesc = {};
 	presentPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
+	presentPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 1, 0, 1, ShaderVisibility::Pixel });
+	presentPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 2, 0, 1, ShaderVisibility::Pixel });
+	presentPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 3, 0, 1, ShaderVisibility::Pixel });
+	presentPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 4, 0, 1, ShaderVisibility::Pixel });
+	presentPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 5, 0, 1, ShaderVisibility::Pixel });
+	presentPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 6, 0, 1, ShaderVisibility::Pixel });
+	presentPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 0, 0, 1, ShaderVisibility::Pixel });
 	presentPassRSDesc.staticSamplers.push_back({ SamplerFilter::Bilinear, SamplerAddressMode::Clamp, 0, ShaderVisibility::Pixel });
 
 	m_presentPS = ShaderCompiler::CompileFromFile(
@@ -1323,47 +1338,14 @@ void Renderer::InitPresentPass(GraphicsDevice* device)
 
 	TextureDesc sceneColorTextureDesc = { m_viewportWidth, m_viewportHeight, 1, 1, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget, false };
 	m_sceneColorTexture = device->CreateRTTexture(sceneColorTextureDesc);
-}
-void Renderer::InitDebugPass(GraphicsDevice* device)
-{
-	m_debugPS = ShaderCompiler::CompileFromFile(
-		L"debugshaders_PS.hlsl",
-		"main",
-		"ps_6_6"
-	);
 
-	m_depthDebugPS = ShaderCompiler::CompileFromFile(
-		L"debugshaders_Depth_PS.hlsl",
-		"main",
-		"ps_6_6"
-	);
-
-	RootSignatureDesc debugPassRSDesc = {};
-	debugPassRSDesc.rootParamDescs.push_back({ RootParamType::DescriptorTable, RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
-	debugPassRSDesc.staticSamplers.push_back({ SamplerFilter::Anisotropic, SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
-
-
-	m_debugPipelineDesc = {
-		debugPassRSDesc,
-		ShaderCompiler::GetBytecode(m_fullscreenVS), ShaderCompiler::GetBytecode(m_debugPS), {},
-		{ Format::R8G8B8A8_UNORM },
-		Format::UNKNOWN,
-		false, false, ComparisonFunc::Equal,
-		CullMode::None
+	TextureDesc sceneColorLDRTextureDesc = {
+		m_viewportWidth, m_viewportHeight, 1, 1,
+		Format::R8G8B8A8_UNORM_SRGB,   
+		TextureUsage::RenderTarget,
+		false
 	};
-
-	m_debugPipeline = device->CreatePipeline(m_debugPipelineDesc);
-
-	m_depthDebugPipelineDesc = {
-		debugPassRSDesc,
-		ShaderCompiler::GetBytecode(m_fullscreenVS), ShaderCompiler::GetBytecode(m_depthDebugPS), {},
-		{ Format::R8G8B8A8_UNORM },
-		Format::UNKNOWN,
-		false, false, ComparisonFunc::Equal,
-		CullMode::None
-	};
-
-	m_depthDebugPipeline = device->CreatePipeline(m_depthDebugPipelineDesc);
+	m_sceneColorLDRTexture = device->CreateRTTexture(sceneColorLDRTextureDesc);
 }
 
 
@@ -1870,76 +1852,35 @@ void Renderer::AddPresentPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 	graph.AddPass(
 		"PresentPass",
 		[&](RGBuilder& builder) {
-			builder.Read(fc.scenecolor, RGResourceState::ShaderResource);
-			builder.Write(fc.backBuffer, RGResourceState::RenderTarget);
-		},
-		[this, &fc, device](CommandContext& passCtx) {
-
-			passCtx.SetRenderTarget(1, device->GetCurrentBackBufferPtr(), {});
-			passCtx.SetPipeline(m_presentPipeline);
-			passCtx.SetViewport(0, 0, (float)m_viewportWidth, (float)m_viewportHeight);
-			passCtx.SetScissorRect(0, 0, (LONG)m_viewportWidth, (LONG)m_viewportHeight);
-			passCtx.BindTexture(0, m_sceneColorTexture); 
-			passCtx.Draw(3, 0);  
-		}
-	);
-}
-void Renderer::AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene)
-{
-	graph.AddPass(
-		"DebugPass",
-		[&](RGBuilder& builder) {
 			builder.Read(fc.depthTexture, RGResourceState::ShaderResource);
 			builder.Read(fc.gbufferAlbedo, RGResourceState::ShaderResource);
 			builder.Read(fc.gbufferNormal, RGResourceState::ShaderResource);
 			builder.Read(fc.gbufferMR, RGResourceState::ShaderResource);
+			builder.Read(fc.gbufferEmissive, RGResourceState::ShaderResource);
+			builder.Read(fc.shadowMap, RGResourceState::ShaderResource);
+			builder.Read(fc.gtaoTexture, RGResourceState::ShaderResource);
+			builder.Read(fc.scenecolor, RGResourceState::ShaderResource);
 
-			builder.Write(fc.backBuffer, RGResourceState::RenderTarget);
+			builder.Write(fc.sceneColorLDR, RGResourceState::RenderTarget);
 		},
 		[this, &fc, device](CommandContext& passCtx) {
 
-			passCtx.ClearRenderTarget(device->GetCurrentBackBuffer(), clearColor);
-			passCtx.SetRenderTarget(1, device->GetCurrentBackBufferPtr(), {});
-
-			if (debugMode == DebugMode::DepthTexture)
-			{
-				passCtx.SetPipeline(m_depthDebugPipeline);
-				passCtx.BindTexture(0, m_depthTexture);
-			}
-			else if (debugMode == DebugMode::Albedo)
-			{
-				passCtx.SetPipeline(m_debugPipeline);
-				passCtx.BindTexture(0, m_gbufferAlbedo);
-			}
-			else if (debugMode == DebugMode::Normal)
-			{
-				passCtx.SetPipeline(m_debugPipeline);
-				passCtx.BindTexture(0, m_gbufferNormal);
-			}
-			else if (debugMode == DebugMode::MR)
-			{
-				passCtx.SetPipeline(m_debugPipeline);
-				passCtx.BindTexture(0, m_gbufferMR);
-			}
-			else if (debugMode == DebugMode::BRDF_LUT)
-			{
-				passCtx.SetPipeline(m_debugPipeline);
-				passCtx.BindTexture(0, m_brdfLUTTexture);
-			}
-			else if (debugMode == DebugMode::IrradianceMap)
-			{
-				passCtx.SetPipeline(m_debugPipeline);
-				passCtx.BindTexture(0, m_irradianceMapTexture);
-			}
-			else if (debugMode == DebugMode::PreFilteredEnvrionmentMap)
-			{
-				passCtx.SetPipeline(m_debugPipeline);
-				passCtx.BindTexture(0, m_prefilteredEnvMapTexture);
-			}
+			passCtx.SetRenderTarget(1, &m_sceneColorLDRTexture, {});
+			passCtx.SetPipeline(m_presentPipeline);
 			passCtx.SetViewport(0, 0, (float)m_viewportWidth, (float)m_viewportHeight);
 			passCtx.SetScissorRect(0, 0, (LONG)m_viewportWidth, (LONG)m_viewportHeight);
+			passCtx.BindTexture(0, m_sceneColorTexture); 
+			passCtx.BindTexture(1, m_gbufferAlbedo);
+			passCtx.BindTexture(2, m_gbufferNormal);
+			passCtx.BindTexture(3, m_gbufferMR);
+			passCtx.BindTexture(4, m_gbufferEmissive);
+			passCtx.BindTexture(5, m_depthTexture);
+			passCtx.BindTexture(6, m_gtaoTexture);
 
-			passCtx.Draw(3, 0);
+			auto debugMode = (uint32_t)m_debugViewMode;
+			passCtx.SetRootConstants(7, &debugMode, 1);
+
+			passCtx.Draw(3, 0);  
 		}
 	);
 }

@@ -1,4 +1,16 @@
-Texture2D<float4> g_sceneColor : register(t0);
+Texture2D sceneColor : register(t0);
+Texture2D gbufferAlbedo : register(t1);
+Texture2D gbufferNormal : register(t2);
+Texture2D gbufferMR : register(t3);
+Texture2D gbufferEmissive : register(t4);
+Texture2D gbufferDepth : register(t5);
+Texture2D aoTex : register(t6);
+
+cbuffer DebugConstants : register(b0)
+{
+    uint debugMode;
+};
+
 SamplerState g_linearClamp : register(s0);
 
 struct VSOutput
@@ -22,12 +34,53 @@ float3 LinearToSRGB(float3 linearColor)
     return pow(saturate(linearColor), 1.0 / 2.2);
 }
 
+
 float4 main(VSOutput input) : SV_TARGET
 {
-    float3 hdr = g_sceneColor.Sample(g_linearClamp, input.uv).rgb;
+    switch (debugMode)
+    {
+        case 0:
+            {
+                float3 hdr = sceneColor.Sample(g_linearClamp, input.uv).rgb;
+                float3 ldr = ACESFilm(hdr);
+                return float4(ldr, 1.0);
+            };
+        case 1:
+            {
+                float3 color = gbufferAlbedo.Sample(g_linearClamp, input.uv).rgb;
+                return float4(color, 1);
+            }
+        case 2:
+            {
+                float3 color = gbufferNormal.Sample(g_linearClamp, input.uv).rgb;
+                return float4(color, 1);
+            }
+        case 3:
+            {
+                float3 color = gbufferMR.Sample(g_linearClamp, input.uv).rgb;
+                return float4(color, 1);
+            }
+        case 4:
+            {
+                float3 color = gbufferEmissive.Sample(g_linearClamp, input.uv).rgb;
+                return float4(color, 1);
+            }
+        case 5:
+            {
+                float3 color = gbufferDepth.Sample(g_linearClamp, input.uv).rgb;
+                return float4(color, 1);
+            }
+        case 6:
+            {
+                float3 color = aoTex.Sample(g_linearClamp, input.uv).rgb;
+                return float4(color, 1);
+            }
+        default:
+            {
+                float3 hdr = sceneColor.Sample(g_linearClamp, input.uv).rgb;
+                float3 ldr = ACESFilm(hdr);
+                return float4(ldr, 1.0);
+            };
+    }
 
-    float3 ldr = ACESFilm(hdr);
-    float3 outColor = LinearToSRGB(ldr);
-
-    return float4(outColor, 1.0);
 }

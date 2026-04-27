@@ -28,7 +28,6 @@ private:
 	RenderScene ExtractRenderScene();
 
 	void HandleKeyboardEvents();
-	void HandleDebugModeInput();
 
 private:
 	std::unique_ptr<GraphicsDevice> m_device;

@@ -7,20 +7,16 @@
 #include "FrameData.h"
 #include "AssetManager.h"
 
-enum class DebugMode
+enum class DebugViewMode : uint32_t
 {
-	None,
-	PBR_Enabled,
-	PBR_Disabled,
-	DepthTexture,
+	SceneColor = 0,
 	Albedo,
 	Normal,
-	MR,
-	BRDF_LUT,
-	IrradianceMap,
-	PreFilteredEnvrionmentMap,
-	SSAO_ENABLED,
-	SSAO_DISABLED
+	MetallicRoughness,
+	Emissive,
+	Depth,
+	AO,
+	Count
 };	
 
 struct FrameContext
@@ -45,6 +41,7 @@ struct FrameContext
 	RGResourceHandle gtaoTexture;
 	RGResourceHandle gtaoTempTexture;
 	RGResourceHandle scenecolor;
+	RGResourceHandle sceneColorLDR;
 
 	CBHandle perFrameCB;
 	CBHandle lightCB;
@@ -65,11 +62,12 @@ public:
 	void Render(GraphicsDevice* device, CommandContext& ctx, const RenderScene& renderScene);
 	void Shutdown();
 
-	void ChangeDebugMode(DebugMode mode) { debugMode = mode; };
-
 	void OnViewportResize(uint32_t width, uint32_t height);
 
-	GPUTextureHandle GetSceneColor() const	{ return m_sceneColorTexture; };
+	DebugViewMode GetDebugViewMode();
+	void SetDebugViewMode(DebugViewMode viewMode);
+
+	GPUTextureHandle GetSceneColorLDR() const	{ return m_sceneColorLDRTexture; };
 
 private:
 	void ReloadPSO(GraphicsDevice* device);
@@ -106,8 +104,6 @@ private:
 	void InitSkyboxPass(GraphicsDevice* device);
 	void InitPresentPass(GraphicsDevice* device);
 
-	void InitDebugPass(GraphicsDevice* device);
-
 	void AddDepthPrePass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
 	void AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
 	void AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
@@ -120,12 +116,12 @@ private:
 	void AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
 	void AddPresentPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc);
 
-	void AddDebugPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
-
 private:
 	AssetManager* m_assetManager;
 	GPUBufferHandle m_transformBuffer;
 	static constexpr uint32_t MAX_TRANSFORMS = 4096;
+
+	DebugViewMode m_debugViewMode = DebugViewMode::SceneColor;
 
 private:
 	static constexpr float clearColor[4] = { 0.0f, 0.0f,  0.0f,  0.0f };
@@ -151,10 +147,6 @@ private:
 	ShaderHandle m_PBRlightingPS;
 	PipelineDesc m_PBRlightingPassPipelineDesc;
 	PipelineHandle m_PBRlightingPassPipeline;
-
-	ShaderHandle m_debugPS;
-	PipelineDesc m_debugPipelineDesc;
-	PipelineHandle m_debugPipeline;
 
 	ShaderHandle m_depthDebugPS;
 	PipelineDesc m_depthDebugPipelineDesc;
@@ -241,6 +233,7 @@ private:
 	GPUTextureHandle m_gtaoTempTexture;
 
 	GPUTextureHandle m_sceneColorTexture;
+	GPUTextureHandle m_sceneColorLDRTexture;
 
 	struct PerFrameCB
 	{
@@ -368,8 +361,6 @@ private:
 		float  alphaCutoff;
 		UINT   alphaMode;
 	};
-
-	DebugMode debugMode;
 
 	uint32_t m_resizeWidth = 0;
 	uint32_t m_resizeHeight = 0;

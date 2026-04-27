@@ -170,6 +170,7 @@ RenderScene Application::ExtractRenderScene()
 
 		XMFLOAT4X4 world = t.worldMatrix;
 		XMMATRIX W = XMLoadFloat4x4(&world);
+		XMMATRIX WT = XMMatrixTranspose(W);
 		XMVECTOR det;
 		XMMATRIX WI = XMMatrixInverse(&det, W);
 
@@ -187,7 +188,7 @@ RenderScene Application::ExtractRenderScene()
 		}
 
 		GPUTransformData td;
-		td.world = world;
+		XMStoreFloat4x4(&td.world, WT);
 		XMStoreFloat4x4(&td.worldInvTranspose, WIT);
 
 		uint32_t transformIdx = (uint32_t)rs.transforms.size();
@@ -281,49 +282,6 @@ void Application::HandleKeyboardEvents()
 	else if (m_inputState.IsKeyDown(VK_CONTROL) && m_inputState.WasKeyPressed('L'))
 	{
 		SceneSerializer::Load(m_ecsScene, MokoPath::GetAssetRoot() / "testScene.json");
-	}
-}
-void  Application::HandleDebugModeInput()
-{
-	if (m_inputState.WasKeyPressed('1'))
-	{
-		m_renderer.ChangeDebugMode(DebugMode::PBR_Enabled);
-		wnd.SetTitle(L"DebugMode :: PBR ENABLED");
-	}
-	else if (m_inputState.WasKeyPressed('2'))
-	{
-		m_renderer.ChangeDebugMode(DebugMode::PBR_Disabled);
-		wnd.SetTitle(L"DebugMode :: PBR DISABLED");
-	}
-	else if (m_inputState.WasKeyPressed('3'))
-	{
-		m_renderer.ChangeDebugMode(DebugMode::DepthTexture);
-		wnd.SetTitle(L"DebugMode :: DEPTH");
-	}
-	else if (m_inputState.WasKeyPressed('4'))
-	{
-		m_renderer.ChangeDebugMode(DebugMode::Albedo);
-		wnd.SetTitle(L"DebugMode :: ALBEDO");
-	}
-	else if (m_inputState.WasKeyPressed('5'))
-	{
-		m_renderer.ChangeDebugMode(DebugMode::Normal);
-		wnd.SetTitle(L"DebugMode :: NORMAL");
-	}
-	else if (m_inputState.WasKeyPressed('6'))
-	{
-		m_renderer.ChangeDebugMode(DebugMode::MR);
-		wnd.SetTitle(L"DebugMode :: METALLIC_ROUGHNESS");
-	}
-	else if (m_inputState.WasKeyPressed('7'))
-	{
-		m_renderer.ChangeDebugMode(DebugMode::SSAO_ENABLED);
-		wnd.SetTitle(L"DebugMode :: SSAO ENABLED");
-	}
-	else if (m_inputState.WasKeyPressed('8'))
-	{
-		m_renderer.ChangeDebugMode(DebugMode::SSAO_DISABLED);
-		wnd.SetTitle(L"DebugMode :: SSAO DISABLED");
 	}
 }
 
