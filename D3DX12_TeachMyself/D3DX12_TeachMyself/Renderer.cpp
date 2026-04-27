@@ -237,10 +237,20 @@ void Renderer::ReloadPSO(GraphicsDevice* device)
 	bool dirtyGBufferOpaque = ShaderCompiler::IsDirty(m_gBufferOpaquePS);
 	bool dirtyGBufferAlpha = ShaderCompiler::IsDirty(m_gBufferAlphaPS);
 
+	bool dirtyShadowMapVS = ShaderCompiler::IsDirty(m_shadowMapVS);
+	bool dirtyPointShadowMapVS = ShaderCompiler::IsDirty(m_pointShadowMapVS);
+
 	bool dirtyFullscreenVS = ShaderCompiler::IsDirty(m_fullscreenVS);
+	bool dirtySSAOVS = ShaderCompiler::IsDirty(m_ssaoVS);
+	bool dirtySSAOPS = ShaderCompiler::IsDirty(m_ssaoPS);
+	bool dirtyBilateralBlurPSVertical = ShaderCompiler::IsDirty(m_bilateralBlurPS_Vertical);
+	bool dirtyBilateralBlurPSHorizontal = ShaderCompiler::IsDirty(m_bilateralBlurPS_Horizontal);
 	bool dirtyPBRLightingPS = ShaderCompiler::IsDirty(m_PBRlightingPS);
+	bool dirtySkyboxPS = ShaderCompiler::IsDirty(m_skyboxPS);
+	bool dirtyPresentPS = ShaderCompiler::IsDirty(m_presentPS);
 
 	bool dirtyGTAOCS = ShaderCompiler::IsDirty(m_GTAOCS);
+	bool dirtyBilateralBlurCS = ShaderCompiler::IsDirty(m_bilateralBlurCS);
 
 	// Depth PrePass
 	if (dirtyDepthVS)
@@ -269,14 +279,44 @@ void Renderer::ReloadPSO(GraphicsDevice* device)
 		m_gBufferAlphaPassPipeline = device->CreatePipeline(m_gBufferAlphaPassPipelineDesc);
 	}
 
-	// Debug
-	if (dirtyFullscreenVS)
+	// SSAO
+	if (dirtySSAOVS || dirtySSAOPS)
+	{
+		if (dirtySSAOVS)
+			m_SSAOPipelineDesc.vs = ShaderCompiler::GetBytecode(m_ssaoVS);
+		if (dirtySSAOPS)
+			m_SSAOPipelineDesc.ps = ShaderCompiler::GetBytecode(m_ssaoPS);
+
+		m_SSAOPipeline = device->CreatePipeline(m_SSAOPipelineDesc);
+	}
+
+	// Directional / point shadow
+	if (dirtyShadowMapVS)
+	{
+		m_shadowMapPipelineDesc.vs = ShaderCompiler::GetBytecode(m_shadowMapVS);
+		m_shadowMapPipeline = device->CreatePipeline(m_shadowMapPipelineDesc);
+	}
+
+	if (dirtyPointShadowMapVS)
+	{
+		m_pointShadowMapPipelineDesc.vs = ShaderCompiler::GetBytecode(m_pointShadowMapVS);
+		m_pointShadowMapPipeline = device->CreatePipeline(m_pointShadowMapPipelineDesc);
+	}
+
+	// SSAO bilateral blur
+	if (dirtyFullscreenVS || dirtyBilateralBlurPSVertical || dirtyBilateralBlurPSHorizontal)
 	{
 		if (dirtyFullscreenVS)
-		{
-			auto vs = ShaderCompiler::GetBytecode(m_fullscreenVS);
-			m_depthDebugPipelineDesc.vs = vs;
-		}
+			m_bilateralBlurPipelineDesc.vs = ShaderCompiler::GetBytecode(m_fullscreenVS);
+		if (dirtyBilateralBlurPSVertical)
+			m_bilateralBlurPipelineDesc.ps = ShaderCompiler::GetBytecode(m_bilateralBlurPS_Vertical);
+
+		m_bilateralBlurPipeline_Vertical = device->CreatePipeline(m_bilateralBlurPipelineDesc);
+
+		if (dirtyBilateralBlurPSHorizontal)
+			m_bilateralBlurPipelineDesc.ps = ShaderCompiler::GetBytecode(m_bilateralBlurPS_Horizontal);
+
+		m_bilateralBlurPipeline_Horizontal = device->CreatePipeline(m_bilateralBlurPipelineDesc);
 	}
 
 	// PBR Lighting
@@ -291,10 +331,40 @@ void Renderer::ReloadPSO(GraphicsDevice* device)
 		m_PBRlightingPassPipeline = device->CreatePipeline(m_PBRlightingPassPipelineDesc);
 	}
 
+	// Skybox
+	if (dirtyFullscreenVS || dirtySkyboxPS)
+	{
+		if (dirtyFullscreenVS)
+			m_skyboxPipelineDesc.vs = ShaderCompiler::GetBytecode(m_fullscreenVS);
+		if (dirtySkyboxPS)
+			m_skyboxPipelineDesc.ps = ShaderCompiler::GetBytecode(m_skyboxPS);
+
+		m_skyboxPipeline = device->CreatePipeline(m_skyboxPipelineDesc);
+	}
+
+	// Present
+	if (dirtyFullscreenVS || dirtyPresentPS)
+	{
+		if (dirtyFullscreenVS)
+			m_presentPipelineDesc.vs = ShaderCompiler::GetBytecode(m_fullscreenVS);
+		if (dirtyPresentPS)
+			m_presentPipelineDesc.ps = ShaderCompiler::GetBytecode(m_presentPS);
+
+		m_presentPipeline = device->CreatePipeline(m_presentPipelineDesc);
+	}
+
+	// GTAO
 	if (dirtyGTAOCS)
 	{
 		m_GTAOComputePipelineDesc.cs = ShaderCompiler::GetBytecode(m_GTAOCS);
 		m_GTAOComputePipeline = device->CreateComputePipeline(m_GTAOComputePipelineDesc);
+	}
+
+	// GTAO bilateral blur
+	if (dirtyBilateralBlurCS)
+	{
+		m_bilateralBlurComputePipelineDesc.cs = ShaderCompiler::GetBytecode(m_bilateralBlurCS);
+		m_bilateralBlurComputePipeline = device->CreateComputePipeline(m_bilateralBlurComputePipelineDesc);
 	}
 
 	// 마지막에 한 번만 clear
@@ -303,11 +373,20 @@ void Renderer::ReloadPSO(GraphicsDevice* device)
 	if (dirtyGBufferVS)      ShaderCompiler::ClearDirty(m_gBufferVS);
 	if (dirtyGBufferOpaque)  ShaderCompiler::ClearDirty(m_gBufferOpaquePS);
 	if (dirtyGBufferAlpha)   ShaderCompiler::ClearDirty(m_gBufferAlphaPS);
+	if (dirtyShadowMapVS)    ShaderCompiler::ClearDirty(m_shadowMapVS);
+	if (dirtyPointShadowMapVS) ShaderCompiler::ClearDirty(m_pointShadowMapVS);
 
 	if (dirtyFullscreenVS)   ShaderCompiler::ClearDirty(m_fullscreenVS);
+	if (dirtySSAOVS)         ShaderCompiler::ClearDirty(m_ssaoVS);
+	if (dirtySSAOPS)         ShaderCompiler::ClearDirty(m_ssaoPS);
+	if (dirtyBilateralBlurPSVertical) ShaderCompiler::ClearDirty(m_bilateralBlurPS_Vertical);
+	if (dirtyBilateralBlurPSHorizontal) ShaderCompiler::ClearDirty(m_bilateralBlurPS_Horizontal);
 	if (dirtyPBRLightingPS)  ShaderCompiler::ClearDirty(m_PBRlightingPS);
+	if (dirtySkyboxPS)       ShaderCompiler::ClearDirty(m_skyboxPS);
+	if (dirtyPresentPS)      ShaderCompiler::ClearDirty(m_presentPS);
 
 	if (dirtyGTAOCS)		 ShaderCompiler::ClearDirty(m_GTAOCS);
+	if (dirtyBilateralBlurCS) ShaderCompiler::ClearDirty(m_bilateralBlurCS);
 }
 
 void Renderer::CreateCubeMap(GraphicsDevice* device)
@@ -1011,19 +1090,19 @@ void Renderer::InitDirectionalShadowPass(GraphicsDevice* device)
 	);
 
 
-	PipelineDesc shadowMapPSODesc = {};
-	shadowMapPSODesc.rootSignatureDesc = shadowMapRSDesc;
-	shadowMapPSODesc.vs = ShaderCompiler::GetBytecode(m_shadowMapVS);
-	shadowMapPSODesc.ps = {};
-	shadowMapPSODesc.vertexAttributes = vertexAttributes;
-	shadowMapPSODesc.rtvFormats = { Format::UNKNOWN };
-	shadowMapPSODesc.dsvFormat = Format::D32_FLOAT;
-	shadowMapPSODesc.depthEnable = true;
-	shadowMapPSODesc.depthWrite = true;
-	shadowMapPSODesc.depthFunc = ComparisonFunc::LessEqual;
-	shadowMapPSODesc.cullMode = CullMode::Back;
+	m_shadowMapPipelineDesc = {};
+	m_shadowMapPipelineDesc.rootSignatureDesc = shadowMapRSDesc;
+	m_shadowMapPipelineDesc.vs = ShaderCompiler::GetBytecode(m_shadowMapVS);
+	m_shadowMapPipelineDesc.ps = {};
+	m_shadowMapPipelineDesc.vertexAttributes = vertexAttributes;
+	m_shadowMapPipelineDesc.rtvFormats = { Format::UNKNOWN };
+	m_shadowMapPipelineDesc.dsvFormat = Format::D32_FLOAT;
+	m_shadowMapPipelineDesc.depthEnable = true;
+	m_shadowMapPipelineDesc.depthWrite = true;
+	m_shadowMapPipelineDesc.depthFunc = ComparisonFunc::LessEqual;
+	m_shadowMapPipelineDesc.cullMode = CullMode::Back;
 
-	m_shadowMapPipeline = device->CreatePipeline(shadowMapPSODesc);
+	m_shadowMapPipeline = device->CreatePipeline(m_shadowMapPipelineDesc);
 
 	TextureDesc shadowMapDesc = { 4096, 4096, 1, 1, Format::D32_FLOAT, TextureUsage::DepthStencil, false };
 	m_shadowMapTexture = device->CreateDSTexture(shadowMapDesc);
@@ -1049,19 +1128,19 @@ void Renderer::InitPointShadowPass(GraphicsDevice* device)
 	);
 
 
-	PipelineDesc pointShadowMapPSODesc = {};
-	pointShadowMapPSODesc.rootSignatureDesc = pointShadowMapRSDesc;
-	pointShadowMapPSODesc.vs = ShaderCompiler::GetBytecode(m_pointShadowMapVS);
-	pointShadowMapPSODesc.ps = {};
-	pointShadowMapPSODesc.vertexAttributes = vertexAttributes;
-	pointShadowMapPSODesc.rtvFormats = { Format::UNKNOWN };
-	pointShadowMapPSODesc.dsvFormat = Format::D32_FLOAT;
-	pointShadowMapPSODesc.depthEnable = true;
-	pointShadowMapPSODesc.depthWrite = true;
-	pointShadowMapPSODesc.depthFunc = ComparisonFunc::LessEqual;
-	pointShadowMapPSODesc.cullMode = CullMode::Back;
+	m_pointShadowMapPipelineDesc = {};
+	m_pointShadowMapPipelineDesc.rootSignatureDesc = pointShadowMapRSDesc;
+	m_pointShadowMapPipelineDesc.vs = ShaderCompiler::GetBytecode(m_pointShadowMapVS);
+	m_pointShadowMapPipelineDesc.ps = {};
+	m_pointShadowMapPipelineDesc.vertexAttributes = vertexAttributes;
+	m_pointShadowMapPipelineDesc.rtvFormats = { Format::UNKNOWN };
+	m_pointShadowMapPipelineDesc.dsvFormat = Format::D32_FLOAT;
+	m_pointShadowMapPipelineDesc.depthEnable = true;
+	m_pointShadowMapPipelineDesc.depthWrite = true;
+	m_pointShadowMapPipelineDesc.depthFunc = ComparisonFunc::LessEqual;
+	m_pointShadowMapPipelineDesc.cullMode = CullMode::Back;
 
-	m_pointShadowMapPipeline = device->CreatePipeline(pointShadowMapPSODesc);
+	m_pointShadowMapPipeline = device->CreatePipeline(m_pointShadowMapPipelineDesc);
 
 	CubemapTextureDesc pointShadowMapDesc = { 1024, 1024, Format::D32_FLOAT, TextureUsage::DepthStencil };
 
@@ -1295,17 +1374,17 @@ void Renderer::InitSkyboxPass(GraphicsDevice* device)
 		L"shaders_Skybox_PS.hlsl", "main", "ps_6_6"
 	);
 
-	PipelineDesc skyboxPSODesc = {};
-	skyboxPSODesc.rootSignatureDesc = skyboxPassRSDesc;
-	skyboxPSODesc.vs = ShaderCompiler::GetBytecode(m_fullscreenVS);
-	skyboxPSODesc.ps = ShaderCompiler::GetBytecode(m_skyboxPS);
-	skyboxPSODesc.rtvFormats = { Format::R16G16B16A16_FLOAT }; 
-	skyboxPSODesc.dsvFormat = Format::D32_FLOAT;
-	skyboxPSODesc.depthEnable = true;
-	skyboxPSODesc.depthWrite = false;
-	skyboxPSODesc.depthFunc = ComparisonFunc::LessEqual;
-	skyboxPSODesc.cullMode = CullMode::None;
-	m_skyboxPipeline = device->CreatePipeline(skyboxPSODesc);
+	m_skyboxPipelineDesc = {};
+	m_skyboxPipelineDesc.rootSignatureDesc = skyboxPassRSDesc;
+	m_skyboxPipelineDesc.vs = ShaderCompiler::GetBytecode(m_fullscreenVS);
+	m_skyboxPipelineDesc.ps = ShaderCompiler::GetBytecode(m_skyboxPS);
+	m_skyboxPipelineDesc.rtvFormats = { Format::R16G16B16A16_FLOAT };
+	m_skyboxPipelineDesc.dsvFormat = Format::D32_FLOAT;
+	m_skyboxPipelineDesc.depthEnable = true;
+	m_skyboxPipelineDesc.depthWrite = false;
+	m_skyboxPipelineDesc.depthFunc = ComparisonFunc::LessEqual;
+	m_skyboxPipelineDesc.cullMode = CullMode::None;
+	m_skyboxPipeline = device->CreatePipeline(m_skyboxPipelineDesc);
 }
 void Renderer::InitPresentPass(GraphicsDevice* device)
 {
@@ -1324,17 +1403,17 @@ void Renderer::InitPresentPass(GraphicsDevice* device)
 		L"shaders_Present_PS.hlsl", "main", "ps_6_6"
 	);
 
-	PipelineDesc presentPSODesc = {};
-	presentPSODesc.rootSignatureDesc = presentPassRSDesc;
-	presentPSODesc.vs = ShaderCompiler::GetBytecode(m_fullscreenVS);
-	presentPSODesc.ps = ShaderCompiler::GetBytecode(m_presentPS);
-	presentPSODesc.rtvFormats = { Format::R8G8B8A8_UNORM };
-	presentPSODesc.dsvFormat = Format::D32_FLOAT;
-	presentPSODesc.depthEnable = false;
-	presentPSODesc.depthWrite = false;
-	presentPSODesc.depthFunc = ComparisonFunc::LessEqual;
-	presentPSODesc.cullMode = CullMode::None;
-	m_presentPipeline = device->CreatePipeline(presentPSODesc);
+	m_presentPipelineDesc = {};
+	m_presentPipelineDesc.rootSignatureDesc = presentPassRSDesc;
+	m_presentPipelineDesc.vs = ShaderCompiler::GetBytecode(m_fullscreenVS);
+	m_presentPipelineDesc.ps = ShaderCompiler::GetBytecode(m_presentPS);
+	m_presentPipelineDesc.rtvFormats = { Format::R8G8B8A8_UNORM };
+	m_presentPipelineDesc.dsvFormat = Format::D32_FLOAT;
+	m_presentPipelineDesc.depthEnable = false;
+	m_presentPipelineDesc.depthWrite = false;
+	m_presentPipelineDesc.depthFunc = ComparisonFunc::LessEqual;
+	m_presentPipelineDesc.cullMode = CullMode::None;
+	m_presentPipeline = device->CreatePipeline(m_presentPipelineDesc);
 
 	TextureDesc sceneColorTextureDesc = { m_viewportWidth, m_viewportHeight, 1, 1, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget, false };
 	m_sceneColorTexture = device->CreateRTTexture(sceneColorTextureDesc);
@@ -1884,4 +1963,3 @@ void Renderer::AddPresentPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 		}
 	);
 }
-
