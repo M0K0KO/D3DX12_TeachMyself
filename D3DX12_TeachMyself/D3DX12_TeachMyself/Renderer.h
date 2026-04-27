@@ -169,9 +169,11 @@ private:
 	PipelineHandle m_prefilteredEnvironmentMapCSPipeline;
 
 	ShaderHandle m_shadowMapVS;
+	PipelineDesc m_shadowMapPipelineDesc;
 	PipelineHandle m_shadowMapPipeline;
 
 	ShaderHandle m_pointShadowMapVS;
+	PipelineDesc m_pointShadowMapPipelineDesc;
 	PipelineHandle m_pointShadowMapPipeline;
 
 	ShaderHandle m_ssaoVS;
@@ -195,6 +197,7 @@ private:
 	PipelineHandle m_bilateralBlurComputePipeline;
 
 	ShaderHandle m_presentPS;
+	PipelineDesc m_presentPipelineDesc;
 	PipelineHandle m_presentPipeline;
 
 
