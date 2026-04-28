@@ -26,7 +26,7 @@ MeshHandle MeshManager::Create(const CreateDesc& desc)
     BufferDesc vbDesc{
         .size = desc.vertexCount * desc.vertexStride,
         .stride = desc.vertexStride,
-        .usage = BufferUsage::Vertex,
+        .usage = BufferUsage::Vertex | BufferUsage::Structured,
         .access = MemoryAccess::GpuOnly,
     };
     GPUBufferHandle vb = m_device->CreateBuffer(vbDesc, desc.vertices);

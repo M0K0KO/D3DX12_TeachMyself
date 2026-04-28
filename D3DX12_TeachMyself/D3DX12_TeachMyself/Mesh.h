@@ -44,6 +44,12 @@ namespace Mesh
 		XMFLOAT2 uv;
 	};
 
+	static_assert(sizeof(Vertex) == 48, "Vertex size must match HLSL StructuredBuffer<Vertex> stride");
+	static_assert(offsetof(Vertex, position) == 0, "position offset");
+	static_assert(offsetof(Vertex, normal) == 12, "normal offset");
+	static_assert(offsetof(Vertex, tangent) == 24, "tangent offset");
+	static_assert(offsetof(Vertex, uv) == 40, "uv offset");
+
 	struct Material
 	{
 		int baseColorTexture = -1;

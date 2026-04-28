@@ -48,13 +48,31 @@ enum class Format
 	BC7_UNORM_SRGB,
 };
 
-enum class BufferUsage
+enum class BufferUsage : uint32_t
 {
-	Vertex,
-	Index,
-	Constant,
-	Structured
+	None	   = 0,
+	Vertex	   = 1 << 0,
+	Index	   = 1 << 1,
+	Constant   = 1 << 2,
+	Structured = 1 << 3,
 };
+
+inline BufferUsage operator| (BufferUsage a, BufferUsage b)
+{
+	using U = std::underlying_type_t<BufferUsage>;
+	return static_cast<BufferUsage>(static_cast<U>(a) | static_cast<U>(b));
+}
+
+inline BufferUsage operator&(BufferUsage a, BufferUsage b)
+{
+	using U = std::underlying_type_t<BufferUsage>;
+	return static_cast<BufferUsage>(static_cast<U>(a) & static_cast<U>(b));
+}
+
+inline bool HasFlag(BufferUsage usage, BufferUsage flag)
+{
+	return (usage & flag) != BufferUsage::None;
+}
 
 enum class MemoryAccess
 {

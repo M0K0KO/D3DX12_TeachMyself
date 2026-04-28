@@ -340,13 +340,13 @@ GPUBufferHandle GraphicsDevice_DX12::CreateBuffer(const BufferDesc desc, const v
 		}
 	}
 
-	if (desc.usage == BufferUsage::Structured)
+	if (HasFlag(desc.usage, BufferUsage::Structured))
 	{
 		internalBuffer.srv = m_cbvSrvUavAllocator.Allocate();
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
 		srvDesc.Buffer.FirstElement = 0;
 		srvDesc.Buffer.NumElements = desc.size / desc.stride;
 		srvDesc.Buffer.StructureByteStride = desc.stride;
