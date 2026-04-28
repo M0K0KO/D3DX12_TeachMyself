@@ -753,6 +753,7 @@ xcopy /Y /D "$(ProjectDir)*.hlsl" "$(OutDir)"</Command>
   <ItemGroup>
     <None Include="DirectXTex\DirectXTex.inl" />
     <None Include="packages.config" />
+    <None Include="Vertex.hlsli" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

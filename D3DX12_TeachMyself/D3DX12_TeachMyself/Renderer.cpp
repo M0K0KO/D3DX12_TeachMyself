@@ -1100,7 +1100,7 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 	gBufferPassRSDesc.cbvSrvUavHeapDirectlyIndexed = true;
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV,        RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 1, 0, 1, ShaderVisibility::Vertex });
-	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants,  RangeType::CBV, 2, 0, 2, ShaderVisibility::All });
+	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants,  RangeType::CBV, 2, 0, 3, ShaderVisibility::All });
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
 	gBufferPassRSDesc.staticSamplers.push_back({ SamplerFilter::Trilinear,		SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
 
@@ -1140,7 +1140,7 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 	gBufferAlphaPassRSDesc.cbvSrvUavHeapDirectlyIndexed = true;
 	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV,        RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
 	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 1, 0, 1, ShaderVisibility::Vertex });
-	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants,  RangeType::CBV, 2, 0, 2, ShaderVisibility::All });
+	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants,  RangeType::CBV, 2, 0, 3, ShaderVisibility::All });
 	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
 	gBufferAlphaPassRSDesc.staticSamplers.push_back({ SamplerFilter::Trilinear,		 SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
 
@@ -1170,16 +1170,16 @@ void Renderer::InitDirectionalShadowPass(GraphicsDevice* device)
 
 	RootSignatureDesc shadowMapRSDesc = {};
 	shadowMapRSDesc.allowIA = true;
+	shadowMapRSDesc.cbvSrvUavHeapDirectlyIndexed = true;
 	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
 	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV, RangeType::SRV, 0, 0, 1, ShaderVisibility::Vertex });
-	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 1, 0, 1, ShaderVisibility::Vertex });
+	shadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 1, 0, 2, ShaderVisibility::Vertex });
 
 	m_shadowMapVS = ShaderCompiler::CompileFromFile(
 		L"shaders_shadowMap_VS.hlsl",
 		"main",
 		"vs_6_6"
 	);
-
 
 	m_shadowMapPipelineDesc = {};
 	m_shadowMapPipelineDesc.rootSignatureDesc = shadowMapRSDesc;
@@ -1208,9 +1208,10 @@ void Renderer::InitPointShadowPass(GraphicsDevice* device)
 
 	RootSignatureDesc pointShadowMapRSDesc = {};
 	pointShadowMapRSDesc.allowIA = true;
+	pointShadowMapRSDesc.cbvSrvUavHeapDirectlyIndexed = true;
 	pointShadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
 	pointShadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV, RangeType::SRV, 0, 0, 1, ShaderVisibility::Vertex });
-	pointShadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 1, 0, 3, ShaderVisibility::Vertex });
+	pointShadowMapRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 1, 0, 4, ShaderVisibility::Vertex });
 
 	m_pointShadowMapVS = ShaderCompiler::CompileFromFile(
 		L"shaders_pointShadowMap_VS.hlsl",
@@ -1612,11 +1613,10 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 				{
 					if (m_assetManager->Materials().Get(obj.material)->alphaMode == AlphaMode::Opaque)
 					{
-						struct DrawConstants { uint32_t objIdx; uint32_t matIdx; };
-						DrawConstants dc{ obj.transformIdx, obj.material.index };
-						passCtx.SetRootConstants(2, &dc, 2);
+						struct DrawConstants { uint32_t objIdx; uint32_t matIdx; uint32_t vbIdx; };
+						DrawConstants dc{ obj.transformIdx, obj.material.index, obj.vertexBufferIndex };
+						passCtx.SetRootConstants(2, &dc, 3);
 
-						passCtx.SetVertexBuffer(obj.vertexBuffer);
 						passCtx.SetIndexBuffer(obj.indexBuffer);
 						passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
 					}
@@ -1649,11 +1649,10 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 				{
 					if (m_assetManager->Materials().Get(obj.material)->alphaMode == AlphaMode::Mask)
 					{
-						struct DrawConstants { uint32_t objIdx; uint32_t matIdx; };
-						DrawConstants dc{ obj.transformIdx, obj.material.index };
-						passCtx.SetRootConstants(2, &dc, 2);
+						struct DrawConstants { uint32_t objIdx; uint32_t matIdx; uint32_t vbIdx; };
+						DrawConstants dc{ obj.transformIdx, obj.material.index, obj.vertexBufferIndex };
+						passCtx.SetRootConstants(2, &dc, 3);
 
-						passCtx.SetVertexBuffer(obj.vertexBuffer);
 						passCtx.SetIndexBuffer(obj.indexBuffer);
 						passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
 					}
@@ -1698,10 +1697,9 @@ void Renderer::AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& gra
 						{
 							if (m_assetManager->Materials().Get(obj.material)->alphaMode == AlphaMode::Opaque)
 							{
-								uint32_t transformIdx = obj.transformIdx;
-								passCtx.SetRootConstants(2, &transformIdx, 1);
+								uint32_t rootData[2] = { obj.transformIdx, obj.vertexBufferIndex };
+								passCtx.SetRootConstants(2, &rootData, 2);
 
-								passCtx.SetVertexBuffer(obj.vertexBuffer);
 								passCtx.SetIndexBuffer(obj.indexBuffer);
 								passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
 							}
@@ -1764,8 +1762,6 @@ void Renderer::AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, Fr
 							passCtx.SetViewport(0, 0, 1024, 1024);
 							passCtx.SetScissorRect(0, 0, 1024, 1024);
 
-
-
 							for (const RenderObject* objPtr : visibleObjects)
 							{
 								const auto& obj = *objPtr;
@@ -1774,13 +1770,9 @@ void Renderer::AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, Fr
 								shadowConstants.lightIdx = lightIdx;
 								shadowConstants.faceIdx = face;
 								shadowConstants.transformIdx = obj.transformIdx;
-								passCtx.SetRootConstants(2, &shadowConstants, 3);
+								shadowConstants.vertexBufferIndex = obj.vertexBufferIndex;
+								passCtx.SetRootConstants(2, &shadowConstants, 4);
 
-								if (obj.vertexBuffer.id != lastVB)
-								{
-									passCtx.SetVertexBuffer(obj.vertexBuffer);
-									lastVB = obj.vertexBuffer.id;
-								}
 								if (obj.indexBuffer.id != lastIB)
 								{
 									passCtx.SetIndexBuffer(obj.indexBuffer);

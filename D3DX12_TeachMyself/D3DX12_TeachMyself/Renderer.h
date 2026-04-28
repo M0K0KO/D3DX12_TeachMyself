@@ -331,6 +331,7 @@ private:
 		uint32_t lightIdx;
 		uint32_t faceIdx;
 		uint32_t transformIdx;
+		uint32_t vertexBufferIndex;
 	};
 
 	struct SSAOCB

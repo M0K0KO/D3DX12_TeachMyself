@@ -112,6 +112,9 @@
     <Filter Include="Source Files\Serializer">
       <UniqueIdentifier>{5d2a4b75-efb5-4847-9d5c-bafb2c0ace3d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders\Common">
+      <UniqueIdentifier>{f0c6a1e3-2b0c-4ec4-beb6-814297601479}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -601,5 +604,8 @@
       <Filter>Header Files\DirectXTex</Filter>
     </None>
     <None Include="packages.config" />
+    <None Include="Vertex.hlsli">
+      <Filter>Shaders\Common</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -1,3 +1,5 @@
+#include "Vertex.hlsli"
+
 cbuffer PerFrame : register(b0)
 {
     float4x4 ViewProj;
@@ -19,18 +21,11 @@ struct DrawConstants
 {
     uint objIdx;
     uint matIdx;
+    uint vbIdx;
 };
 ConstantBuffer<DrawConstants> g_DrawConstants : register(b2);
 
 StructuredBuffer<GPUTransformData> g_Transforms : register(t1);
-
-struct VSInput
-{
-    float3 position : POSITION;
-    float3 normal : NORMAL;
-    float4 tangent : TANGENT;
-    float2 uv : TEXCOORD;
-};
 
 struct VSOutput
 {
@@ -46,20 +41,23 @@ float3 SafeNormalize(float3 v, float3 fallback)
     return (lenSq > 1e-8f) ? (v * rsqrt(lenSq)) : fallback;
 }
 
-VSOutput main(VSInput input)
+VSOutput main(uint vid : SV_VertexID)
 {
     VSOutput output;
     
+    StructuredBuffer<Vertex> vb = ResourceDescriptorHeap[g_DrawConstants.vbIdx];
+    Vertex v = vb[vid];
+    
     GPUTransformData t = g_Transforms[g_DrawConstants.objIdx];
     
-    float4 worldPos = mul(float4(input.position, 1.0f), t.world);
+    float4 worldPos = mul(float4(v.position, 1.0f), t.world);
     
     output.position = mul(worldPos, ViewProj);
-    output.uv = input.uv;
-    output.worldNormal = SafeNormalize(mul(input.normal, (float3x3)t.worldInvTranspose), float3(0.0f, 1.0f, 0.0f));
+    output.uv = v.uv;
+    output.worldNormal = SafeNormalize(mul(v.normal, (float3x3)t.worldInvTranspose), float3(0.0f, 1.0f, 0.0f));
     output.worldTangent = float4(
-        normalize(mul(input.tangent.xyz, (float3x3) t.world)),
-        input.tangent.w
+        normalize(mul(v.tangent.xyz, (float3x3) t.world)),
+        v.tangent.w
         );
     
     return output;
