@@ -701,8 +701,19 @@ void EditorSystem::DrawProfilerPanel()
 		float total = 0.0f;
 		for (const auto& r : results)
 		{
-			ImGui::Text("%-20s %6.3f ms", r.name.c_str(), r.ms);
-			total += r.ms;
+			if (r.status == ProfilerPassStatus::Timed)
+			{
+				ImGui::Text("%-32s %6.3f ms", r.name.c_str(), r.ms);
+				total += r.ms;
+			}
+			else if (r.status == ProfilerPassStatus::Culled)
+			{
+				ImGui::Text("%-32s %s", r.name.c_str(), "culled");
+			}
+			else
+			{
+				ImGui::Text("%-32s %s", r.name.c_str(), "unused");
+			}
 		}
 		ImGui::Separator();
 		ImGui::Text("Total: %6.3f ms", total);
@@ -973,4 +984,3 @@ void EditorSystem::HandleFileOpen(EntityScene& scene, std::filesystem::path path
 		MOKOLOG_ERROR("Unknown exception while loading model [{}]", path.string());
 	}
 }
-

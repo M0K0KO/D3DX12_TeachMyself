@@ -1777,6 +1777,7 @@ void Renderer::AddSSAOPass(GraphicsDevice* device, RenderGraph& graph, FrameCont
 			builder.Write(fc.ssaoTexture, RGResourceState::RenderTarget);
 		},
 		[this, &fc, device](CommandContext& passCtx) {
+			passCtx.BeginTimestamp(PassID::SSAOPass);
 			{
 				passCtx.ClearRenderTarget(m_ssaoTexture, clearColor);
 				passCtx.SetRenderTarget(1, &m_ssaoTexture, {});
@@ -1793,6 +1794,7 @@ void Renderer::AddSSAOPass(GraphicsDevice* device, RenderGraph& graph, FrameCont
 
 				passCtx.Draw(3, 0);
 			}
+			passCtx.EndTimestamp(PassID::SSAOPass);
 		}
 	);
 }
@@ -1807,6 +1809,7 @@ void Renderer::AddGTAOPass(GraphicsDevice* device, RenderGraph& graph, FrameCont
 			builder.Write(fc.gtaoTexture, RGResourceState::UnorderedAccess);
 		},
 		[this, &fc, device](CommandContext& passCtx) {
+			passCtx.BeginTimestamp(PassID::GTAOPass);
 			{
 				passCtx.SetComputePipeline(m_GTAOComputePipeline);
 				passCtx.BindComputeConstantBuffer(0, fc.gtaoCB);
@@ -1815,6 +1818,7 @@ void Renderer::AddGTAOPass(GraphicsDevice* device, RenderGraph& graph, FrameCont
 				passCtx.SetComputeDescriptorTable(3, device->GetSRVHandle(m_gbufferNormal));
 				passCtx.Dispatch((m_viewportWidth + 7) / 8, (m_viewportHeight + 7) / 8, 1);
 			}
+			passCtx.EndTimestamp(PassID::GTAOPass);
 		}
 	);
 }
@@ -1830,6 +1834,7 @@ void Renderer::AddSSAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 			builder.Write(fc.ssaoTempTexture, RGResourceState::RenderTarget);
 		},
 		[this, &fc, device](CommandContext& passCtx) {
+			passCtx.BeginTimestamp(PassID::SSAOBilateralBlurHorizontalPass);
 			{
 				passCtx.ClearRenderTarget(m_ssaoTempTexture, clearColor);
 				passCtx.SetRenderTarget(1, &m_ssaoTempTexture, {});
@@ -1845,6 +1850,7 @@ void Renderer::AddSSAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 
 				passCtx.Draw(3, 0);
 			}
+			passCtx.EndTimestamp(PassID::SSAOBilateralBlurHorizontalPass);
 		}
 	);
 
@@ -1858,6 +1864,7 @@ void Renderer::AddSSAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 			builder.Write(fc.ssaoTexture, RGResourceState::RenderTarget);
 		},
 		[this, &fc, device](CommandContext& passCtx) {
+			passCtx.BeginTimestamp(PassID::SSAOBilateralBlurVerticalPass);
 			{
 				passCtx.ClearRenderTarget(m_ssaoTexture, clearColor);
 				passCtx.SetRenderTarget(1, &m_ssaoTexture, {});
@@ -1873,6 +1880,7 @@ void Renderer::AddSSAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 
 				passCtx.Draw(3, 0);
 			}
+			passCtx.EndTimestamp(PassID::SSAOBilateralBlurVerticalPass);
 		}
 	);
 }
@@ -1888,6 +1896,7 @@ void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 			builder.Write(fc.gtaoTempTexture, RGResourceState::UnorderedAccess);
 		},
 		[this, &fc, device](CommandContext& passCtx) {
+			passCtx.BeginTimestamp(PassID::GTAOBilateralBlurHorizontalPass);
 			{
 				passCtx.SetComputePipeline(m_bilateralBlurComputePipeline);
 
@@ -1901,6 +1910,7 @@ void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 				passCtx.SetComputeDescriptorTable(4, device->GetUAVHandle(m_gtaoTempTexture));
 				passCtx.Dispatch((m_viewportWidth + 7) / 8, (m_viewportHeight + 7) / 8, 1);
 			}
+			passCtx.EndTimestamp(PassID::GTAOBilateralBlurHorizontalPass);
 		}
 	);
 
@@ -1914,6 +1924,7 @@ void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 			builder.Write(fc.gtaoTexture, RGResourceState::UnorderedAccess);
 		},
 		[this, &fc, device](CommandContext& passCtx) {
+			passCtx.BeginTimestamp(PassID::GTAOBilateralBlurVerticalPass);
 			{
 				passCtx.SetComputePipeline(m_bilateralBlurComputePipeline);
 
@@ -1927,6 +1938,7 @@ void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 				passCtx.SetComputeDescriptorTable(4, device->GetUAVHandle(m_gtaoTexture));
 				passCtx.Dispatch((m_viewportWidth + 7) / 8, (m_viewportHeight + 7) / 8, 1);
 			}
+			passCtx.EndTimestamp(PassID::GTAOBilateralBlurVerticalPass);
 		}
 	);
 }
@@ -2030,6 +2042,7 @@ void Renderer::AddPresentPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 			builder.Write(fc.sceneColorLDR, RGResourceState::RenderTarget);
 		},
 		[this, &fc, device](CommandContext& passCtx) {
+			passCtx.BeginTimestamp(PassID::PresentPass);
 
 			passCtx.SetRenderTarget(1, &m_sceneColorLDRTexture, {});
 			passCtx.SetPipeline(m_presentPipeline);
@@ -2047,6 +2060,7 @@ void Renderer::AddPresentPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 			passCtx.SetRootConstants(7, &debugMode, 1);
 
 			passCtx.Draw(3, 0);  
+			passCtx.EndTimestamp(PassID::PresentPass);
 		}
 	);
 }
@@ -2063,6 +2077,7 @@ void Renderer::AddDebugLinePass(GraphicsDevice* device, RenderGraph& graph, Fram
 			builder.Write(fc.sceneColorLDR, RGResourceState::RenderTarget);
 		},
 		[this, &fc, device](CommandContext& passCtx) {
+			passCtx.BeginTimestamp(PassID::DebugLinePass);
 			passCtx.SetPipeline(m_debugLinePipeline);
 			passCtx.SetRenderTarget(1, &m_sceneColorLDRTexture, m_depthTexture);
 			passCtx.SetViewport(0, 0, (float)m_viewportWidth, (float)m_viewportHeight);
@@ -2073,6 +2088,7 @@ void Renderer::AddDebugLinePass(GraphicsDevice* device, RenderGraph& graph, Fram
 			passCtx.SetVertexBuffer(m_debugLineBuffer);
 
 			passCtx.Draw((uint32_t)m_debugLines.size(), 0);
+			passCtx.EndTimestamp(PassID::DebugLinePass);
 		}
 	);
 }
