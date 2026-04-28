@@ -15,8 +15,10 @@ enum PassID
     GBufferAlphaPass = 2,
     DirectionalShadowPass = 3,
     PointShadowPass = 4,
-    PBRLightingPass = 5,
-    SkyboxPass = 6,
+    GTAOPass = 5,
+    PBRLightingPass = 6,
+    SkyboxPass = 7,
+    PresentPass = 8,
     Count
 };
 
@@ -142,8 +144,10 @@ public:
         results.push_back({ "GBufferAlphaPass", smooth(PassID::GBufferAlphaPass, GetTimestampMs(PassID::GBufferAlphaPass)) });
         results.push_back({ "DirectionalShadowPass", smooth(PassID::DirectionalShadowPass, GetTimestampMs(PassID::DirectionalShadowPass)) });
         results.push_back({ "PointShadowPass", smooth(PassID::PointShadowPass, GetTimestampMs(PassID::PointShadowPass)) });
+        results.push_back({ "GTAOPass", smooth(PassID::GTAOPass, GetTimestampMs(PassID::GTAOPass)) });
         results.push_back({ "PBRLightingPass", smooth(PassID::PBRLightingPass, GetTimestampMs(PassID::PBRLightingPass)) });
         results.push_back({ "SkyboxPass", smooth(PassID::SkyboxPass, GetTimestampMs(PassID::SkyboxPass)) });
+        results.push_back({ "PresentPass", smooth(PassID::PresentPass, GetTimestampMs(PassID::PresentPass)) });
 
         return results;
     }

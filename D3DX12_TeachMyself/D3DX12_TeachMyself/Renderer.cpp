@@ -1807,6 +1807,7 @@ void Renderer::AddGTAOPass(GraphicsDevice* device, RenderGraph& graph, FrameCont
 			builder.Write(fc.gtaoTexture, RGResourceState::UnorderedAccess);
 		},
 		[this, &fc, device](CommandContext& passCtx) {
+			passCtx.BeginTimestamp(PassID::GTAOPass);
 			{
 				passCtx.SetComputePipeline(m_GTAOComputePipeline);
 				passCtx.BindComputeConstantBuffer(0, fc.gtaoCB);
@@ -1815,6 +1816,7 @@ void Renderer::AddGTAOPass(GraphicsDevice* device, RenderGraph& graph, FrameCont
 				passCtx.SetComputeDescriptorTable(3, device->GetSRVHandle(m_gbufferNormal));
 				passCtx.Dispatch((m_viewportWidth + 7) / 8, (m_viewportHeight + 7) / 8, 1);
 			}
+			passCtx.EndTimestamp(PassID::GTAOPass);
 		}
 	);
 }
@@ -2030,23 +2032,26 @@ void Renderer::AddPresentPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 			builder.Write(fc.sceneColorLDR, RGResourceState::RenderTarget);
 		},
 		[this, &fc, device](CommandContext& passCtx) {
+			passCtx.BeginTimestamp(PassID::PresentPass);
+			{
+				passCtx.SetRenderTarget(1, &m_sceneColorLDRTexture, {});
+				passCtx.SetPipeline(m_presentPipeline);
+				passCtx.SetViewport(0, 0, (float)m_viewportWidth, (float)m_viewportHeight);
+				passCtx.SetScissorRect(0, 0, (LONG)m_viewportWidth, (LONG)m_viewportHeight);
+				passCtx.BindTexture(0, m_sceneColorTexture);
+				passCtx.BindTexture(1, m_gbufferAlbedo);
+				passCtx.BindTexture(2, m_gbufferNormal);
+				passCtx.BindTexture(3, m_gbufferMR);
+				passCtx.BindTexture(4, m_gbufferEmissive);
+				passCtx.BindTexture(5, m_depthTexture);
+				passCtx.BindTexture(6, m_gtaoTexture);
 
-			passCtx.SetRenderTarget(1, &m_sceneColorLDRTexture, {});
-			passCtx.SetPipeline(m_presentPipeline);
-			passCtx.SetViewport(0, 0, (float)m_viewportWidth, (float)m_viewportHeight);
-			passCtx.SetScissorRect(0, 0, (LONG)m_viewportWidth, (LONG)m_viewportHeight);
-			passCtx.BindTexture(0, m_sceneColorTexture); 
-			passCtx.BindTexture(1, m_gbufferAlbedo);
-			passCtx.BindTexture(2, m_gbufferNormal);
-			passCtx.BindTexture(3, m_gbufferMR);
-			passCtx.BindTexture(4, m_gbufferEmissive);
-			passCtx.BindTexture(5, m_depthTexture);
-			passCtx.BindTexture(6, m_gtaoTexture);
+				auto debugMode = (uint32_t)m_debugViewMode;
+				passCtx.SetRootConstants(7, &debugMode, 1);
 
-			auto debugMode = (uint32_t)m_debugViewMode;
-			passCtx.SetRootConstants(7, &debugMode, 1);
-
-			passCtx.Draw(3, 0);  
+				passCtx.Draw(3, 0);
+			}
+			passCtx.EndTimestamp(PassID::PresentPass);
 		}
 	);
 }
