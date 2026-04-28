@@ -1060,24 +1060,19 @@ void Renderer::InitDepthPrePass(GraphicsDevice* device)
 		"vs_6_6"
 	);
 
-	std::vector<VertexAttribute> vertexAttributes;
-	vertexAttributes.push_back({ Semantic::POSITION, Format::R32G32B32_FLOAT, 0 });
-	vertexAttributes.push_back({ Semantic::NORMAL,   Format::R32G32B32_FLOAT, 0 });
-	vertexAttributes.push_back({ Semantic::TANGENT, Format::R32G32B32A32_FLOAT, 0 });
-	vertexAttributes.push_back({ Semantic::TEXCOORD, Format::R32G32_FLOAT, 0 });
-
-
 	RootSignatureDesc depthPassRSDesc = {};
+	depthPassRSDesc.cbvSrvUavHeapDirectlyIndexed = true;
 	depthPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
 	depthPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV, RangeType::SRV, 0, 0, 1, ShaderVisibility::Vertex });
-	depthPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 1, 0, 1, ShaderVisibility::Vertex });
+	depthPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants, RangeType::CBV, 1, 0, 2, ShaderVisibility::Vertex });
 
 	m_depthPrePassPipelinDesc = {
 		depthPassRSDesc,
-		ShaderCompiler::GetBytecode(m_depthVS), {}, vertexAttributes,
+		ShaderCompiler::GetBytecode(m_depthVS), {}, {},
 		{ Format::UNKNOWN }, Format::D32_FLOAT,
 		true, true, ComparisonFunc::Less,
-		CullMode::Back };
+		CullMode::Back 
+	};
 
 
 	m_depthPrePassPipeline = device->CreatePipeline(m_depthPrePassPipelinDesc);
@@ -1552,10 +1547,10 @@ void Renderer::AddDepthPrePass(GraphicsDevice* device, RenderGraph& graph, Frame
 				{
 					if (m_assetManager->Materials().Get(obj.material)->alphaMode == AlphaMode::Opaque)
 					{
-						uint32_t transformIdx = obj.transformIdx;
-						passCtx.SetRootConstants(2, &transformIdx, 1);
+						struct DrawConstants { uint32_t objIdx; uint32_t vbIdx; };
+						DrawConstants dc{ obj.transformIdx, obj.vertexBufferIndex };
+						passCtx.SetRootConstants(2, &dc, 2);
 
-						passCtx.SetVertexBuffer(obj.vertexBuffer);
 						passCtx.SetIndexBuffer(obj.indexBuffer);
 						passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
 					}

@@ -67,8 +67,17 @@ float4 main(VSOutput input) : SV_TARGET
             }
         case 5:
             {
-                float3 color = gbufferDepth.Sample(g_linearClamp, input.uv).rgb;
-                return float4(color, 1);
+                float depth = gbufferDepth.Sample(g_linearClamp, input.uv).r;
+
+                float nearZ = 0.1f;
+                float farZ = 300.0f;
+
+                float linearDepth = nearZ * farZ / (farZ - depth * (farZ - nearZ));
+
+                float vis = saturate(linearDepth / 25.0f);
+                vis = pow(vis, 1.0f);
+
+                return float4(vis, 0.0f, 0.0f, 1.0f);
             }
         case 6:
             {

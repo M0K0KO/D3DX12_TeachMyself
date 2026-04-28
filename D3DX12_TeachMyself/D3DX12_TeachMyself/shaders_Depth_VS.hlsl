@@ -1,3 +1,5 @@
+#include "Vertex.hlsli"
+
 cbuffer PerFrame : register(b0)
 {
     float4x4 ViewProj;
@@ -20,31 +22,18 @@ StructuredBuffer<GPUTransformData> g_Transforms : register(t0);
 struct DrawConstants
 {
     uint transformIdx;
+    uint vertexBufferIdx;
 };
-
 ConstantBuffer<DrawConstants> g_DrawConstants : register(b1);
 
-struct VSInput
-{
-    float3 position : POSITION;
-    float3 normal : NORMAL;
-    float4 tangent : TANGENT;
-    float2 uv : TEXCOORD;
-};
 
-struct VSOutput
+float4 main(uint vid : SV_VertexID) : SV_Position
 {
-    float4 position : SV_POSITION;
-    float2 uv : TEXCOORD;
-};
-
-VSOutput main(VSInput input)
-{
-    VSOutput output;
+    StructuredBuffer<Vertex> vb = ResourceDescriptorHeap[g_DrawConstants.vertexBufferIdx];
+    Vertex v = vb[vid];
     
-    float4 worldPos = mul(float4(input.position, 1.0f), g_Transforms[g_DrawConstants.transformIdx].World);
-    output.position = mul(worldPos, ViewProj);
-    output.uv = input.uv;
+    GPUTransformData t = g_Transforms[g_DrawConstants.transformIdx];
     
-    return output;
+    float4 worldPos = mul(float4(v.position, 1.0f), t.World);
+    return mul(worldPos, ViewProj);
 }

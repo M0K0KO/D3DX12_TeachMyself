@@ -209,7 +209,6 @@ RenderScene Application::ExtractRenderScene()
 
 			RenderObject obj;
 			obj.transformIdx = transformIdx;
-			obj.vertexBuffer = mesh->vb;
 			obj.vertexBufferIndex = mesh->vbSRVIndex;
 			obj.indexBuffer = mesh->ib;
 			obj.indexOffset = sub.indexOffset;
