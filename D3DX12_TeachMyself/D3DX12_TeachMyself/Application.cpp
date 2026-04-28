@@ -213,7 +213,7 @@ RenderScene Application::ExtractRenderScene()
 			obj.indexBuffer = mesh->ib;
 			obj.indexOffset = sub.indexOffset;
 			obj.indexCount = sub.indexCount;
-			obj.material = mr.materials[i];
+			obj.material = matHandle;
 			obj.aabbMin = sub.aabb.min;
 			obj.aabbMax = sub.aabb.max;
 			rs.renderObjects.push_back(obj);
@@ -284,4 +284,3 @@ void Application::HandleKeyboardEvents()
 		SceneSerializer::Load(m_ecsScene, MokoPath::GetAssetRoot() / "testScene.json");
 	}
 }
-

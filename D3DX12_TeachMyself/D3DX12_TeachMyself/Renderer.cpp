@@ -1498,7 +1498,7 @@ void Renderer::InitPresentPass(GraphicsDevice* device)
 	m_presentPipelineDesc.rootSignatureDesc = presentPassRSDesc;
 	m_presentPipelineDesc.vs = ShaderCompiler::GetBytecode(m_fullscreenVS);
 	m_presentPipelineDesc.ps = ShaderCompiler::GetBytecode(m_presentPS);
-	m_presentPipelineDesc.rtvFormats = { Format::R8G8B8A8_UNORM };
+	m_presentPipelineDesc.rtvFormats = { Format::R8G8B8A8_UNORM_SRGB };
 	m_presentPipelineDesc.dsvFormat = Format::D32_FLOAT;
 	m_presentPipelineDesc.depthEnable = false;
 	m_presentPipelineDesc.depthWrite = false;
