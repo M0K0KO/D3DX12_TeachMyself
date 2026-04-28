@@ -745,7 +745,10 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 	}
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-	psoDesc.InputLayout = { inputElementDescs.data(), inputElementCount};
+	psoDesc.InputLayout = inputElementDescs.empty()
+		? D3D12_INPUT_LAYOUT_DESC{ nullptr, 0 }
+		: D3D12_INPUT_LAYOUT_DESC{ inputElementDescs.data(),
+									static_cast<UINT>(inputElementDescs.size()) };
 	psoDesc.pRootSignature = rs.Get();
 	psoDesc.VS = { desc.vs.data, desc.vs.size };
 

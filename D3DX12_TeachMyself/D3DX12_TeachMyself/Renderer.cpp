@@ -1104,13 +1104,6 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
 	gBufferPassRSDesc.staticSamplers.push_back({ SamplerFilter::Trilinear,		SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
 
-	std::vector<VertexAttribute> vertexAttributes;
-	vertexAttributes.push_back({ Semantic::POSITION, Format::R32G32B32_FLOAT, 0 });
-	vertexAttributes.push_back({ Semantic::NORMAL,   Format::R32G32B32_FLOAT, 0 });
-	vertexAttributes.push_back({ Semantic::TANGENT, Format::R32G32B32A32_FLOAT, 0 });
-	vertexAttributes.push_back({ Semantic::TEXCOORD, Format::R32G32_FLOAT, 0 });
-
-
 	m_gBufferVS = ShaderCompiler::CompileFromFile(
 		L"shaders_GBuffer_VS.hlsl",
 		"main",
@@ -1126,11 +1119,12 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 
 	m_gBufferOpaquePassPipelineDesc = {
 		gBufferPassRSDesc,
-		ShaderCompiler::GetBytecode(m_gBufferVS), ShaderCompiler::GetBytecode(m_gBufferOpaquePS), vertexAttributes,
+		ShaderCompiler::GetBytecode(m_gBufferVS), ShaderCompiler::GetBytecode(m_gBufferOpaquePS), {},
 		{ Format::R8G8B8A8_UNORM, Format::R16G16B16A16_FLOAT, Format::R8G8B8A8_UNORM, Format::R11G11B10_FLOAT },
 		Format::D32_FLOAT,
 		true, false, ComparisonFunc::Equal,
-		CullMode::Back
+		CullMode::Back,
+		PrimitiveTopology::TriangleList,
 	};
 
 	m_gBufferOpaquePassPipeline = device->CreatePipeline(m_gBufferOpaquePassPipelineDesc);
@@ -1152,22 +1146,17 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 
 	m_gBufferAlphaPassPipelineDesc = {
 		gBufferAlphaPassRSDesc,
-		ShaderCompiler::GetBytecode(m_gBufferVS), ShaderCompiler::GetBytecode(m_gBufferAlphaPS), vertexAttributes,
+		ShaderCompiler::GetBytecode(m_gBufferVS), ShaderCompiler::GetBytecode(m_gBufferAlphaPS), {},
 		{ Format::R8G8B8A8_UNORM, Format::R16G16B16A16_FLOAT, Format::R8G8B8A8_UNORM, Format::R11G11B10_FLOAT },
 		Format::D32_FLOAT,
 		true, true, ComparisonFunc::LessEqual,
-		CullMode::None
+		CullMode::None,
+		PrimitiveTopology::TriangleList,
 	};
 	m_gBufferAlphaPassPipeline = device->CreatePipeline(m_gBufferAlphaPassPipelineDesc);
 }
 void Renderer::InitDirectionalShadowPass(GraphicsDevice* device)
 {
-	std::vector<VertexAttribute> vertexAttributes;
-	vertexAttributes.push_back({ Semantic::POSITION, Format::R32G32B32_FLOAT, 0 });
-	vertexAttributes.push_back({ Semantic::NORMAL,   Format::R32G32B32_FLOAT, 0 });
-	vertexAttributes.push_back({ Semantic::TANGENT, Format::R32G32B32A32_FLOAT, 0 });
-	vertexAttributes.push_back({ Semantic::TEXCOORD, Format::R32G32_FLOAT, 0 });
-
 	RootSignatureDesc shadowMapRSDesc = {};
 	shadowMapRSDesc.allowIA = true;
 	shadowMapRSDesc.cbvSrvUavHeapDirectlyIndexed = true;
@@ -1185,7 +1174,7 @@ void Renderer::InitDirectionalShadowPass(GraphicsDevice* device)
 	m_shadowMapPipelineDesc.rootSignatureDesc = shadowMapRSDesc;
 	m_shadowMapPipelineDesc.vs = ShaderCompiler::GetBytecode(m_shadowMapVS);
 	m_shadowMapPipelineDesc.ps = {};
-	m_shadowMapPipelineDesc.vertexAttributes = vertexAttributes;
+	m_shadowMapPipelineDesc.vertexAttributes = {};
 	m_shadowMapPipelineDesc.rtvFormats = { Format::UNKNOWN };
 	m_shadowMapPipelineDesc.dsvFormat = Format::D32_FLOAT;
 	m_shadowMapPipelineDesc.depthEnable = true;
@@ -1200,12 +1189,6 @@ void Renderer::InitDirectionalShadowPass(GraphicsDevice* device)
 }
 void Renderer::InitPointShadowPass(GraphicsDevice* device)
 {
-	std::vector<VertexAttribute> vertexAttributes;
-	vertexAttributes.push_back({ Semantic::POSITION, Format::R32G32B32_FLOAT, 0 });
-	vertexAttributes.push_back({ Semantic::NORMAL,   Format::R32G32B32_FLOAT, 0 });
-	vertexAttributes.push_back({ Semantic::TANGENT, Format::R32G32B32A32_FLOAT, 0 });
-	vertexAttributes.push_back({ Semantic::TEXCOORD, Format::R32G32_FLOAT, 0 });
-
 	RootSignatureDesc pointShadowMapRSDesc = {};
 	pointShadowMapRSDesc.allowIA = true;
 	pointShadowMapRSDesc.cbvSrvUavHeapDirectlyIndexed = true;
@@ -1219,12 +1202,11 @@ void Renderer::InitPointShadowPass(GraphicsDevice* device)
 		"vs_6_6"
 	);
 
-
 	m_pointShadowMapPipelineDesc = {};
 	m_pointShadowMapPipelineDesc.rootSignatureDesc = pointShadowMapRSDesc;
 	m_pointShadowMapPipelineDesc.vs = ShaderCompiler::GetBytecode(m_pointShadowMapVS);
 	m_pointShadowMapPipelineDesc.ps = {};
-	m_pointShadowMapPipelineDesc.vertexAttributes = vertexAttributes;
+	m_pointShadowMapPipelineDesc.vertexAttributes = {};
 	m_pointShadowMapPipelineDesc.rtvFormats = { Format::UNKNOWN };
 	m_pointShadowMapPipelineDesc.dsvFormat = Format::D32_FLOAT;
 	m_pointShadowMapPipelineDesc.depthEnable = true;
