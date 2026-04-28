@@ -186,6 +186,24 @@ bool EditorSystem::TryGetPendingViewportResize(uint32_t& w, uint32_t& h)
 	return true;
 }
 
+void EditorSystem::SetCPUTiming(float updateMs, float renderMs)
+{
+	m_cpuUpdateMsRaw = updateMs;
+	m_cpuRenderMsRaw = renderMs;
+
+	constexpr float smoothingFactor = 0.1f;
+	if (!m_cpuTimingInitialized)
+	{
+		m_cpuUpdateMsSmoothed = updateMs;
+		m_cpuRenderMsSmoothed = renderMs;
+		m_cpuTimingInitialized = true;
+		return;
+	}
+
+	m_cpuUpdateMsSmoothed = m_cpuUpdateMsSmoothed * (1.0f - smoothingFactor) + updateMs * smoothingFactor;
+	m_cpuRenderMsSmoothed = m_cpuRenderMsSmoothed * (1.0f - smoothingFactor) + renderMs * smoothingFactor;
+}
+
 void EditorSystem::DrawViewportPanel(EntityScene& scene)
 {
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
@@ -619,10 +637,24 @@ void EditorSystem::DrawViewportStatusBar()
 	if (!m_viewportStatusBarFolded)
 	{
 		const float dt = MokoTime::GetDeltaTime();
-		const float fps = dt > 0.0f ? (1.0f / dt) : 0.0f;
 		const float ms = dt * 1000.0f;
+
+		constexpr float smoothingFactor = 0.1f;
+		if (!m_viewportTimingInitialized)
+		{
+			m_viewportFrameMsSmoothed = ms;
+			m_viewportTimingInitialized = true;
+		}
+		else
+		{
+			m_viewportFrameMsSmoothed = m_viewportFrameMsSmoothed * (1.0f - smoothingFactor) + ms * smoothingFactor;
+		}
+
+		const float fps = dt > 0.0f ? (1.0f / dt) : 0.0f;
+		const float smoothedFps = m_viewportFrameMsSmoothed > 0.0f ? (1000.0f / m_viewportFrameMsSmoothed) : 0.0f;
+
 		ImGui::SameLine();
-		ImGui::Text("FPS: %.1f  Frame: %.2f ms", fps, ms);
+		ImGui::Text("FPS: %.1f  Frame: %.2f ms", smoothedFps, m_viewportFrameMsSmoothed);
 
 		ImGui::SameLine();
 		ImGui::Text("|");
@@ -674,6 +706,15 @@ void EditorSystem::DrawProfilerPanel()
 		}
 		ImGui::Separator();
 		ImGui::Text("Total: %6.3f ms", total);
+	}
+	ImGui::End();
+
+	if (ImGui::Begin("CPU Profiler"))
+	{
+		ImGui::Text("%-20s %6.3f ms", "Update", m_cpuUpdateMsSmoothed);
+		ImGui::Text("%-20s %6.3f ms", "Render", m_cpuRenderMsSmoothed);
+		ImGui::Separator();
+		ImGui::Text("Total: %6.3f ms", m_cpuUpdateMsSmoothed + m_cpuRenderMsSmoothed);
 	}
 	ImGui::End();
 }

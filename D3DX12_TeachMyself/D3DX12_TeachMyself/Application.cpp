@@ -20,6 +20,7 @@
 #include "MokoPath.h"
 #include "GraphicsDevice_DX12.h"
 #include "AssetManager.h"
+#include <chrono>
 
 Application::Application()
 	:
@@ -46,8 +47,17 @@ int Application::Run()
 
 		MokoTime::Tick();
 
+		const auto updateStart = std::chrono::high_resolution_clock::now();
 		Update();
+		const auto updateEnd = std::chrono::high_resolution_clock::now();
+
+		const auto renderStart = std::chrono::high_resolution_clock::now();
 		Render();
+		const auto renderEnd = std::chrono::high_resolution_clock::now();
+
+		const float updateMs = std::chrono::duration<float, std::milli>(updateEnd - updateStart).count();
+		const float renderMs = std::chrono::duration<float, std::milli>(renderEnd - renderStart).count();
+		m_editorSystem->SetCPUTiming(updateMs, renderMs);
 	}
 }
 

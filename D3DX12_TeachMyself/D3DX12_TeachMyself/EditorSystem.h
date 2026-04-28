@@ -28,6 +28,7 @@ public:
 public:
 	void Render(CommandContext& ctx);
 	bool TryGetPendingViewportResize(uint32_t& w, uint32_t& h);
+	void SetCPUTiming(float updateMs, float renderMs);
 
 private:
 	void DrawViewportPanel(EntityScene& scene);
@@ -108,6 +109,14 @@ private:
 	char m_contentSearch[128] = {};
 	bool m_contentOnlyGLTF = false;
 	bool m_viewportStatusBarFolded = false;
+
+	float m_cpuUpdateMsRaw = 0.0f;
+	float m_cpuRenderMsRaw = 0.0f;
+	float m_cpuUpdateMsSmoothed = 0.0f;
+	float m_cpuRenderMsSmoothed = 0.0f;
+	bool m_cpuTimingInitialized = false;
+	float m_viewportFrameMsSmoothed = 0.0f;
+	bool m_viewportTimingInitialized = false;
 };
 
 
