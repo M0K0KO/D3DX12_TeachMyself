@@ -63,8 +63,8 @@ void Renderer::Init(GraphicsDevice* device, AssetManager* asset)
 	InitPBRLightingPass(device);
 	InitSkyboxPass(device);
 	InitPresentPass(device);
-	InitDebugLinePass(device);
 
+	InitDebugLinePass(device);
 
 	CreateCubeMap(device);
 	CreateIrradianceMap(device);
@@ -128,6 +128,9 @@ void Renderer::Render(GraphicsDevice* device, CommandContext& ctx, const RenderS
 	BuildSceneGraph(device, graph, fc, renderScene);
 
 	BuildPresentGraph(device, graph, fc);
+
+	BuildDebugGraph(device, graph, fc);
+
 	graph.Compile();
 	graph.Execute(ctx);
 }
@@ -642,9 +645,6 @@ void Renderer::CollectDebugLines(const RenderScene& scene)
 
 	for (const auto& obj : scene.renderObjects)
 	{
-		const auto& transform = scene.transforms[obj.transformIdx];
-		XMMATRIX W = XMLoadFloat4x4(&transform.world);
-
 		XMFLOAT3 corners[8] = 
 		{
 			{ obj.aabbMin.x, obj.aabbMin.y, obj.aabbMin.z },
@@ -658,24 +658,18 @@ void Renderer::CollectDebugLines(const RenderScene& scene)
 			{ obj.aabbMax.x, obj.aabbMax.y, obj.aabbMax.z },
 		};
 
-		XMFLOAT3 worldCorners[8];
-		for (int i = 0; i < 8; ++i)
-		{
-			XMVECTOR p = XMLoadFloat3(&corners[i]);
-			p = XMVector3Transform(p, W);
-			XMStoreFloat3(&worldCorners[i], p);
-		}
-
 		static const int edges[12][2] = {
 			{0,1},{2,3},{4,5},{6,7},
 			{0,2},{1,3},{4,6},{5,7},
 			{0,4},{1,5},{2,6},{3,7},
 		};
+
 		XMFLOAT4 color = { 0, 1, 0, 1 };  
+
 		for (auto& e : edges)
 		{
-			m_debugLines.push_back({ worldCorners[e[0]], color });
-			m_debugLines.push_back({ worldCorners[e[1]], color });
+			m_debugLines.push_back({ corners[e[0]], color });
+			m_debugLines.push_back({ corners[e[1]], color });
 		}
 	}
 }
@@ -1046,14 +1040,16 @@ void Renderer::BuildSceneGraph(GraphicsDevice* device, RenderGraph& graph, Frame
 	AddGTAOBilateralBlurPass(device, graph, fc, renderScene);
 	AddPBRLightingPass(device, graph, fc, renderScene);
 	AddSkyboxPass(device, graph, fc, renderScene);
-	
-	AddPresentPass(device, graph, fc);
-	AddDebugLinePass(device, graph, fc);
 }
 
 void Renderer::BuildPresentGraph(GraphicsDevice * device, RenderGraph & graph, FrameContext & fc)
 {
 	AddPresentPass(device, graph, fc);
+}
+
+void Renderer::BuildDebugGraph(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc)
+{
+	AddDebugLinePass(device, graph, fc);
 }
 
 void Renderer::InitDepthPrePass(GraphicsDevice* device)

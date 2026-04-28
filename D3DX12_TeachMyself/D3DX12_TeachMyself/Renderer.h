@@ -103,6 +103,7 @@ private:
 	FrameContext BuildFrameContext(GraphicsDevice* device, CommandContext&ctx, RenderGraph& graph, const RenderScene& scene);
 	void BuildSceneGraph(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
 	void BuildPresentGraph(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc);
+	void BuildDebugGraph(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc);
 
 	void InitDepthPrePass(GraphicsDevice* device);
 	void InitGBufferPass(GraphicsDevice* device);
