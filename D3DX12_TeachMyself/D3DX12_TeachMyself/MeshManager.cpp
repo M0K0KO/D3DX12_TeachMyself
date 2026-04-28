@@ -58,6 +58,8 @@ MeshHandle MeshManager::Create(const CreateDesc& desc)
         .indexCount = desc.indexCount,
         .submeshes = desc.submeshes,
         .bounds = desc.bounds,
+
+        .vbSRVIndex = m_device->GetSRVHandle(vb).index,
     };
     return m_pool.Create(std::move(mesh));
 }

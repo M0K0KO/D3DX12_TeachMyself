@@ -15,6 +15,7 @@ struct GPUTransformData
 struct RenderObject
 {
 	GPUBufferHandle vertexBuffer;
+	uint32_t vertexBufferIndex;
 	GPUBufferHandle indexBuffer;
 	uint32_t indexOffset;
 	uint32_t indexCount;

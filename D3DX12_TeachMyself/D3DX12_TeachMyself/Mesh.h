@@ -32,6 +32,8 @@ struct MeshAsset
 	uint32_t indexCount;
 	std::vector<Submesh> submeshes;
 	AABB bounds;
+
+	uint32_t vbSRVIndex = UINT32_MAX;
 };
 
 namespace Mesh
