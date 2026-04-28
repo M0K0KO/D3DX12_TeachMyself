@@ -149,6 +149,13 @@ enum class SamplerAddressMode{
 	Border
 };
 
+enum class PrimitiveTopology
+{
+	LineList,
+	TriangleList,
+	PointList,
+};
+
 struct CBHandle
 {
 	unsigned long long gpuAddress;
@@ -284,6 +291,7 @@ struct PipelineDesc
 	bool depthWrite;
 	ComparisonFunc depthFunc;
 	CullMode cullMode;
+	PrimitiveTopology topology = PrimitiveTopology::TriangleList;
 };
 
 struct ComputePipelineDesc

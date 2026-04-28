@@ -33,6 +33,13 @@ void Renderer::Init(GraphicsDevice* device, AssetManager* asset)
 	bufferDesc.usage = BufferUsage::Structured;
 	m_transformBuffer = device->CreateBuffer(bufferDesc);
 
+	BufferDesc debugLineVertexBufferDesc{};
+	debugLineVertexBufferDesc.size = MAX_DEBUG_LINES * sizeof(DebugLineVertex);
+	debugLineVertexBufferDesc.stride = sizeof(DebugLineVertex);
+	debugLineVertexBufferDesc.access = MemoryAccess::CpuWrite;
+	debugLineVertexBufferDesc.usage = BufferUsage::Vertex;
+	m_debugLineBuffer = device->CreateBuffer(debugLineVertexBufferDesc);
+
 
 	m_viewportWidth = 1280;
 	m_viewportHeight = 720;
@@ -56,6 +63,7 @@ void Renderer::Init(GraphicsDevice* device, AssetManager* asset)
 	InitPBRLightingPass(device);
 	InitSkyboxPass(device);
 	InitPresentPass(device);
+	InitDebugLinePass(device);
 
 
 	CreateCubeMap(device);
@@ -97,9 +105,20 @@ void Renderer::Render(GraphicsDevice* device, CommandContext& ctx, const RenderS
 	if (m_needsResize)
 		Resize(device);
 
+	CollectDebugLines(renderScene);
+	if (!m_debugLines.empty())
+	{
+		device->UpdateBuffer(
+			m_debugLineBuffer,
+			m_debugLines.data(),
+			m_debugLines.size() * sizeof(DebugLineVertex));
+	}
+
+
 	if (!renderScene.transforms.empty())
 	{
-		device->UpdateBuffer(m_transformBuffer,
+		device->UpdateBuffer(
+			m_transformBuffer,
 			renderScene.transforms.data(),
 			renderScene.transforms.size() * sizeof(GPUTransformData));
 	}
@@ -107,8 +126,6 @@ void Renderer::Render(GraphicsDevice* device, CommandContext& ctx, const RenderS
 	RenderGraph graph(device);
 	FrameContext fc = BuildFrameContext(device, ctx, graph, renderScene);
 	BuildSceneGraph(device, graph, fc, renderScene);
-
-	// TO DO : EDITOR
 
 	BuildPresentGraph(device, graph, fc);
 	graph.Compile();
@@ -226,7 +243,37 @@ DebugViewMode Renderer::GetDebugViewMode()
 void Renderer::SetDebugViewMode(DebugViewMode viewMode)
 {
 	m_debugViewMode = viewMode;
-}	
+}
+
+void Renderer::DrawAABB(const XMFLOAT3& mn, const XMFLOAT3& mx, const XMFLOAT4& color)
+{
+	XMFLOAT3 c[8] = {
+		{mn.x, mn.y, mn.z}, {mx.x, mn.y, mn.z},
+		{mn.x, mx.y, mn.z}, {mx.x, mx.y, mn.z},
+		{mn.x, mn.y, mx.z}, {mx.x, mn.y, mx.z},
+		{mn.x, mx.y, mx.z}, {mx.x, mx.y, mx.z},
+	};
+	static const int edges[12][2] = {
+		{0,1},{2,3},{4,5},{6,7},   // X edges
+		{0,2},{1,3},{4,6},{5,7},   // Y edges
+		{0,4},{1,5},{2,6},{3,7},   // Z edges
+	};
+	for (auto& e : edges)
+	{
+		m_debugLines.push_back({ c[e[0]], color });
+		m_debugLines.push_back({ c[e[1]], color });
+	}
+}
+
+bool Renderer::GetShowAABB()
+{
+	return m_showAABB;
+}
+
+void Renderer::SetShowAABB(bool value)
+{
+	m_showAABB = value;
+}
 
 void Renderer::ReloadPSO(GraphicsDevice* device)
 {
@@ -587,6 +634,52 @@ void Renderer::CreateBRDFLUT(GraphicsDevice* device)
 	// BRDF LUT
 }
 
+void Renderer::CollectDebugLines(const RenderScene& scene)
+{
+	m_debugLines.clear();
+
+	if (!m_showAABB) return;
+
+	for (const auto& obj : scene.renderObjects)
+	{
+		const auto& transform = scene.transforms[obj.transformIdx];
+		XMMATRIX W = XMLoadFloat4x4(&transform.world);
+
+		XMFLOAT3 corners[8] = 
+		{
+			{ obj.aabbMin.x, obj.aabbMin.y, obj.aabbMin.z },
+			{ obj.aabbMax.x, obj.aabbMin.y, obj.aabbMin.z },
+			{ obj.aabbMin.x, obj.aabbMax.y, obj.aabbMin.z },
+			{ obj.aabbMax.x, obj.aabbMax.y, obj.aabbMin.z },
+
+			{ obj.aabbMin.x, obj.aabbMin.y, obj.aabbMax.z },
+			{ obj.aabbMax.x, obj.aabbMin.y, obj.aabbMax.z },
+			{ obj.aabbMin.x, obj.aabbMax.y, obj.aabbMax.z },
+			{ obj.aabbMax.x, obj.aabbMax.y, obj.aabbMax.z },
+		};
+
+		XMFLOAT3 worldCorners[8];
+		for (int i = 0; i < 8; ++i)
+		{
+			XMVECTOR p = XMLoadFloat3(&corners[i]);
+			p = XMVector3Transform(p, W);
+			XMStoreFloat3(&worldCorners[i], p);
+		}
+
+		static const int edges[12][2] = {
+			{0,1},{2,3},{4,5},{6,7},
+			{0,2},{1,3},{4,6},{5,7},
+			{0,4},{1,5},{2,6},{3,7},
+		};
+		XMFLOAT4 color = { 0, 1, 0, 1 };  
+		for (auto& e : edges)
+		{
+			m_debugLines.push_back({ worldCorners[e[0]], color });
+			m_debugLines.push_back({ worldCorners[e[1]], color });
+		}
+	}
+}
+
 void Renderer::BuildCascadeShadowMatrices(
 	const XMMATRIX& invViewProj,
 	FXMVECTOR lightDir,
@@ -740,7 +833,6 @@ void Renderer::BuildCascadeShadowMatrices(
 		outLightViewProj[c] = lightView * lightProj;
 	}
 }
-
 
 
 FrameContext Renderer::BuildFrameContext(GraphicsDevice* device, CommandContext& ctx, RenderGraph& graph, const RenderScene& renderScene)
@@ -954,6 +1046,9 @@ void Renderer::BuildSceneGraph(GraphicsDevice* device, RenderGraph& graph, Frame
 	AddGTAOBilateralBlurPass(device, graph, fc, renderScene);
 	AddPBRLightingPass(device, graph, fc, renderScene);
 	AddSkyboxPass(device, graph, fc, renderScene);
+	
+	AddPresentPass(device, graph, fc);
+	AddDebugLinePass(device, graph, fc);
 }
 
 void Renderer::BuildPresentGraph(GraphicsDevice * device, RenderGraph & graph, FrameContext & fc)
@@ -1425,6 +1520,33 @@ void Renderer::InitPresentPass(GraphicsDevice* device)
 		false
 	};
 	m_sceneColorLDRTexture = device->CreateRTTexture(sceneColorLDRTextureDesc);
+}
+void Renderer::InitDebugLinePass(GraphicsDevice* device)
+{
+	RootSignatureDesc debugLineRSDesc{};
+	debugLineRSDesc.allowIA = true;
+	debugLineRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV, RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
+
+	m_debugLineVS = ShaderCompiler::CompileFromFile(L"shaders_DebugLine_VS.hlsl", "main", "vs_6_6");
+	m_debugLinePS = ShaderCompiler::CompileFromFile(L"shaders_DebugLine_PS.hlsl", "main", "ps_6_6");
+
+	PipelineDesc debugLinePSODesc{};
+	debugLinePSODesc.rootSignatureDesc = debugLineRSDesc;
+	debugLinePSODesc.vs = ShaderCompiler::GetBytecode(m_debugLineVS);
+	debugLinePSODesc.ps = ShaderCompiler::GetBytecode(m_debugLinePS);
+	debugLinePSODesc.vertexAttributes = {
+		{ Semantic::POSITION, Format::R32G32B32_FLOAT, 0 },
+		{ Semantic::COLOR,    Format::R32G32B32A32_FLOAT, 0 },
+	};
+	debugLinePSODesc.rtvFormats = { Format::R8G8B8A8_UNORM_SRGB };
+	debugLinePSODesc.dsvFormat = Format::D32_FLOAT;
+	debugLinePSODesc.depthEnable = true;
+	debugLinePSODesc.depthWrite = false;
+	debugLinePSODesc.depthFunc = ComparisonFunc::LessEqual;
+	debugLinePSODesc.cullMode = CullMode::None;
+	debugLinePSODesc.topology = PrimitiveTopology::LineList;
+
+	m_debugLinePipeline = device->CreatePipeline(debugLinePSODesc);
 }
 
 
@@ -1960,6 +2082,32 @@ void Renderer::AddPresentPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 			passCtx.SetRootConstants(7, &debugMode, 1);
 
 			passCtx.Draw(3, 0);  
+		}
+	);
+}
+void Renderer::AddDebugLinePass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc)
+{
+	if (!m_showAABB) return;
+	if (m_debugLines.empty()) return;
+
+	graph.AddPass(
+		"DebugLinePass",
+		[&](RGBuilder& builder) {
+			builder.Read(fc.depthTexture, RGResourceState::DepthRead);
+
+			builder.Write(fc.sceneColorLDR, RGResourceState::RenderTarget);
+		},
+		[this, &fc, device](CommandContext& passCtx) {
+			passCtx.SetPipeline(m_debugLinePipeline);
+			passCtx.SetRenderTarget(1, &m_sceneColorLDRTexture, m_depthTexture);
+			passCtx.SetViewport(0, 0, (float)m_viewportWidth, (float)m_viewportHeight);
+			passCtx.SetScissorRect(0, 0, (LONG)m_viewportWidth, (LONG)m_viewportHeight);
+
+			passCtx.BindConstantBuffer(0, fc.perFrameCB);
+
+			passCtx.SetVertexBuffer(m_debugLineBuffer);
+
+			passCtx.Draw((uint32_t)m_debugLines.size(), 0);
 		}
 	);
 }

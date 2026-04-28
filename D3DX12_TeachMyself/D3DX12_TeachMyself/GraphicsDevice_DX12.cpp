@@ -759,7 +759,7 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 
 	psoDesc.SampleMask = UINT_MAX;
-	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	psoDesc.PrimitiveTopologyType = DX12Helpers::ToPrimitiveTopologyType(desc.topology);
 
 	int numRT = 0;
 	for (int i = 0; i < desc.rtvFormats.size(); i++)
@@ -789,6 +789,7 @@ PipelineHandle GraphicsDevice_DX12::CreatePipeline(const PipelineDesc desc)
 
 	internalPipeline.pso = pso;
 	internalPipeline.rootSignature = rs;
+	internalPipeline.topology = desc.topology;
 
 	uint32_t id = m_pipelines.size();
 	m_pipelines.push_back(internalPipeline);

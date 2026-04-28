@@ -218,4 +218,26 @@ namespace DX12Helpers
 		default:								return D3D12_RESOURCE_STATE_COMMON;
 		}
 	}
+
+	D3D12_PRIMITIVE_TOPOLOGY_TYPE ToPrimitiveTopologyType(PrimitiveTopology topology)
+	{
+		switch (topology)
+		{
+		case PrimitiveTopology::TriangleList:  return D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		case PrimitiveTopology::LineList:      return D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+		case PrimitiveTopology::PointList:     return D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
+		default: return D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		}
+	}
+
+	D3D12_PRIMITIVE_TOPOLOGY ToPrimitiveTopology(PrimitiveTopology topology)
+	{
+		switch (topology)
+		{
+		case PrimitiveTopology::TriangleList:  return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		case PrimitiveTopology::LineList:      return D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+		case PrimitiveTopology::PointList:     return D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
+		default: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		}
+	}
 }

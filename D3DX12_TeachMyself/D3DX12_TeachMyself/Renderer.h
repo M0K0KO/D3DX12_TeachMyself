@@ -7,6 +7,12 @@
 #include "FrameData.h"
 #include "AssetManager.h"
 
+struct DebugLineVertex
+{
+	XMFLOAT3 position;
+	XMFLOAT4 color;
+};
+
 enum class DebugViewMode : uint32_t
 {
 	SceneColor = 0,
@@ -67,6 +73,10 @@ public:
 	DebugViewMode GetDebugViewMode();
 	void SetDebugViewMode(DebugViewMode viewMode);
 
+	void DrawAABB(const XMFLOAT3& mn, const XMFLOAT3& mx, const XMFLOAT4& color);
+	bool GetShowAABB();
+	void SetShowAABB(bool value);
+
 	GPUTextureHandle GetSceneColorLDR() const	{ return m_sceneColorLDRTexture; };
 
 private:
@@ -77,6 +87,8 @@ private:
 	void CreateIrradianceMap(GraphicsDevice* device);
 	void CreatePrefilteredEnvironmentMap(GraphicsDevice* device);
 	void CreateBRDFLUT(GraphicsDevice* device);
+
+	void CollectDebugLines(const RenderScene& scene);
 
 	void BuildCascadeShadowMatrices(
 		const XMMATRIX& invViewProj,
@@ -103,6 +115,7 @@ private:
 	void InitPBRLightingPass(GraphicsDevice* device);
 	void InitSkyboxPass(GraphicsDevice* device);
 	void InitPresentPass(GraphicsDevice* device);
+	void InitDebugLinePass(GraphicsDevice* device);
 
 	void AddDepthPrePass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
 	void AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
@@ -115,13 +128,20 @@ private:
 	void AddPBRLightingPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
 	void AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
 	void AddPresentPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc);
-
+	void AddDebugLinePass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc);
+	
 private:
 	AssetManager* m_assetManager;
 	GPUBufferHandle m_transformBuffer;
 	static constexpr uint32_t MAX_TRANSFORMS = 4096;
 
 	DebugViewMode m_debugViewMode = DebugViewMode::SceneColor;
+
+	GPUBufferHandle m_debugLineBuffer;
+	static constexpr uint32_t MAX_DEBUG_LINES = 16384;
+	std::vector<DebugLineVertex> m_debugLines;
+
+	bool m_showAABB = false;
 
 private:
 	static constexpr float clearColor[4] = { 0.0f, 0.0f,  0.0f,  0.0f };
@@ -199,6 +219,11 @@ private:
 	ShaderHandle m_presentPS;
 	PipelineDesc m_presentPipelineDesc;
 	PipelineHandle m_presentPipeline;
+
+	ShaderHandle m_debugLineVS;
+	ShaderHandle m_debugLinePS;
+	PipelineHandle m_debugLinePipeline;
+
 
 
 

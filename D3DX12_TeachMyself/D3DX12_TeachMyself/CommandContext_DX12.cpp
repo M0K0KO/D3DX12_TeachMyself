@@ -2,6 +2,7 @@
 #include "CommandContext_DX12.h"
 #include "GraphicsDevice_DX12.h"
 #include "MokoLogger.h"
+#include "DX12Helpers.h"
 
 void CommandContext_DX12::Init(GraphicsDevice_DX12* pDevice, ID3D12GraphicsCommandList* pCommandList)
 {
@@ -39,7 +40,7 @@ void CommandContext_DX12::SetPipeline(PipelineHandle handle)
 		m_commandList->SetGraphicsRootSignature(internalPSO.rootSignature.Get());
 		m_currentRootSignature = internalPSO.rootSignature.Get();
 	}
-	m_commandList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	m_commandList->IASetPrimitiveTopology(DX12Helpers::ToPrimitiveTopology(internalPSO.topology));
 }
 
 void CommandContext_DX12::SetComputePipeline(PipelineHandle handle)

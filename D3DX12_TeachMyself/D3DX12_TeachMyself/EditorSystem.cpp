@@ -637,6 +637,13 @@ void EditorSystem::DrawViewportStatusBar()
 		{
 			m_renderer->SetDebugViewMode((DebugViewMode)currentMode);
 		}
+
+		ImGui::SameLine();
+		ImGui::Text("|");
+		ImGui::SameLine();
+		bool showAABB = m_renderer->GetShowAABB();
+		if (ImGui::Checkbox("AABB", &showAABB))
+			m_renderer->SetShowAABB(showAABB);
 	}
 }
 

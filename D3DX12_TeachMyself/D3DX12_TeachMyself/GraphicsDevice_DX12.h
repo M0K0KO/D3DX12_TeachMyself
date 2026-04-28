@@ -163,6 +163,7 @@ private:
 	{
 		ComPtr<ID3D12RootSignature> rootSignature;
 		ComPtr<ID3D12PipelineState> pso;
+		PrimitiveTopology topology;
 	};
 
 	std::vector<InternalBuffer> m_buffers;
