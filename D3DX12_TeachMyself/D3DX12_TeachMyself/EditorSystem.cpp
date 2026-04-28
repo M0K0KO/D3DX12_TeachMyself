@@ -697,26 +697,12 @@ void EditorSystem::DrawProfilerPanel()
 {
 	if (ImGui::Begin("GPU Profiler"))
 	{
+		const auto results = m_device->GetGPUProfiler()->GetLastFrameResults();
 		float total = 0.0f;
-		for (const auto& pass : m_renderer->GetLastFramePassProfilerEntries())
+		for (const auto& r : results)
 		{
-			switch (pass.state)
-			{
-			case RenderPassRuntimeState::Timed:
-				ImGui::Text("%-32s %6.3f ms", pass.name.c_str(), pass.ms);
-				total += pass.ms;
-				break;
-			case RenderPassRuntimeState::Culled:
-				ImGui::Text("%-32s %s", pass.name.c_str(), "culled");
-				break;
-			case RenderPassRuntimeState::Unused:
-				ImGui::Text("%-32s %s", pass.name.c_str(), "unused");
-				break;
-			case RenderPassRuntimeState::Active:
-			default:
-				ImGui::Text("%-32s %s", pass.name.c_str(), "active");
-				break;
-			}
+			ImGui::Text("%-20s %6.3f ms", r.name.c_str(), r.ms);
+			total += r.ms;
 		}
 		ImGui::Separator();
 		ImGui::Text("Total: %6.3f ms", total);
@@ -987,3 +973,4 @@ void EditorSystem::HandleFileOpen(EntityScene& scene, std::filesystem::path path
 		MOKOLOG_ERROR("Unknown exception while loading model [{}]", path.string());
 	}
 }
+
