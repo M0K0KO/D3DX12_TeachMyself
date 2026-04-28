@@ -6,6 +6,9 @@
 #include "RenderScene.h"
 #include "FrameData.h"
 #include "AssetManager.h"
+#include <cstdint>
+#include <string>
+#include <vector>
 
 struct DebugLineVertex
 {
@@ -24,6 +27,21 @@ enum class DebugViewMode : uint32_t
 	AO,
 	Count
 };	
+
+enum class RenderPassRuntimeState : uint8_t
+{
+	Timed = 0,
+	Active,
+	Culled,
+	Unused
+};
+
+struct RenderPassProfilerEntry
+{
+	std::string name;
+	RenderPassRuntimeState state = RenderPassRuntimeState::Unused;
+	float ms = 0.0f;
+};
 
 struct FrameContext
 {
@@ -78,6 +96,7 @@ public:
 	void SetShowAABB(bool value);
 
 	GPUTextureHandle GetSceneColorLDR() const	{ return m_sceneColorLDRTexture; };
+	const std::vector<RenderPassProfilerEntry>& GetLastFramePassProfilerEntries() const { return m_lastFramePassProfilerEntries; }
 
 private:
 	void ReloadPSO(GraphicsDevice* device);
@@ -130,6 +149,7 @@ private:
 	void AddSkyboxPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
 	void AddPresentPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc);
 	void AddDebugLinePass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc);
+	void UpdatePassProfilerEntries(const RenderGraph& graph, GraphicsDevice* device);
 	
 private:
 	AssetManager* m_assetManager;
@@ -143,6 +163,7 @@ private:
 	std::vector<DebugLineVertex> m_debugLines;
 
 	bool m_showAABB = false;
+	std::vector<RenderPassProfilerEntry> m_lastFramePassProfilerEntries;
 
 private:
 	static constexpr float clearColor[4] = { 0.0f, 0.0f,  0.0f,  0.0f };

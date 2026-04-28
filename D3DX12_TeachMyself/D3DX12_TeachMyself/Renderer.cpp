@@ -8,6 +8,7 @@
 #include "MokoLogger.h"
 #include "MokoTime.h"
 #include <random>
+#include <unordered_map>
 #include <imgui_impl_dx12.h>
 
 static inline float PointAABBDistanceSq(const XMFLOAT3& p, const XMFLOAT3& aabbMin, const XMFLOAT3& aabbMax)
@@ -132,7 +133,80 @@ void Renderer::Render(GraphicsDevice* device, CommandContext& ctx, const RenderS
 	BuildDebugGraph(device, graph, fc);
 
 	graph.Compile();
+	UpdatePassProfilerEntries(graph, device);
 	graph.Execute(ctx);
+}
+
+void Renderer::UpdatePassProfilerEntries(const RenderGraph& graph, GraphicsDevice* device)
+{
+	struct PassDescriptor
+	{
+		const char* displayName;
+		const char* graphName;
+		const char* timedResultName;
+	};
+
+	static constexpr PassDescriptor kAllRendererPasses[] =
+	{
+		{ "DepthPrePass", "DepthPrePass", "DepthPrePass" },
+		{ "GBufferOpaquePass", "GBufferOpaquePass", "GBufferPass" },
+		{ "GBufferAlphaPass", "GBufferAlphaPass", "GBufferAlphaPass" },
+		{ "DirectionalShadowPass", "DirectionalShadowPass", "DirectionalShadowPass" },
+		{ "PointShadowPass", "PointShadowPass", "PointShadowPass" },
+		{ "SSAOPass", "SSAOPass", nullptr },
+		{ "GTAOPass", "GTAOPass", nullptr },
+		{ "SSAOBilateralBlurPass_Horizontal", "SSAOBilateralBlurPass_Horizontal", nullptr },
+		{ "SSAOBilateralBlurPass_Vertical", "SSAOBilateralBlurPass_Vertical", nullptr },
+		{ "GTAOBilateralBlurPass_Horizontal", "GTAOBilateralBlurPass_Horizontal", nullptr },
+		{ "GTAOBilateralBlurPass_Vertical", "GTAOBilateralBlurPass_Vertical", nullptr },
+		{ "PBRLightingPass", "PBRLightingPass", "PBRLightingPass" },
+		{ "SkyboxPass", "SkyboxPass", "SkyboxPass" },
+		{ "PresentPass", "PresentPass", nullptr },
+		{ "DebugLinePass", "DebugLinePass", nullptr },
+	};
+
+	std::unordered_map<std::string, bool> graphPassStates;
+	for (const auto& pass : graph.GetPasses())
+	{
+		graphPassStates[pass.name] = pass.culled;
+	}
+
+	std::unordered_map<std::string, float> timedPassMs;
+	for (const auto& result : device->GetGPUProfiler()->GetLastFrameResults())
+	{
+		timedPassMs[result.name] = result.ms;
+	}
+
+	m_lastFramePassProfilerEntries.clear();
+	m_lastFramePassProfilerEntries.reserve(std::size(kAllRendererPasses));
+
+	for (const auto& pass : kAllRendererPasses)
+	{
+		RenderPassProfilerEntry entry;
+		entry.name = pass.displayName;
+
+		const auto itGraph = graphPassStates.find(pass.graphName);
+		if (itGraph == graphPassStates.end())
+		{
+			entry.state = RenderPassRuntimeState::Unused;
+		}
+		else if (itGraph->second)
+		{
+			entry.state = RenderPassRuntimeState::Culled;
+		}
+		else if (pass.timedResultName != nullptr)
+		{
+			entry.state = RenderPassRuntimeState::Timed;
+			const auto itTimed = timedPassMs.find(pass.timedResultName);
+			entry.ms = (itTimed != timedPassMs.end()) ? itTimed->second : 0.0f;
+		}
+		else
+		{
+			entry.state = RenderPassRuntimeState::Active;
+		}
+
+		m_lastFramePassProfilerEntries.push_back(std::move(entry));
+	}
 }
 
 void Renderer::Resize(GraphicsDevice* device)
@@ -1821,7 +1895,7 @@ void Renderer::AddGTAOPass(GraphicsDevice* device, RenderGraph& graph, FrameCont
 void Renderer::AddSSAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene)
 {
 	graph.AddPass(
-		"BilateralBlurPass_Horizontal",
+		"SSAOBilateralBlurPass_Horizontal",
 		[&](RGBuilder& builder) {
 			builder.Read(fc.ssaoTexture, RGResourceState::ShaderResource);
 			builder.Read(fc.depthTexture, RGResourceState::ShaderResource);
@@ -1849,7 +1923,7 @@ void Renderer::AddSSAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 	);
 
 	graph.AddPass(
-		"BilateralBlurPass_Vertical",
+		"SSAOBilateralBlurPass_Vertical",
 		[&](RGBuilder& builder) {
 			builder.Read(fc.ssaoTempTexture, RGResourceState::ShaderResource);
 			builder.Read(fc.depthTexture, RGResourceState::ShaderResource);
@@ -1879,7 +1953,7 @@ void Renderer::AddSSAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene)
 {
 	graph.AddPass(
-		"BilateralBlurPass_Horizontal",
+		"GTAOBilateralBlurPass_Horizontal",
 		[&](RGBuilder& builder) {
 			builder.Read(fc.gtaoTexture, RGResourceState::ShaderResource);
 			builder.Read(fc.depthTexture, RGResourceState::ShaderResource);
@@ -1905,7 +1979,7 @@ void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 	);
 
 	graph.AddPass(
-		"BilateralBlurPass_Vertical",
+		"GTAOBilateralBlurPass_Vertical",
 		[&](RGBuilder& builder) {
 			builder.Read(fc.gtaoTempTexture, RGResourceState::ShaderResource);
 			builder.Read(fc.depthTexture, RGResourceState::ShaderResource);

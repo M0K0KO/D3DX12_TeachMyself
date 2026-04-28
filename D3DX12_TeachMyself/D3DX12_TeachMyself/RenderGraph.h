@@ -116,6 +116,7 @@ public:
 
 	// make actual resource, execute the passes
 	void Execute(CommandContext& ctx);
+	const std::vector<RGPass>& GetPasses() const { return m_passes; }
 
 	// clear the internal state -> fresh build every frame
 	void Clear();
