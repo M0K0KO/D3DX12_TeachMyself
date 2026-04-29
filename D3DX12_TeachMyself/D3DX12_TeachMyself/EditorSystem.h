@@ -78,6 +78,8 @@ private:
 	void DrawContentBrowserPanel(EntityScene& scene);
 	void DrawBreadCrumb();
 	void DrawDirectoryContents(EntityScene& scene);
+	void RebuildContentBrowserCache();
+	bool ShouldRefreshContentBrowserCache();
 
 	void FlushPendingDestroy(EntityScene& scene);
 
@@ -96,6 +98,19 @@ private:
 	std::filesystem::path m_assetRoot;
 	std::filesystem::path m_currentDirectory;
 
+	struct ContentBrowserEntry
+	{
+		std::string name;
+		std::filesystem::path fullPath;
+		bool isDirectory = false;
+	};
+
+	struct ContentBrowserCache
+	{
+		std::filesystem::path dir;
+		std::vector<ContentBrowserEntry> entries;
+	};
+
 	EditorState m_state;
 
 	ImVec2 m_viewportSize = { 0,0 };
@@ -108,6 +123,8 @@ private:
 	char m_hierarchySearch[128] = {};
 	char m_contentSearch[128] = {};
 	bool m_contentOnlyGLTF = false;
+	bool m_forceContentBrowserRefresh = true;
+	ContentBrowserCache m_contentBrowserCache;
 	bool m_viewportStatusBarFolded = false;
 
 	float m_cpuUpdateMsRaw = 0.0f;
