@@ -990,7 +990,7 @@ FrameContext Renderer::BuildFrameContext(GraphicsDevice* device, CommandContext&
 	GTAOCB gtaoCB;
 	XMStoreFloat4x4(&gtaoCB.View, XMMatrixTranspose(XMLoadFloat4x4(&frameData.ViewMatrix)));
 	XMStoreFloat4x4(&gtaoCB.InvProj, XMMatrixTranspose(XMMatrixInverse(nullptr, XMLoadFloat4x4(&frameData.ProjMatrix))));
-	XMStoreFloat2(&gtaoCB.InvRes, { 1.0f / (m_viewportWidth / 2), 1.0f / (m_viewportHeight / 2) });
+	XMStoreFloat2(&gtaoCB.InvRes, { 1.0f / m_viewportWidth, 1.0f / m_viewportHeight });
 	gtaoCB.Radius = 0.6f;
 	gtaoCB.FalloffStart = gtaoCB.Radius * 0.35f;
 	gtaoCB.FalloffEnd = gtaoCB.Radius;
@@ -1912,7 +1912,7 @@ void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 			{
 				passCtx.SetComputePipeline(m_bilateralBlurComputePipeline);
 
-				GTAOBilateralBlurCB cb{ {1.0f / (m_viewportWidth / 2), 1.0f / (m_viewportHeight / 2)}, {1,0}, 0.1f, 32.0f, 6 };
+				GTAOBilateralBlurCB cb{ {1.0f / (m_viewportWidth / 2), 1.0f / (m_viewportHeight / 2)}, {0,1}, 0.1f, 32.0f, 6 };
 				fc.gtaoBilateralBlurCB = passCtx.UpdateConstantBuffer(&cb, sizeof(GTAOBilateralBlurCB));
 				passCtx.BindComputeConstantBuffer(0, fc.gtaoBilateralBlurCB);
 

@@ -46,17 +46,18 @@ float SignedAngle(float3 a, float3 b, float3 axis)
 [numthreads(8, 8, 1)]
 void CSMain(uint3 DTid : SV_DispatchThreadID)
 {
-    float2 uv = (DTid.xy + 0.5) * InvRes;
+    int2 fullResPix = int2(DTid.xy) * 2;
+    float2 uv = (float2(fullResPix) + 0.5) * InvRes;
     
     // 1) View-space position º¹¿ø
-    float depth = DepthTex.Load(int3(DTid.xy, 0)).r;
+    float depth = DepthTex.Load(int3(fullResPix, 0)).r;
     if (depth >= 1.0)
     {
         Output[DTid.xy] = 1.0;
         return;
     } // sky
     
-    float3 unpackedNormal = NormalTex[DTid.xy].xyz * 2.0 - 1.0;
+    float3 unpackedNormal = NormalTex.Load(int3(fullResPix, 0)).xyz * 2.0 - 1.0;
     
     float3 P = ReconstructViewPos(uv, depth, InvProj);
     float3 V = normalize(-P);

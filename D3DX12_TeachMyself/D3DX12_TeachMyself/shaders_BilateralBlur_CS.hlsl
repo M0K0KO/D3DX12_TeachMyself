@@ -18,8 +18,9 @@ void CSMain(uint3 DTid : SV_DispatchThreadID)
 {
     float2 uv = (DTid.xy + 0.5) * InvRes;
     float centerAO = AOInput[DTid.xy];
-    float centerDepth = DepthTex[DTid.xy];
-    float3 centerN = NormalTex[DTid.xy].xyz * 2 - 1;
+    int2 centerFullRes = int2(DTid.xy) * 2;
+    float centerDepth = DepthTex.Load(int3(centerFullRes, 0));
+    float3 centerN = NormalTex.Load(int3(centerFullRes, 0)).xyz * 2 - 1;
     
     float sumAO = 0;
     float sumW = 0;
@@ -29,8 +30,9 @@ void CSMain(uint3 DTid : SV_DispatchThreadID)
         int2 p = DTid.xy + Direction * i;
         
         float sAO = AOInput[p];
-        float sDepth = DepthTex[p];
-        float3 sN = NormalTex[p].xyz * 2 - 1;
+        int2 pFullRes = p * 2;
+        float sDepth = DepthTex.Load(int3(pFullRes, 0));
+        float3 sN = NormalTex.Load(int3(pFullRes, 0)).xyz * 2 - 1;
         
         // Gaussian (공간 거리)
         float wSpatial = exp(-0.5 * (i * i) / (Radius * Radius * 0.25));
