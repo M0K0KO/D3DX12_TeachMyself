@@ -49,6 +49,7 @@ struct FrameContext
 	RGTextureHandle scenecolor;
 	RGTextureHandle sceneColorLDR;
 
+	RGBufferHandle gbufferArgBuffer;
 	RGBufferHandle shadowArgBuffer;
 
 	CBHandle perFrameCB;
@@ -335,8 +336,6 @@ private:
 	{
 		uint32_t lightIdx;
 		uint32_t faceIdx;
-		uint32_t transformIdx;
-		uint32_t vertexBufferIndex;
 	};
 
 	struct SSAOCB
@@ -401,6 +400,23 @@ private:
 	uint32_t m_resizeHeight = 0;
 	bool m_needsResize = false;
 
+
+	struct GBufferIndirectCommand
+	{
+		uint32_t transformIdx;
+		uint32_t matIdx;
+		uint32_t vertexBufferIdx;
+		D3D12_INDEX_BUFFER_VIEW ibv;
+		D3D12_DRAW_INDEXED_ARGUMENTS drawArgs;
+	};
+	GPUCommandSignatureHandle m_gBufferCmdSig;
+	GPUBufferHandle m_gbufferArgBuffer;
+	static constexpr uint32_t MAX_GBUFFER_DRAWS = 4096;
+	uint32_t m_gbufferOpaqueDrawCount = 0;
+	uint32_t m_gbufferAlphaDrawCount = 0;
+	uint32_t m_gbufferAlphaOffset = 0;
+
+
 	struct ShadowIndirectCommand
 	{
 		uint32_t objIdx;
@@ -409,7 +425,17 @@ private:
 		D3D12_DRAW_INDEXED_ARGUMENTS drawArgs;
 	};
 	GPUCommandSignatureHandle m_shadowCmdSig;
+
+	struct PointShadowIndirectCommand
+	{
+		uint32_t transformIdx;
+		uint32_t vertexBufferIdx;
+		D3D12_INDEX_BUFFER_VIEW ibv;
+		D3D12_DRAW_INDEXED_ARGUMENTS drawArgs;
+	};
+	GPUCommandSignatureHandle m_pointShadowCmdSig;
 	GPUBufferHandle m_shadowArgBuffer;
 	static constexpr uint32_t MAX_SHADOW_DRAWS = 4096;
 	uint32_t m_shadowDrawCount = 0;
+
 };
