@@ -9,6 +9,7 @@
 #include <ImGuizmo.h>
 #include "AssetManager.h"
 #include <filesystem>
+#include "MeshRendererComponent.h"
 
 constexpr const char* PAYLOAD_ENTITY = "MOKO_ENTITY";
 
@@ -40,6 +41,9 @@ private:
 	void DrawCreateMenu(EntityScene& scene, Entity parent);
 
 	void DrawInspector(EntityScene& scene);
+	void DrawMaterialSlot(MeshRendererComponent& mr, size_t i);
+	void DrawTextureSlot(const char* label, TextureHandle h);
+
 	void DrawAddComponentMenu(Registry& registry, Entity e);
 	void DrawRemoveComponentMenu(Registry& registry, Entity e);
 	void DrawViewportStatusBar();

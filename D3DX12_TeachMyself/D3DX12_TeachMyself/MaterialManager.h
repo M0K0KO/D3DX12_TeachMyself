@@ -53,6 +53,12 @@ public:
 
 	GPUMaterial ToGPU(const Material& mat);
 
+	void SetDirty() { m_dirty = true; }
+	Material* GetMutable(MaterialHandle h) {
+		Material* m = m_pool.Get(h);
+		if (m) m_dirty = true;
+		return m;
+	}
 	Material* Get(MaterialHandle h) { return m_pool.Get(h); }
 	const Material* Get(MaterialHandle h) const { return m_pool.Get(h); }
 

@@ -545,36 +545,15 @@ void EditorSystem::DrawInspector(EntityScene& scene)
 	DrawComponent<MeshRendererComponent>("Mesh Renderer", registry, e, [&](auto& mr) {
 		DrawProperty("Visible", [&]() { ImGui::Checkbox("##V", &mr.visible); });
 
+		DrawProperty("Mesh", [&] {
+			ImGui::Text("[%u]", mr.mesh.IsValid() ? mr.mesh.index : 0);
+			});
+
 		for (size_t i = 0; i < mr.materials.size(); ++i)
 		{
-			if (mr.materials.size() > 1)
-			{
-				ImGui::Text("Submesh %zu", i);
-			}
-			else
-			{
-				DrawSection("Material");
-			}
-
-
-
-			Material* mat = m_assetManager->Materials().Get(mr.materials[i]);
-			if (!mat) continue;
-
-			char metallicLabel[32];
-			char roughnessLabel[32];
-			snprintf(metallicLabel, sizeof(metallicLabel), "##M_%zu", i);
-			snprintf(roughnessLabel, sizeof(roughnessLabel), "##R_%zu", i);
-
-			if (mat)
-			{
-				DrawProperty("Metallic", [&]() {
-					ImGui::SliderFloat("##M", &mat->factors.metallicFactor, 0.0f, 1.0f);
-					}, true);
-				DrawProperty("Roughness", [&]() {
-					ImGui::SliderFloat("##R", &mat->factors.roughnessFactor, 0.0f, 1.0f);
-					}, true);
-			}
+			ImGui::PushID((int)i);
+			DrawMaterialSlot(mr, i);
+			ImGui::PopID();
 		}
 		});
 
@@ -603,6 +582,52 @@ void EditorSystem::DrawInspector(EntityScene& scene)
 		});
 
 	ImGui::End();
+}
+
+void EditorSystem::DrawMaterialSlot(MeshRendererComponent& mr, size_t i)
+{
+	ImGui::PushID((int)i);
+
+	std::string label = mr.materials.size() > 1
+		? std::format("Submesh {} - Material", i)
+		: "Material";
+
+	if (ImGui::CollapsingHeader(label.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		Material* mat = m_assetManager->Materials().GetMutable(mr.materials[i]);
+		if (!mat) { ImGui::PopID(); return; }
+
+		bool changed = false;
+
+		changed |= ImGui::ColorEdit4("Base Color", &mat->factors.baseColorFactor.x);
+		changed |= ImGui::SliderFloat("Metallic", &mat->factors.metallicFactor, 0.0f, 1.0f);
+		changed |= ImGui::SliderFloat("Roughness", &mat->factors.roughnessFactor, 0.0f, 1.0f);
+		changed |= ImGui::ColorEdit3("Emissive", &mat->factors.emissiveFactor.x,
+			ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float);
+
+		DrawTextureSlot("Albedo", mat->baseColor);
+		DrawTextureSlot("Normal", mat->normal);
+		DrawTextureSlot("MR", mat->metallicRoughness);
+		DrawTextureSlot("Emissive", mat->emissive);
+		DrawTextureSlot("Occlusion", mat->occlusion);
+
+		if (changed)
+			m_assetManager->Materials().SetDirty();
+	}
+
+	ImGui::PopID();
+}
+
+void EditorSystem::DrawTextureSlot(const char* label, TextureHandle h)
+{
+	if (h.IsValid())
+	{
+		ImGui::Text("%s: [%u]", label, h.index);
+	}
+	else
+	{
+		ImGui::Text("%s: (none)", label);
+	}
 }
 
 void EditorSystem::DrawAddComponentMenu(Registry& registry, Entity e)

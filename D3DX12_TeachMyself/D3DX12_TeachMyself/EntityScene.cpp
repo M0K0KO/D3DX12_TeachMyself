@@ -8,6 +8,9 @@
 
 EntityScene::EntityScene()
 {
+	sceneAABBMin = { 10.0f, 10.0f, 10.0f };
+	sceneAABBMax = { -10.0f, -10.0f, -10.0f };
+
 	rootEntity = CreateEntity("Root");
 	registry.Add<TransformComponent>(rootEntity);
 	registry.Add<HierarchyComponent>(rootEntity);
@@ -141,8 +144,12 @@ void EntityScene::Clear()
 
 void EntityScene::SetSceneAABB(XMFLOAT3 min, XMFLOAT3 max)
 {
-	sceneAABBMax = max;
-	sceneAABBMin = min;
+	sceneAABBMin.x = std::min(sceneAABBMin.x, min.x);
+	sceneAABBMin.y = std::min(sceneAABBMin.y, min.y);
+	sceneAABBMin.z = std::min(sceneAABBMin.z, min.z);
+	sceneAABBMax.x = std::max(sceneAABBMax.x, max.x);
+	sceneAABBMax.y = std::max(sceneAABBMax.y, max.y);
+	sceneAABBMax.z = std::max(sceneAABBMax.z, max.z);
 }
 
 XMFLOAT3 EntityScene::GetSceneAABBMin() const
