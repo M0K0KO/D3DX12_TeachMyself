@@ -424,6 +424,7 @@ private:
 		D3D12_DRAW_INDEXED_ARGUMENTS drawArgs;
 	};
 	GPUCommandSignatureHandle m_gBufferCmdSig;
+	GPUCommandSignatureHandle m_gBufferAlphaCmdSig;
 	GPUBufferHandle m_gbufferArgBuffer;
 	static constexpr uint32_t MAX_GBUFFER_DRAWS = 4096;
 	uint32_t m_gbufferOpaqueDrawCount = 0;

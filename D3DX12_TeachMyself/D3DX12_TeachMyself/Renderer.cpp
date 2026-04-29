@@ -1315,6 +1315,7 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 		{ .type = IndirectArgType::DrawIndexed },
 	};
 	m_gBufferCmdSig = device->CreateCommandSignature(sizeof(GBufferIndirectCommand), gbufferArgs, m_gBufferOpaquePassPipeline);
+	m_gBufferAlphaCmdSig = device->CreateCommandSignature(sizeof(GBufferIndirectCommand), gbufferArgs, m_gBufferAlphaPassPipeline);
 
 	BufferDesc gbufferArgBufferDesc{};
 	gbufferArgBufferDesc.size = MAX_GBUFFER_DRAWS * sizeof(GBufferIndirectCommand);
@@ -1810,7 +1811,7 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 				if (m_gbufferAlphaDrawCount > 0)
 				{
 					passCtx.ExecuteIndirect(
-						m_gBufferCmdSig,
+						m_gBufferAlphaCmdSig,
 						m_gbufferAlphaDrawCount,
 						m_gbufferArgBuffer,
 						m_gbufferAlphaOffset);
@@ -1852,7 +1853,8 @@ void Renderer::AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& gra
 						passCtx.BindConstantBuffer(0, cascadeCB);
 						passCtx.BindRootSRV(1, m_transformBuffer);
 
-						passCtx.ExecuteIndirect(m_shadowCmdSig, m_directionalShadowDrawCount, m_directionalShadowArgBuffer, 0);
+						if (m_directionalShadowDrawCount > 0)
+							passCtx.ExecuteIndirect(m_shadowCmdSig, m_directionalShadowDrawCount, m_directionalShadowArgBuffer, 0);
 					}
 				}
 				passCtx.EndTimestamp(PassID::DirectionalShadowPass);
@@ -1894,7 +1896,8 @@ void Renderer::AddPointShadowPass(GraphicsDevice* device, RenderGraph& graph, Fr
 						PointShadowConstants shadowConstants = { lightIdx, face };
 						passCtx.SetRootConstants(3, &shadowConstants, 2);
 
-						passCtx.ExecuteIndirect(m_pointShadowCmdSig, m_pointShadowDrawCount, m_directionalShadowArgBuffer, 0);
+						if (m_pointShadowDrawCount > 0)
+							passCtx.ExecuteIndirect(m_pointShadowCmdSig, m_pointShadowDrawCount, m_pointShadowArgBuffer, 0);
 					}
 				}
 			}
