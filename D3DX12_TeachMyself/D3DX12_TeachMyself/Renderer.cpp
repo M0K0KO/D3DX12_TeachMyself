@@ -193,8 +193,8 @@ void Renderer::Resize(GraphicsDevice* device)
 
 	TextureDesc gtaoTextureDesc = 
 	{
-		m_resizeWidth, 
-		m_resizeHeight,
+		m_resizeWidth / 2, 
+		m_resizeHeight / 2,
 		1, 1,
 		Format::R8G8B8A8_UNORM,
 		TextureUsage::UnorderedAccess,
@@ -883,10 +883,10 @@ FrameContext Renderer::BuildFrameContext(GraphicsDevice* device, CommandContext&
 	RGResourceDesc ssaoTempTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
 	RGResourceHandle ssaoTempTexture = graph.ImportTexture(m_ssaoTempTexture, ssaoTempTextureDesc, RGResourceState::RenderTarget);
 
-	RGResourceDesc gtaoTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM, TextureUsage::UnorderedAccess };
+	RGResourceDesc gtaoTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, Format::R8G8B8A8_UNORM, TextureUsage::UnorderedAccess };
 	RGResourceHandle gtaoTexture = graph.ImportTexture(m_gtaoTexture, gtaoTextureDesc, RGResourceState::UnorderedAccess);
 
-	RGResourceDesc gtaoTempTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM, TextureUsage::UnorderedAccess };
+	RGResourceDesc gtaoTempTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, Format::R8G8B8A8_UNORM, TextureUsage::UnorderedAccess };
 	RGResourceHandle gtaoTempTexture = graph.ImportTexture(m_gtaoTempTexture, gtaoTempTextureDesc, RGResourceState::UnorderedAccess);
 
 	RGResourceDesc sceneColorTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
@@ -990,12 +990,12 @@ FrameContext Renderer::BuildFrameContext(GraphicsDevice* device, CommandContext&
 	GTAOCB gtaoCB;
 	XMStoreFloat4x4(&gtaoCB.View, XMMatrixTranspose(XMLoadFloat4x4(&frameData.ViewMatrix)));
 	XMStoreFloat4x4(&gtaoCB.InvProj, XMMatrixTranspose(XMMatrixInverse(nullptr, XMLoadFloat4x4(&frameData.ProjMatrix))));
-	XMStoreFloat2(&gtaoCB.InvRes, { 1.0f / m_viewportWidth, 1.0f / m_viewportHeight });
+	XMStoreFloat2(&gtaoCB.InvRes, { 1.0f / (m_viewportWidth / 2), 1.0f / (m_viewportHeight / 2) });
 	gtaoCB.Radius = 0.6f;
 	gtaoCB.FalloffStart = gtaoCB.Radius * 0.35f;
 	gtaoCB.FalloffEnd = gtaoCB.Radius;
-	gtaoCB.NumSlices = 6;
-	gtaoCB.NumSteps = 8;
+	gtaoCB.NumSlices = 4;
+	gtaoCB.NumSteps = 6;
 	gtaoCB.FrameIndex = 0;
 
 
@@ -1311,8 +1311,8 @@ void Renderer::InitGTAOPass(GraphicsDevice* device)
 	m_GTAOComputePipeline = device->CreateComputePipeline(m_GTAOComputePipelineDesc);
 
 	TextureDesc gtaoTextureDesc = {};
-	gtaoTextureDesc.width = m_viewportWidth;
-	gtaoTextureDesc.height = m_viewportHeight;
+	gtaoTextureDesc.width = m_viewportWidth / 2;
+	gtaoTextureDesc.height = m_viewportHeight / 2;
 	gtaoTextureDesc.format = Format::R8G8B8A8_UNORM;
 	gtaoTextureDesc.usage = TextureUsage::UnorderedAccess;
 	m_gtaoTexture = device->CreateUAVTexture(gtaoTextureDesc);
@@ -1381,13 +1381,6 @@ void Renderer::InitGTAOBilateralBlurPass(GraphicsDevice* device)
 	m_bilateralBlurComputePipelineDesc.rootSignatureDesc = bilateralBlurPassRSDesc;
 	m_bilateralBlurComputePipelineDesc.cs = ShaderCompiler::GetBytecode(m_bilateralBlurCS);
 	m_bilateralBlurComputePipeline = device->CreateComputePipeline(m_bilateralBlurComputePipelineDesc);
-
-	TextureDesc gtaoTempTextureDesc = {};
-	gtaoTempTextureDesc.width = m_viewportWidth;
-	gtaoTempTextureDesc.height = m_viewportHeight;
-	gtaoTempTextureDesc.format = Format::R8G8B8A8_UNORM;
-	gtaoTempTextureDesc.usage = TextureUsage::UnorderedAccess;
-	m_gtaoTempTexture = device->CreateUAVTexture(gtaoTempTextureDesc);
 }
 void Renderer::InitPBRLightingPass(GraphicsDevice* device)
 {
@@ -1814,7 +1807,7 @@ void Renderer::AddGTAOPass(GraphicsDevice* device, RenderGraph& graph, FrameCont
 				passCtx.SetComputeDescriptorTable(1, device->GetUAVHandle(m_gtaoTexture));
 				passCtx.SetComputeDescriptorTable(2, device->GetSRVHandle(m_depthTexture));
 				passCtx.SetComputeDescriptorTable(3, device->GetSRVHandle(m_gbufferNormal));
-				passCtx.Dispatch((m_viewportWidth + 7) / 8, (m_viewportHeight + 7) / 8, 1);
+				passCtx.Dispatch((m_viewportWidth / 2 + 7) / 8, (m_viewportHeight / 2 + 7) / 8, 1);
 			}
 			passCtx.EndTimestamp(PassID::GTAOPass);
 		}
@@ -1893,7 +1886,7 @@ void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 			{
 				passCtx.SetComputePipeline(m_bilateralBlurComputePipeline);
 
-				GTAOBilateralBlurCB cb{ {1.0f / m_viewportWidth, 1.0f / m_viewportHeight}, {1,0}, 0.1f, 32.0f, 6 };
+				GTAOBilateralBlurCB cb{ {1.0f / (m_viewportWidth / 2), 1.0f / (m_viewportHeight / 2)}, {1,0}, 0.1f, 32.0f, 6 };
 				fc.gtaoBilateralBlurCB = passCtx.UpdateConstantBuffer(&cb, sizeof(GTAOBilateralBlurCB));
 				passCtx.BindComputeConstantBuffer(0, fc.gtaoBilateralBlurCB);
 
@@ -1901,7 +1894,7 @@ void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 				passCtx.SetComputeDescriptorTable(2, device->GetSRVHandle(m_depthTexture));
 				passCtx.SetComputeDescriptorTable(3, device->GetSRVHandle(m_gbufferNormal));
 				passCtx.SetComputeDescriptorTable(4, device->GetUAVHandle(m_gtaoTempTexture));
-				passCtx.Dispatch((m_viewportWidth + 7) / 8, (m_viewportHeight + 7) / 8, 1);
+				passCtx.Dispatch((m_viewportWidth / 2 + 7) / 8, (m_viewportHeight / 2 + 7) / 8, 1);
 			}
 		}
 	);
@@ -1919,7 +1912,7 @@ void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 			{
 				passCtx.SetComputePipeline(m_bilateralBlurComputePipeline);
 
-				GTAOBilateralBlurCB cb{ {1.0f / m_viewportWidth, 1.0f / m_viewportHeight}, {0,1}, 0.1f, 32.0f, 6 };
+				GTAOBilateralBlurCB cb{ {1.0f / (m_viewportWidth / 2), 1.0f / (m_viewportHeight / 2)}, {1,0}, 0.1f, 32.0f, 6 };
 				fc.gtaoBilateralBlurCB = passCtx.UpdateConstantBuffer(&cb, sizeof(GTAOBilateralBlurCB));
 				passCtx.BindComputeConstantBuffer(0, fc.gtaoBilateralBlurCB);
 
@@ -1927,7 +1920,7 @@ void Renderer::AddGTAOBilateralBlurPass(GraphicsDevice* device, RenderGraph& gra
 				passCtx.SetComputeDescriptorTable(2, device->GetSRVHandle(m_depthTexture));
 				passCtx.SetComputeDescriptorTable(3, device->GetSRVHandle(m_gbufferNormal));
 				passCtx.SetComputeDescriptorTable(4, device->GetUAVHandle(m_gtaoTexture));
-				passCtx.Dispatch((m_viewportWidth + 7) / 8, (m_viewportHeight + 7) / 8, 1);
+				passCtx.Dispatch((m_viewportWidth / 2 + 7) / 8, (m_viewportHeight / 2 + 7) / 8, 1);
 			}
 		}
 	);
