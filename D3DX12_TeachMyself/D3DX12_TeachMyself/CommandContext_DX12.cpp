@@ -178,6 +178,14 @@ void CommandContext_DX12::TransitionBarrier(GPUTextureHandle handle, RGResourceS
 	m_commandList->ResourceBarrier(1, &barrier);
 }
 
+void CommandContext_DX12::TransitionBarrier(GPUBufferHandle handle, RGResourceState before, RGResourceState after)
+{
+	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pDevice->m_buffers[handle.id].resource.Get(),
+		GetDXResourceState(before),
+		GetDXResourceState(after));
+}
+
 void CommandContext_DX12::ClearRenderTarget(GPUTextureHandle handle, const float clearValue[4])
 {
 	const auto& rtvHandle = m_pDevice->m_textures[handle.id].rtv;
@@ -225,6 +233,20 @@ void CommandContext_DX12::SetRenderTarget(UINT numRT, GPUTextureHandle* renderTa
 		FALSE,
 		depth.IsValid() ? &dsvHandle : nullptr
 	);
+}
+
+void CommandContext_DX12::ExecuteIndirect(GPUCommandSignatureHandle cmdSigHandle, UINT drawCount, GPUBufferHandle argBufferHandle, UINT argBufferOffset)
+{
+	auto& sig = m_pDevice->m_cmdSigs[cmdSigHandle.id];
+	auto& argBuf = m_pDevice->m_buffers[argBufferHandle.id];
+
+	m_commandList->ExecuteIndirect(
+		sig.cmdSig.Get(),
+		drawCount,
+		argBuf.resource.Get(),
+		argBufferOffset,
+		nullptr,
+		0);
 }
 
 void CommandContext_DX12::DrawIndexed(uint32_t indexCount, uint32_t startIndex, uint32_t baseVertex)

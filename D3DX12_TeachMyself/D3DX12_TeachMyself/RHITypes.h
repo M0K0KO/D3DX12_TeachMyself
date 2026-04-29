@@ -55,6 +55,7 @@ enum class BufferUsage : uint32_t
 	Index	   = 1 << 1,
 	Constant   = 1 << 2,
 	Structured = 1 << 3,
+	IndirectArgument = 1 << 4,
 };
 
 inline BufferUsage operator| (BufferUsage a, BufferUsage b)
@@ -113,6 +114,7 @@ enum class RGResourceState
 	UnorderedAccess,
 	Present,
 	CopyDest,
+	IndirectArgument
 };
 
 enum class RangeType
@@ -174,6 +176,14 @@ enum class PrimitiveTopology
 	PointList,
 };
 
+enum class IndirectArgType 
+{ 
+	Constant,
+	IndexBufferView, 
+	DrawIndexed,
+};
+
+
 struct CBHandle
 {
 	unsigned long long gpuAddress;
@@ -192,6 +202,12 @@ struct GPUTextureHandle
 };
 
 struct PipelineHandle
+{
+	uint32_t id = UINT32_MAX;
+	bool IsValid() const { return id != UINT32_MAX; }
+};
+
+struct GPUCommandSignatureHandle
 {
 	uint32_t id = UINT32_MAX;
 	bool IsValid() const { return id != UINT32_MAX; }
@@ -316,4 +332,12 @@ struct ComputePipelineDesc
 {
 	RootSignatureDesc rootSignatureDesc;
 	ShaderBytecode cs;
+};
+
+struct IndirectArgDesc
+{
+	IndirectArgType type;
+	uint32_t rootParamIdx;
+	uint32_t destOffset;
+	uint32_t num32Bit;
 };

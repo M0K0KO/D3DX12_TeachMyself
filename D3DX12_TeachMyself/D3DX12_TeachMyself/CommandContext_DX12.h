@@ -38,10 +38,15 @@ public:
 	void BindRootSRV(uint32_t slot, GPUBufferHandle handle) override;
 
 	void TransitionBarrier(GPUTextureHandle handle, RGResourceState before, RGResourceState after) override;
+	void TransitionBarrier(GPUBufferHandle handle, RGResourceState before, RGResourceState after) override;
+
+
 	void ClearRenderTarget(GPUTextureHandle handle, const float clearValue[4]) override;
 	void ClearDepthStencil(GPUTextureHandle handle, float depth, int faceIdx = -1) override;
 	void ClearRenderTargets(UINT numRT, GPUTextureHandle* renderTargets, const float clearValue[4]) override;
 	void SetRenderTarget(UINT numRT, GPUTextureHandle* renderTargets, GPUTextureHandle depth, int faceIdx = -1) override;
+
+	void ExecuteIndirect(GPUCommandSignatureHandle cmdSigHandle, UINT drawCount, GPUBufferHandle argBufferHandle, UINT argBufferOffset) override;
 	void DrawIndexed(uint32_t indexCount, uint32_t startIndex, uint32_t baseVertex) override;
 	void Draw(uint32_t vertexCount, uint32_t startVertex) override;
 
@@ -65,6 +70,7 @@ private:
 		case RGResourceState::ShaderResource:	return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 		case RGResourceState::Present:			return D3D12_RESOURCE_STATE_PRESENT;
 		case RGResourceState::CopyDest:			return D3D12_RESOURCE_STATE_COPY_DEST;
+		case RGResourceState::IndirectArgument: return D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
 		}
 	}
 

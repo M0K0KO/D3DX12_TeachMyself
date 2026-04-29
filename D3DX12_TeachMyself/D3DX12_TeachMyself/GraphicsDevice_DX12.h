@@ -43,12 +43,15 @@ public:
 	PipelineHandle CreatePipeline(const PipelineDesc desc) override;
 	PipelineHandle CreateComputePipeline(const ComputePipelineDesc desc) override;
 
+	GPUCommandSignatureHandle CreateCommandSignature(uint32_t byteStride, std::span<const IndirectArgDesc> args, PipelineHandle psoHandle) override;
+
 	DescriptorHandle GetSRVHandle(GPUTextureHandle handle) override;
 	DescriptorHandle GetSRVHandle(GPUBufferHandle handle) override;
 	DescriptorHandle GetUAVHandle(GPUTextureHandle handle, uint32_t mip = 0) override;
 
 	void DestroyBuffer(GPUBufferHandle handle) override;
 	void DestroyTexture(GPUTextureHandle handle) override;
+	void DestroyCommandSignature(GPUCommandSignatureHandle handle) override;
 
 	void ExecuteImmediate(std::function<void(CommandContext&)> fn) override;
 	CommandContext& BeginFrame() override;
@@ -56,6 +59,8 @@ public:
 
 	GPUTextureHandle GetCurrentBackBuffer() override;
 	GPUTextureHandle* GetCurrentBackBufferPtr() override;
+
+	GPUIndexBufferView GetIndexBufferView(GPUBufferHandle buffer, uint32_t offsetInBytes, uint32_t sizeInBytes, Format indexFormat) override;
 
 	void ResizeSwapChain(uint32_t width, uint32_t height) override;
 	uint32_t GetWidth() override;
@@ -166,9 +171,15 @@ private:
 		PrimitiveTopology topology;
 	};
 
+	struct InternalCommandSignature
+	{
+		ComPtr<ID3D12CommandSignature> cmdSig;
+	};
+
 	std::vector<InternalBuffer> m_buffers;
 	std::vector<InternalTexture> m_textures;
 	std::vector<InternalPipeline> m_pipelines;
+	std::vector<InternalCommandSignature> m_cmdSigs;
 
 	struct PendingResourceRelease
 	{

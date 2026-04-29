@@ -27,27 +27,29 @@ enum class DebugViewMode : uint32_t
 
 struct FrameContext
 {
-	RGResourceHandle backBuffer;
-	RGResourceHandle gbufferAlbedo;
-	RGResourceHandle gbufferNormal;
-	RGResourceHandle gbufferMR;
-	RGResourceHandle gbufferEmissive;
-	RGResourceHandle depthTexture;
-	RGResourceHandle skyboxTexture;
-	RGResourceHandle irradianceMap;
-	RGResourceHandle prefilteredEnvMap;
-	RGResourceHandle brdfLutTexture;
-	RGResourceHandle shadowMap;
-	std::vector<RGResourceHandle> pointShadowMaps;
+	RGTextureHandle backBuffer;
+	RGTextureHandle gbufferAlbedo;
+	RGTextureHandle gbufferNormal;
+	RGTextureHandle gbufferMR;
+	RGTextureHandle gbufferEmissive;
+	RGTextureHandle depthTexture;
+	RGTextureHandle skyboxTexture;
+	RGTextureHandle irradianceMap;
+	RGTextureHandle prefilteredEnvMap;
+	RGTextureHandle brdfLutTexture;
+	RGTextureHandle shadowMap;
+	std::vector<RGTextureHandle> pointShadowMaps;
 	int pointLightCount = 0;
 	std::vector<PointLightData> pointLights;
-	RGResourceHandle ssaoTexture;
-	RGResourceHandle ssaoNoiseTexture;
-	RGResourceHandle ssaoTempTexture;
-	RGResourceHandle gtaoTexture;
-	RGResourceHandle gtaoTempTexture;
-	RGResourceHandle scenecolor;
-	RGResourceHandle sceneColorLDR;
+	RGTextureHandle ssaoTexture;
+	RGTextureHandle ssaoNoiseTexture;
+	RGTextureHandle ssaoTempTexture;
+	RGTextureHandle gtaoTexture;
+	RGTextureHandle gtaoTempTexture;
+	RGTextureHandle scenecolor;
+	RGTextureHandle sceneColorLDR;
+
+	RGBufferHandle shadowArgBuffer;
 
 	CBHandle perFrameCB;
 	CBHandle lightCB;
@@ -100,7 +102,10 @@ private:
 		float cascadeSplits[CASCADE_COUNT + 1],
 		XMMATRIX outLightViewProj[CASCADE_COUNT]);
 
-	FrameContext BuildFrameContext(GraphicsDevice* device, CommandContext&ctx, RenderGraph& graph, const RenderScene& scene);
+	FrameContext BuildFrameContext(GraphicsDevice* device, CommandContext& ctx, RenderGraph& graph, const RenderScene& scene);
+
+	void UpdateIndirectArgBuffers(GraphicsDevice* device, const RenderScene& scene);
+
 	void BuildSceneGraph(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& scene);
 	void BuildPresentGraph(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc);
 	void BuildDebugGraph(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc);
@@ -395,4 +400,16 @@ private:
 	uint32_t m_resizeWidth = 0;
 	uint32_t m_resizeHeight = 0;
 	bool m_needsResize = false;
+
+	struct ShadowIndirectCommand
+	{
+		uint32_t objIdx;
+		uint32_t vertexBufferIdx;
+		D3D12_INDEX_BUFFER_VIEW ibv;
+		D3D12_DRAW_INDEXED_ARGUMENTS drawArgs;
+	};
+	GPUCommandSignatureHandle m_shadowCmdSig;
+	GPUBufferHandle m_shadowArgBuffer;
+	static constexpr uint32_t MAX_SHADOW_DRAWS = 4096;
+	uint32_t m_shadowDrawCount = 0;
 };

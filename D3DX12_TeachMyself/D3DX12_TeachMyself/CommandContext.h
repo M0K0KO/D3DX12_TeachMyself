@@ -37,6 +37,7 @@ public:
 	virtual void BindRootSRV(uint32_t slot, GPUBufferHandle handle) = 0;
 
 	virtual void TransitionBarrier(GPUTextureHandle handle, RGResourceState before, RGResourceState after) = 0;
+	virtual void TransitionBarrier(GPUBufferHandle handle, RGResourceState before, RGResourceState after) = 0;
 
 	virtual void ClearRenderTarget(GPUTextureHandle handle, const float clearValue[4]) = 0;
 	virtual void ClearRenderTargets(UINT numRT, GPUTextureHandle* renderTargets, const float clearValue[4]) = 0;
@@ -44,6 +45,7 @@ public:
 
 	virtual void SetRenderTarget(UINT numRT, GPUTextureHandle* renderTargets, GPUTextureHandle depth, int faceIdx = -1) = 0;
 
+	virtual void ExecuteIndirect(GPUCommandSignatureHandle cmdSigHandle, UINT drawCount, GPUBufferHandle argBufferHandle, UINT argBufferOffset) = 0;
 	virtual void DrawIndexed(uint32_t indexCount, uint32_t startIndex, uint32_t baseVertex) = 0;
 	virtual void Draw(uint32_t vertexCount, uint32_t startVertex) = 0;
 

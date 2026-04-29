@@ -822,6 +822,60 @@ PipelineHandle GraphicsDevice_DX12::CreateComputePipeline(const ComputePipelineD
 	return PipelineHandle{ id };
 }
 
+GPUCommandSignatureHandle GraphicsDevice_DX12::CreateCommandSignature(uint32_t byteStride, std::span<const IndirectArgDesc> args, PipelineHandle psoHandle)
+{
+	std::vector<D3D12_INDIRECT_ARGUMENT_DESC> d3dArgs;
+	d3dArgs.reserve(args.size());
+	
+	for (const auto& a : args)
+	{
+		D3D12_INDIRECT_ARGUMENT_DESC d3dDesc = {};
+
+		switch (a.type)
+		{
+		case IndirectArgType::Constant:
+			d3dDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+			d3dDesc.Constant.RootParameterIndex = a.rootParamIdx;
+			d3dDesc.Constant.DestOffsetIn32BitValues = a.destOffset;
+			d3dDesc.Constant.Num32BitValuesToSet = a.num32Bit;
+			break;
+
+		case IndirectArgType::IndexBufferView:
+			d3dDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_INDEX_BUFFER_VIEW;
+			break;
+
+		case IndirectArgType::DrawIndexed:
+			d3dDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+			break;
+
+		default:
+			throw std::exception{};
+		}
+
+		d3dArgs.push_back(d3dDesc);
+	}
+
+	D3D12_COMMAND_SIGNATURE_DESC desc = {};
+	desc.ByteStride = byteStride;
+	desc.NumArgumentDescs = (UINT)d3dArgs.size();
+	desc.pArgumentDescs = d3dArgs.data();
+	desc.NodeMask = 0;
+
+	const InternalPipeline& pipe = m_pipelines[psoHandle.id];
+
+	ComPtr<ID3D12CommandSignature> sig;
+	HR_CHECK(m_device->CreateCommandSignature(&desc, pipe.rootSignature.Get(), IID_PPV_ARGS(&sig)));
+
+	InternalCommandSignature internalSignature{};
+	internalSignature.cmdSig = std::move(sig);
+
+	m_cmdSigs.push_back(internalSignature);
+	
+	GPUCommandSignatureHandle handle = { (uint32_t)(m_cmdSigs.size() - 1) };
+
+	return handle;
+}
+
 ComPtr<ID3D12RootSignature> GraphicsDevice_DX12::BuildRootSignature(const RootSignatureDesc& desc)
 {
 	D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
@@ -998,6 +1052,11 @@ void GraphicsDevice_DX12::DestroyTexture(GPUTextureHandle handle)
 	EnqueueResourceRelease(std::move(resourceToRelease), m_nextFenceValue);
 }
 
+void GraphicsDevice_DX12::DestroyCommandSignature(GPUCommandSignatureHandle handle)
+{
+
+}
+
 const ComPtr<ID3D12Resource> GraphicsDevice_DX12::GetTextureResource(GPUTextureHandle handle)
 {
 	return m_textures[handle.id].resource;
@@ -1006,6 +1065,16 @@ const ComPtr<ID3D12Resource> GraphicsDevice_DX12::GetTextureResource(GPUTextureH
 GPUTextureHandle* GraphicsDevice_DX12::GetCurrentBackBufferPtr()
 {
 	return &(m_backBufferHandles[m_frameIndex]);
+}
+
+GPUIndexBufferView GraphicsDevice_DX12::GetIndexBufferView(GPUBufferHandle buffer, uint32_t offsetInBytes, uint32_t sizeInBytes, Format indexFormat)
+{
+	auto& buf = m_buffers[buffer.id];
+	return {
+		.gpuAddress = buf.resource->GetGPUVirtualAddress() + offsetInBytes,
+		.sizeInBytes = sizeInBytes,
+		.format = indexFormat,
+	};
 }
 
 GPUTextureHandle GraphicsDevice_DX12::GetCurrentBackBuffer()

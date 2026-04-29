@@ -115,7 +115,6 @@ void Renderer::Render(GraphicsDevice* device, CommandContext& ctx, const RenderS
 			m_debugLines.size() * sizeof(DebugLineVertex));
 	}
 
-
 	if (!renderScene.transforms.empty())
 	{
 		device->UpdateBuffer(
@@ -126,6 +125,9 @@ void Renderer::Render(GraphicsDevice* device, CommandContext& ctx, const RenderS
 
 	RenderGraph graph(device);
 	FrameContext fc = BuildFrameContext(device, ctx, graph, renderScene);
+
+	UpdateIndirectArgBuffers(device, renderScene);
+
 	BuildSceneGraph(device, graph, fc, renderScene);
 
 	BuildPresentGraph(device, graph, fc);
@@ -835,67 +837,71 @@ FrameContext Renderer::BuildFrameContext(GraphicsDevice* device, CommandContext&
 {
 	auto& frameData = renderScene.frameData;
 
-	RGResourceDesc backBufferDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
-	RGResourceHandle backBuffer = graph.ImportTexture(device->GetCurrentBackBuffer(), backBufferDesc, RGResourceState::Present);
+	RGTextureDesc backBufferDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	RGTextureHandle backBuffer = graph.ImportTexture(device->GetCurrentBackBuffer(), backBufferDesc, RGResourceState::Present);
 
-	RGResourceDesc gbufferAlbedoDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
-	RGResourceHandle gbufferAlbedo = graph.ImportTexture(m_gbufferAlbedo, gbufferAlbedoDesc, RGResourceState::RenderTarget);
+	RGTextureDesc gbufferAlbedoDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	RGTextureHandle gbufferAlbedo = graph.ImportTexture(m_gbufferAlbedo, gbufferAlbedoDesc, RGResourceState::RenderTarget);
 
-	RGResourceDesc gbufferNormalDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
-	RGResourceHandle gbufferNormal = graph.ImportTexture(m_gbufferNormal, gbufferNormalDesc, RGResourceState::RenderTarget);
+	RGTextureDesc gbufferNormalDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
+	RGTextureHandle gbufferNormal = graph.ImportTexture(m_gbufferNormal, gbufferNormalDesc, RGResourceState::RenderTarget);
 
-	RGResourceDesc gbufferMRDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
-	RGResourceHandle gbufferMR = graph.ImportTexture(m_gbufferMR, gbufferMRDesc, RGResourceState::RenderTarget);
+	RGTextureDesc gbufferMRDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM, TextureUsage::RenderTarget };
+	RGTextureHandle gbufferMR = graph.ImportTexture(m_gbufferMR, gbufferMRDesc, RGResourceState::RenderTarget);
 
-	RGResourceDesc gbufferEmissiveDesc = { m_viewportWidth, m_viewportHeight, Format::R11G11B10_FLOAT, TextureUsage::RenderTarget };
-	RGResourceHandle gbufferEmissive = graph.ImportTexture(m_gbufferEmissive, gbufferEmissiveDesc, RGResourceState::RenderTarget);
+	RGTextureDesc gbufferEmissiveDesc = { m_viewportWidth, m_viewportHeight, Format::R11G11B10_FLOAT, TextureUsage::RenderTarget };
+	RGTextureHandle gbufferEmissive = graph.ImportTexture(m_gbufferEmissive, gbufferEmissiveDesc, RGResourceState::RenderTarget);
 
-	RGResourceDesc depthTextrueDesc = { m_viewportWidth, m_viewportHeight, Format::R32_TYPELESS, TextureUsage::DepthStencil };
-	RGResourceHandle depthTexture = graph.ImportTexture(m_depthTexture, depthTextrueDesc, RGResourceState::DepthWrite);
+	RGTextureDesc depthTextrueDesc = { m_viewportWidth, m_viewportHeight, Format::R32_TYPELESS, TextureUsage::DepthStencil };
+	RGTextureHandle depthTexture = graph.ImportTexture(m_depthTexture, depthTextrueDesc, RGResourceState::DepthWrite);
 
-	RGResourceDesc cubeMapDesc = { 4096, 4096, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
-	RGResourceHandle cubeMap = graph.ImportTexture(m_cubemapTexture, cubeMapDesc, RGResourceState::ShaderResource);
+	RGTextureDesc cubeMapDesc = { 4096, 4096, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
+	RGTextureHandle cubeMap = graph.ImportTexture(m_cubemapTexture, cubeMapDesc, RGResourceState::ShaderResource);
 
-	RGResourceDesc irradiacneMapDesc = { 32, 32, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
-	RGResourceHandle irradiacneMap = graph.ImportTexture(m_irradianceMapTexture, irradiacneMapDesc, RGResourceState::ShaderResource);
+	RGTextureDesc irradiacneMapDesc = { 32, 32, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
+	RGTextureHandle irradiacneMap = graph.ImportTexture(m_irradianceMapTexture, irradiacneMapDesc, RGResourceState::ShaderResource);
 
-	RGResourceDesc prefilteredEnvMapDesc = { 512, 512, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
-	RGResourceHandle prefilteredEnvMap = graph.ImportTexture(m_prefilteredEnvMapTexture, prefilteredEnvMapDesc, RGResourceState::ShaderResource);
+	RGTextureDesc prefilteredEnvMapDesc = { 512, 512, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
+	RGTextureHandle prefilteredEnvMap = graph.ImportTexture(m_prefilteredEnvMapTexture, prefilteredEnvMapDesc, RGResourceState::ShaderResource);
 
-	RGResourceDesc brdfLUTDesc = { 512, 512, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
-	RGResourceHandle brdfLUT = graph.ImportTexture(m_brdfLUTTexture, brdfLUTDesc, RGResourceState::ShaderResource);
+	RGTextureDesc brdfLUTDesc = { 512, 512, Format::R16G16B16A16_FLOAT, TextureUsage::ShaderResource };
+	RGTextureHandle brdfLUT = graph.ImportTexture(m_brdfLUTTexture, brdfLUTDesc, RGResourceState::ShaderResource);
 
-	RGResourceDesc shadowMapDesc = { 4096, 4096, Format::R32_TYPELESS, TextureUsage::DepthStencil };
-	RGResourceHandle shadowMap = graph.ImportTexture(m_shadowMapTexture, shadowMapDesc, RGResourceState::DepthWrite);
+	RGTextureDesc shadowMapDesc = { 4096, 4096, Format::R32_TYPELESS, TextureUsage::DepthStencil };
+	RGTextureHandle shadowMap = graph.ImportTexture(m_shadowMapTexture, shadowMapDesc, RGResourceState::DepthWrite);
 
-	std::vector<RGResourceHandle> pointShadowMaps;
-	RGResourceDesc pointShadowMapDesc = { 1024, 1024, Format::R32_TYPELESS, TextureUsage::DepthStencil };
+	std::vector<RGTextureHandle> pointShadowMaps;
+	RGTextureDesc pointShadowMapDesc = { 1024, 1024, Format::R32_TYPELESS, TextureUsage::DepthStencil };
 	const int importedPointLightCount = std::min(MAX_POINT_LIGHTS, frameData.PointLightCount);
 	for (int i = 0; i < MAX_POINT_LIGHTS; i++)
 	{
 		pointShadowMaps.push_back(graph.ImportTexture(m_pointShadowMapTextures[i], pointShadowMapDesc, RGResourceState::DepthWrite));
 	}
 
-	RGResourceDesc ssaoTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
-	RGResourceHandle ssaoTexture = graph.ImportTexture(m_ssaoTexture, ssaoTextureDesc, RGResourceState::RenderTarget);
+	RGTextureDesc ssaoTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
+	RGTextureHandle ssaoTexture = graph.ImportTexture(m_ssaoTexture, ssaoTextureDesc, RGResourceState::RenderTarget);
 
-	RGResourceDesc ssaoNoiseTextureDesc = { 4, 4, Format::R32G32B32A32_FLOAT, TextureUsage::ShaderResource };
-	RGResourceHandle ssaoNoiseTexture = graph.ImportTexture(m_ssaoNoiseTexture, ssaoNoiseTextureDesc, RGResourceState::ShaderResource);
+	RGTextureDesc ssaoNoiseTextureDesc = { 4, 4, Format::R32G32B32A32_FLOAT, TextureUsage::ShaderResource };
+	RGTextureHandle ssaoNoiseTexture = graph.ImportTexture(m_ssaoNoiseTexture, ssaoNoiseTextureDesc, RGResourceState::ShaderResource);
 
-	RGResourceDesc ssaoTempTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
-	RGResourceHandle ssaoTempTexture = graph.ImportTexture(m_ssaoTempTexture, ssaoTempTextureDesc, RGResourceState::RenderTarget);
+	RGTextureDesc ssaoTempTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, Format::R8_UNORM, TextureUsage::RenderTarget };
+	RGTextureHandle ssaoTempTexture = graph.ImportTexture(m_ssaoTempTexture, ssaoTempTextureDesc, RGResourceState::RenderTarget);
 
-	RGResourceDesc gtaoTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, Format::R8G8B8A8_UNORM, TextureUsage::UnorderedAccess };
-	RGResourceHandle gtaoTexture = graph.ImportTexture(m_gtaoTexture, gtaoTextureDesc, RGResourceState::UnorderedAccess);
+	RGTextureDesc gtaoTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, Format::R8G8B8A8_UNORM, TextureUsage::UnorderedAccess };
+	RGTextureHandle gtaoTexture = graph.ImportTexture(m_gtaoTexture, gtaoTextureDesc, RGResourceState::UnorderedAccess);
 
-	RGResourceDesc gtaoTempTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, Format::R8G8B8A8_UNORM, TextureUsage::UnorderedAccess };
-	RGResourceHandle gtaoTempTexture = graph.ImportTexture(m_gtaoTempTexture, gtaoTempTextureDesc, RGResourceState::UnorderedAccess);
+	RGTextureDesc gtaoTempTextureDesc = { m_viewportWidth / 2, m_viewportHeight / 2, Format::R8G8B8A8_UNORM, TextureUsage::UnorderedAccess };
+	RGTextureHandle gtaoTempTexture = graph.ImportTexture(m_gtaoTempTexture, gtaoTempTextureDesc, RGResourceState::UnorderedAccess);
 
-	RGResourceDesc sceneColorTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
-	RGResourceHandle sceneColorTexture = graph.ImportTexture(m_sceneColorTexture, sceneColorTextureDesc, RGResourceState::RenderTarget);
+	RGTextureDesc sceneColorTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R16G16B16A16_FLOAT, TextureUsage::RenderTarget };
+	RGTextureHandle sceneColorTexture = graph.ImportTexture(m_sceneColorTexture, sceneColorTextureDesc, RGResourceState::RenderTarget);
 
-	RGResourceDesc sceneColorLDRTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM_SRGB, TextureUsage::RenderTarget };
-	RGResourceHandle sceneColorLDRTexture = graph.ImportTexture(m_sceneColorLDRTexture, sceneColorLDRTextureDesc, RGResourceState::RenderTarget);
+	RGTextureDesc sceneColorLDRTextureDesc = { m_viewportWidth, m_viewportHeight, Format::R8G8B8A8_UNORM_SRGB, TextureUsage::RenderTarget };
+	RGTextureHandle sceneColorLDRTexture = graph.ImportTexture(m_sceneColorLDRTexture, sceneColorLDRTextureDesc, RGResourceState::RenderTarget);
+
+	RGBufferDesc shadowArgBufferDesc = { MAX_SHADOW_DRAWS * sizeof(ShadowIndirectCommand), sizeof(ShadowIndirectCommand), BufferUsage::IndirectArgument};
+	RGBufferHandle shadowArgBuffer = graph.ImportBuffer(m_shadowArgBuffer, shadowArgBufferDesc, RGResourceState::IndirectArgument);
+
 
 	PerFrameCB perFrame;
 	XMMATRIX vp = XMLoadFloat4x4(&frameData.ViewMatrix) * XMLoadFloat4x4(&frameData.ProjMatrix);
@@ -960,6 +966,9 @@ FrameContext Renderer::BuildFrameContext(GraphicsDevice* device, CommandContext&
 		std::move(fcPointLights),
 		ssaoTexture, ssaoNoiseTexture, ssaoTempTexture, gtaoTexture, gtaoTempTexture,
 		sceneColorTexture, sceneColorLDRTexture,
+
+		shadowArgBuffer,
+
 		{}, {}, {}, {}, {}, {}
 	};
 
@@ -1027,6 +1036,36 @@ FrameContext Renderer::BuildFrameContext(GraphicsDevice* device, CommandContext&
 	fc.gtaoCB = ctx.UpdateConstantBuffer(&gtaoCB, sizeof(GTAOCB));
 
 	return fc;
+}
+
+void Renderer::UpdateIndirectArgBuffers(GraphicsDevice* device, const RenderScene& scene)
+{
+	std::vector<ShadowIndirectCommand> cmds;
+	cmds.reserve(scene.renderObjects.size());
+	for (const auto& obj : scene.renderObjects)
+	{
+		if (m_assetManager->Materials().Get(obj.material)->alphaMode != AlphaMode::Opaque)
+			continue;
+
+		GPUIndexBufferView ibv = device->GetIndexBufferView(
+			obj.indexBuffer,
+			obj.indexOffset * sizeof(uint32_t),
+			obj.indexCount * sizeof(uint32_t),
+			Format::R32_UINT);
+
+		ShadowIndirectCommand cmd = {};
+		cmd.objIdx = obj.transformIdx;
+		cmd.vertexBufferIdx = obj.vertexBufferIndex;
+		cmd.ibv.BufferLocation = ibv.gpuAddress;
+		cmd.ibv.SizeInBytes = ibv.sizeInBytes;
+		cmd.ibv.Format = DXGI_FORMAT_R32_UINT;
+		cmd.drawArgs = { obj.indexCount, 1, 0, 0, 0 };
+
+		cmds.push_back(cmd);
+	}
+	m_shadowDrawCount = (uint32_t)cmds.size();
+	if (m_shadowDrawCount > 0)
+		device->UpdateBuffer(m_shadowArgBuffer, cmds.data(), cmds.size() * sizeof(ShadowIndirectCommand));
 }
 
 void Renderer::BuildSceneGraph(GraphicsDevice* device, RenderGraph& graph, FrameContext& fc, const RenderScene& renderScene)
@@ -1181,8 +1220,22 @@ void Renderer::InitDirectionalShadowPass(GraphicsDevice* device)
 
 	m_shadowMapPipeline = device->CreatePipeline(m_shadowMapPipelineDesc);
 
+
+	IndirectArgDesc shadowArgs[] = {
+		{.type = IndirectArgType::Constant, .rootParamIdx = 2, .destOffset = 0, .num32Bit = 2},
+		{.type = IndirectArgType::IndexBufferView },
+		{.type = IndirectArgType::DrawIndexed },
+	};
+	m_shadowCmdSig = device->CreateCommandSignature(sizeof(ShadowIndirectCommand), shadowArgs, m_shadowMapPipeline);
+
 	TextureDesc shadowMapDesc = { 4096, 4096, 1, 1, Format::D32_FLOAT, TextureUsage::DepthStencil, false };
 	m_shadowMapTexture = device->CreateDSTexture(shadowMapDesc);
+
+	BufferDesc argBufDesc = {};
+	argBufDesc.size = MAX_SHADOW_DRAWS * sizeof(ShadowIndirectCommand);
+	argBufDesc.usage = BufferUsage::IndirectArgument;
+	argBufDesc.access = MemoryAccess::GpuOnly;
+	m_shadowArgBuffer = device->CreateBuffer(argBufDesc);
 }
 void Renderer::InitPointShadowPass(GraphicsDevice* device)
 {
@@ -1561,9 +1614,10 @@ void Renderer::AddGBufferPass(GraphicsDevice* device, RenderGraph& graph, FrameC
 		"GBufferOpaquePass",
 		[&](RGBuilder& builder) {
 			builder.Read(fc.depthTexture, RGResourceState::DepthRead);
-			builder.Write(fc.gbufferAlbedo, RGResourceState::RenderTarget);
-			builder.Write(fc.gbufferNormal, RGResourceState::RenderTarget);
-			builder.Write(fc.gbufferMR, RGResourceState::RenderTarget);
+
+			builder.Write(fc.gbufferAlbedo,   RGResourceState::RenderTarget);
+			builder.Write(fc.gbufferNormal,   RGResourceState::RenderTarget);
+			builder.Write(fc.gbufferMR,       RGResourceState::RenderTarget);
 			builder.Write(fc.gbufferEmissive, RGResourceState::RenderTarget);
 		},
 		[this, &fc, device, &scene](CommandContext& passCtx) {
@@ -1639,6 +1693,8 @@ void Renderer::AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& gra
 	graph.AddPass(
 		"DirectionalShadowPass",
 		[&](RGBuilder& builder) {
+			builder.Read(fc.shadowArgBuffer, RGResourceState::IndirectArgument);
+
 			builder.Write(fc.shadowMap, RGResourceState::DepthWrite);
 		},
 		[this, &fc, device, &scene](CommandContext& passCtx) {
@@ -1653,7 +1709,6 @@ void Renderer::AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& gra
 					constexpr int CASCADE_TILE_SIZE = 2048;
 					int offsets[4][2] = { {0,0}, {2048,0}, {0,2048}, {2048,2048} };
 
-
 					for (int c = 0; c < CASCADE_COUNT; c++)
 					{
 						passCtx.SetViewport(offsets[c][0], offsets[c][1], 2048, 2048, 0.0f, 1.0f);
@@ -1665,17 +1720,7 @@ void Renderer::AddDirectionalShadowPass(GraphicsDevice* device, RenderGraph& gra
 						passCtx.BindConstantBuffer(0, cascadeCB);
 						passCtx.BindRootSRV(1, m_transformBuffer);
 
-						for (const auto& obj : scene.renderObjects)
-						{
-							if (m_assetManager->Materials().Get(obj.material)->alphaMode == AlphaMode::Opaque)
-							{
-								uint32_t rootData[2] = { obj.transformIdx, obj.vertexBufferIndex };
-								passCtx.SetRootConstants(2, &rootData, 2);
-
-								passCtx.SetIndexBuffer(obj.indexBuffer);
-								passCtx.DrawIndexed(obj.indexCount, obj.indexOffset, 0);
-							}
-						}
+						passCtx.ExecuteIndirect(m_shadowCmdSig, m_shadowDrawCount, m_shadowArgBuffer, 0);
 					}
 				}
 				passCtx.EndTimestamp(PassID::DirectionalShadowPass);
