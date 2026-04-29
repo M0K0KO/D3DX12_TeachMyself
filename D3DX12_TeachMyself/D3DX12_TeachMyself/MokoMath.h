@@ -153,3 +153,11 @@ inline float LengthSq3(const XMFLOAT3& v)
 {
 	return v.x * v.x + v.y * v.y + v.z * v.z;
 }
+
+inline XMVECTOR GetStableUpVector(FXMVECTOR forward)
+{
+	const XMVECTOR worldUp = XMVectorSet(0, 1, 0, 0);
+	const XMVECTOR worldRight = XMVectorSet(1, 0, 0, 0);
+	const float alignmentWithUp = fabsf(XMVectorGetX(XMVector3Dot(XMVector3Normalize(forward), worldUp)));
+	return (alignmentWithUp > 0.999f) ? worldRight : worldUp;
+}

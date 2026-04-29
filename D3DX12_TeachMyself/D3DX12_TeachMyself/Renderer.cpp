@@ -9,6 +9,7 @@
 #include "MokoTime.h"
 #include <random>
 #include <imgui_impl_dx12.h>
+#include "MokoMath.h"
 
 static inline float PointAABBDistanceSq(const XMFLOAT3& p, const XMFLOAT3& aabbMin, const XMFLOAT3& aabbMax)
 {
@@ -752,10 +753,11 @@ void Renderer::BuildCascadeShadowMatrices(
 					XMLoadFloat3(&sceneAABBMin))));
 		sceneDiagonal = std::max(0.1f, sceneDiagonal);
 
+		const XMVECTOR lightForward = XMVectorNegate(lightDir);
 		XMMATRIX lightView = XMMatrixLookAtLH(
 			XMVectorSubtract(center, XMVectorScale(lightDir, sceneDiagonal)),
 			center,
-			XMVectorSet(0, 1, 0, 0));
+			GetStableUpVector(lightForward));
 
 		XMFLOAT3 mins = { FLT_MAX, FLT_MAX, FLT_MAX };
 		XMFLOAT3 maxs = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
@@ -919,7 +921,7 @@ FrameContext Renderer::BuildFrameContext(GraphicsDevice* device, CommandContext&
 
 	XMVECTOR targetPos = XMVectorSet(0, 0, 0, 0);
 	XMVECTOR lightPos = XMVectorSubtract(targetPos, XMVectorScale(XMLoadFloat3(&frameData.DirectionalLightDir), 50.0f));
-	XMMATRIX lightView = XMMatrixLookAtLH(lightPos, targetPos, XMVectorSet(0, 1, 0, 0));
+	XMMATRIX lightView = XMMatrixLookAtLH(lightPos, targetPos, GetStableUpVector(XMVectorSubtract(targetPos, lightPos)));
 	XMMATRIX lightProj = XMMatrixOrthographicLH(100.0f, 100.0f, 1.0f, 300.0f);
 	XMMATRIX lightVP = lightView * lightProj;
 
