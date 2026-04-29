@@ -101,6 +101,7 @@ private:
 	struct ContentBrowserEntry
 	{
 		std::string name;
+		std::string lowerName;
 		std::filesystem::path fullPath;
 		bool isDirectory = false;
 	};
@@ -125,6 +126,10 @@ private:
 	bool m_contentOnlyGLTF = false;
 	bool m_forceContentBrowserRefresh = true;
 	ContentBrowserCache m_contentBrowserCache;
+	std::vector<size_t> m_contentBrowserVisibleIndices;
+	std::string m_contentBrowserLastSearchLower;
+	bool m_contentBrowserLastOnlyGLTF = false;
+	bool m_contentBrowserFilterDirty = true;
 	bool m_viewportStatusBarFolded = false;
 
 	float m_cpuUpdateMsRaw = 0.0f;

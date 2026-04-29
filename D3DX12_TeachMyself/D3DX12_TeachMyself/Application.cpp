@@ -46,7 +46,7 @@ int Application::Run()
 			return *exitCode;
 
 		MokoTime::Tick();
-
+			
 		const auto updateStart = std::chrono::high_resolution_clock::now();
 		Update();
 		const auto updateEnd = std::chrono::high_resolution_clock::now();
@@ -156,6 +156,7 @@ void Application::Render()
 	RenderScene renderScene = ExtractRenderScene();
 
 	m_renderer.Render(m_device.get(), ctx, renderScene);
+
 	m_editorSystem->Render(ctx);
 
 	m_device->EndFrame();

@@ -127,7 +127,7 @@ void EditorSystem::Update(EntityScene& scene, float dt, SystemContext& ctx)
 
 	DrawViewportPanel(scene);
 
-	DrawContentBrowserPanel(scene); // should be optimized further
+	DrawContentBrowserPanel(scene);
 
 	m_consoleSystem->DrawUI();
 
@@ -813,27 +813,32 @@ void EditorSystem::DrawDirectoryContents(EntityScene & scene)
 	}
 
 	const std::string search = ToLower(m_contentSearch);
-	std::vector<size_t> visibleIndices;
-	visibleIndices.reserve(m_contentBrowserCache.entries.size());
+	if (m_contentBrowserFilterDirty || search != m_contentBrowserLastSearchLower || m_contentOnlyGLTF != m_contentBrowserLastOnlyGLTF)
 
-	for (size_t i = 0; i < m_contentBrowserCache.entries.size(); i++)
 	{
-		const auto& entry = m_contentBrowserCache.entries[i];
-		if (!search.empty() && ToLower(entry.name).find(search) == std::string::npos)
-			continue;
-		if (!entry.isDirectory && m_contentOnlyGLTF && !MokoPath::IsLoadableGLTF(entry.fullPath))
-			continue;
-		visibleIndices.push_back(i);
+		m_contentBrowserVisibleIndices.clear();
+		m_contentBrowserVisibleIndices.reserve(m_contentBrowserCache.entries.size());
+		for (size_t i = 0; i < m_contentBrowserCache.entries.size(); ++i)
+		{
+			const auto& entry = m_contentBrowserCache.entries[i];
+			if (!search.empty() && entry.lowerName.find(search) == std::string::npos)
+				continue;
+			if (!entry.isDirectory && m_contentOnlyGLTF && !MokoPath::IsLoadableGLTF(entry.fullPath))
+				continue;
+			m_contentBrowserVisibleIndices.push_back(i);
+		}
+		m_contentBrowserLastSearchLower = search;
+		m_contentBrowserLastOnlyGLTF = m_contentOnlyGLTF;
+		m_contentBrowserFilterDirty = false;
 	}
 
 	ImGuiListClipper clipper;
-	clipper.Begin(static_cast<int>(visibleIndices.size()));
-
+	clipper.Begin(static_cast<int>(m_contentBrowserVisibleIndices.size()));
 	while (clipper.Step())
 	{
 		for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i)
 		{
-			const auto& entry = m_contentBrowserCache.entries[visibleIndices[i]];
+			const auto& entry = m_contentBrowserCache.entries[m_contentBrowserVisibleIndices[i]];
 			std::string label = entry.isDirectory ? "[D] " + entry.name : entry.name;
 			ImGui::Selectable(label.c_str());
 			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
@@ -865,6 +870,7 @@ void EditorSystem::RebuildContentBrowserCache()
 {
 	m_contentBrowserCache.dir = m_currentDirectory;
 	m_contentBrowserCache.entries.clear();
+	m_contentBrowserFilterDirty = true;
 
 	std::filesystem::path fullPath = m_assetRoot / m_currentDirectory;
 	std::error_code ec;
@@ -879,6 +885,7 @@ void EditorSystem::RebuildContentBrowserCache()
 	{
 		ContentBrowserEntry cacheEntry;
 		cacheEntry.name = entry.path().filename().string();
+		cacheEntry.lowerName = ToLower(cacheEntry.name);
 		cacheEntry.fullPath = entry.path();
 		cacheEntry.isDirectory = entry.is_directory(ec);
 		if (cacheEntry.isDirectory) dirs.push_back(std::move(cacheEntry));
