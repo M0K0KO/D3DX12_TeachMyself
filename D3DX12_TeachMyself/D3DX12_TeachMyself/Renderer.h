@@ -420,6 +420,7 @@ private:
 		uint32_t transformIdx;
 		uint32_t matIdx;
 		uint32_t vertexBufferIdx;
+		uint32_t pad;
 		D3D12_INDEX_BUFFER_VIEW ibv;
 		D3D12_DRAW_INDEXED_ARGUMENTS drawArgs;
 	};

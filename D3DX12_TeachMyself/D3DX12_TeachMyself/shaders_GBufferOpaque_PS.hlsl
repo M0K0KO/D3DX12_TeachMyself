@@ -20,6 +20,7 @@ struct DrawConstants
 {
     uint objIdx;
     uint matIdx;
+    uint vbIdx;
 };
 ConstantBuffer<DrawConstants> g_DrawConstants : register(b2);
 
@@ -73,7 +74,7 @@ PSOutput main(PSInput input)
         float3 up = (abs(N.y) < 0.999f) ? float3(0.0f, 1.0f, 0.0f) : float3(1.0f, 0.0f, 0.0f);
         T = normalize(cross(up, N));
     }
-    else baseColorTex.Sample(samp, input.uv);
+    else
     {
         T = normalize(T - N * dot(T, N));
     }

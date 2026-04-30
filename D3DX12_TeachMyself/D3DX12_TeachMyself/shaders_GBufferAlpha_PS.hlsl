@@ -20,6 +20,7 @@ struct DrawConstants
 {
     uint objIdx;
     uint matIdx;
+    uint vbIdx;
 };
 ConstantBuffer<DrawConstants> g_DrawConstants : register(b2);
 

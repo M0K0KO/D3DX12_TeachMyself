@@ -1063,6 +1063,7 @@ void Renderer::UpdateIndirectArgBuffers(GraphicsDevice* device, const RenderScen
 		cmd.transformIdx = obj.transformIdx;
 		cmd.matIdx = obj.material.index;
 		cmd.vertexBufferIdx = obj.vertexBufferIndex;
+		cmd.pad = 0;
 		cmd.ibv.BufferLocation = ibv.gpuAddress;
 		cmd.ibv.SizeInBytes = ibv.sizeInBytes;
 		cmd.ibv.Format = DXGI_FORMAT_R32_UINT;
@@ -1251,10 +1252,11 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 	m_gbufferEmissive = device->CreateRTTexture(emissiveTextureDesc);
 
 	RootSignatureDesc gBufferPassRSDesc = {};
+	gBufferPassRSDesc.allowIA = true;
 	gBufferPassRSDesc.cbvSrvUavHeapDirectlyIndexed = true;
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV,        RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 1, 0, 1, ShaderVisibility::Vertex });
-	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants,  RangeType::CBV, 2, 0, 3, ShaderVisibility::All });
+	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants,  RangeType::CBV, 2, 0, 4, ShaderVisibility::All });
 	gBufferPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
 	gBufferPassRSDesc.staticSamplers.push_back({ SamplerFilter::Trilinear,		SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
 
@@ -1284,10 +1286,11 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 	m_gBufferOpaquePassPipeline = device->CreatePipeline(m_gBufferOpaquePassPipelineDesc);
 
 	RootSignatureDesc gBufferAlphaPassRSDesc = {};
+	gBufferAlphaPassRSDesc.allowIA = true;
 	gBufferAlphaPassRSDesc.cbvSrvUavHeapDirectlyIndexed = true;
 	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootCBV,        RangeType::CBV, 0, 0, 1, ShaderVisibility::Vertex });
 	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 1, 0, 1, ShaderVisibility::Vertex });
-	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants,  RangeType::CBV, 2, 0, 3, ShaderVisibility::All });
+	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootConstants,  RangeType::CBV, 2, 0, 4, ShaderVisibility::All });
 	gBufferAlphaPassRSDesc.rootParamDescs.push_back({ RootParamType::RootSRV,        RangeType::SRV, 0, 0, 1, ShaderVisibility::Pixel });
 	gBufferAlphaPassRSDesc.staticSamplers.push_back({ SamplerFilter::Trilinear,		 SamplerAddressMode::Wrap, 0, ShaderVisibility::Pixel });
 
@@ -1310,7 +1313,7 @@ void Renderer::InitGBufferPass(GraphicsDevice* device)
 
 
 	IndirectArgDesc gbufferArgs[] = {
-		{ .type = IndirectArgType::Constant, .rootParamIdx = 2, .destOffset = 0, .num32Bit = 3 },
+		{ .type = IndirectArgType::Constant, .rootParamIdx = 2, .destOffset = 0, .num32Bit = 4 },
 		{ .type = IndirectArgType::IndexBufferView },
 		{ .type = IndirectArgType::DrawIndexed },
 	};
